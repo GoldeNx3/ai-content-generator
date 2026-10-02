@@ -1,0 +1,19 @@
+from datetime import UTC, datetime, time
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Candidate, CandidateStatus
+from app.repositories.candidate_repository import CandidateRepository
+from app.schemas.stats import DashboardStats
+
+
+async def get_dashboard_stats(session: AsyncSession) -> DashboardStats:
+    repo = CandidateRepository(session)
+    start_of_day = datetime.combine(datetime.now(UTC).date(), time.min, tzinfo=UTC)
+    return DashboardStats(
+        candidates_today=await repo.count_created_since(start_of_day),
+        new_today=await repo.count_created_since(start_of_day, CandidateStatus.PENDING),
+        approved=await repo.count(Candidate.status == CandidateStatus.APPROVED),
+        ignored=await repo.count(Candidate.status == CandidateStatus.IGNORED),
+        average_score=await repo.average_score(),
+    )
