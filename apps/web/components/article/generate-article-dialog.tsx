@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Loader2Icon, SparklesIcon } from "lucide-react";
 
+import { PaidNotice } from "@/components/workflow-step";
 import { FilterSelect } from "@/components/filter-select";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,6 +78,8 @@ function GenerateForm({ title, defaults, defaultType, suggestedAngle, busy, onSu
         </DialogDescription>
       </DialogHeader>
 
+      <PaidNotice>Uruchomisz AI do przygotowania briefu i artykułu. Powstanie nowa wersja; poprzednie pozostaną dostępne.</PaidNotice>
+
       <div className="flex flex-wrap gap-2">
         <FilterSelect
           label="Article type"
@@ -136,7 +139,7 @@ function GenerateForm({ title, defaults, defaultType, suggestedAngle, busy, onSu
       <DialogFooter>
         <Button type="submit" disabled={busy}>
           {busy ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />}
-          {busy ? "Generating… (brief + draft, up to ~1 min)" : "Generate"}
+          {busy ? "Generating… (brief + draft, up to ~1 min)" : "Generuj · płatne wywołanie AI"}
         </Button>
       </DialogFooter>
     </form>

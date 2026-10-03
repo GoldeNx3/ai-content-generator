@@ -1,4 +1,5 @@
 import type {
+  ModelPricing,
   Article,
   ArticleStatus,
   ArticleSummary,
@@ -85,6 +86,7 @@ const patch = <T>(path: string, body: unknown) =>
   request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 
 export const api = {
+  pricing: () => request<ModelPricing>("/pricing"),
   stats: () => request<DashboardStats>("/stats"),
 
   listSources: () => request<Source[]>("/sources"),

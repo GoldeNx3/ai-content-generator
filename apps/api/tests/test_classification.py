@@ -106,3 +106,17 @@ async def test_classify_pending_respects_limit(session: AsyncSession, source: So
 
     assert result.processed == 2
     assert result.classified == 2
+
+async def test_classify_records_usage_and_cost(session: AsyncSession, source: Source) -> None:
+    from decimal import Decimal
+    class UsageProvider(FakeProvider):
+        async def classify_candidate(self, candidate: CandidateInput) -> CandidateClassification:
+            result = await super().classify_candidate(candidate)
+            result._usage = {"model": "gpt-4.1-mini", "input_tokens": 1000, "output_tokens": 200}
+            return result
+    candidate = await add_candidate(session, source, "usage")
+    result = await ClassificationService(session, UsageProvider()).classify(candidate)
+    assert result.llm_model == "gpt-4.1-mini"
+    assert result.llm_input_tokens == 1000
+    assert result.llm_output_tokens == 200
+    assert result.estimated_cost_usd == Decimal("0.000720")

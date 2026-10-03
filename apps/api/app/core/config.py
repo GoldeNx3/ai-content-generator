@@ -10,8 +10,9 @@ DEFAULT_CLASSIFIER_MODEL = "gpt-4.1-mini"
 
 # USD per 1M tokens. Override with LLM_PRICING (JSON) in .env - keep in sync with provider pricing.
 DEFAULT_LLM_PRICING: dict[str, dict[str, float]] = {
+    "gpt-6.1-sol": {"input": 2.00, "cached_input": 0.10, "output": 10.00, "long_context_threshold": 272000, "long_input": 4.00, "long_output": 15.00, "long_cached_input": 0.20},
     "gpt-4.1": {"input": 2.00, "output": 8.00},
-    "gpt-4.1-mini": {"input": 0.40, "output": 1.60},
+    "gpt-4.1-mini": {"input": 0.40, "cached_input": 0.10, "output": 1.60},
     "gpt-4.1-nano": {"input": 0.10, "output": 0.40},
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},

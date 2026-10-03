@@ -2,6 +2,7 @@
 # tabel SQL.
 
 from datetime import datetime
+from decimal import Decimal
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -52,6 +53,10 @@ class CandidateRead(BaseModel):
     total_score: int | None
     category: CandidateCategory | None
     llm_reason: str | None
+    llm_model: str | None = None
+    llm_input_tokens: int | None = None
+    llm_output_tokens: int | None = None
+    estimated_cost_usd: Decimal | None = None
     classified_at: datetime | None
     created_at: datetime
     updated_at: datetime

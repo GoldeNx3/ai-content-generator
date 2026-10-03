@@ -19,9 +19,12 @@ class LLMCostCalculator:
         prices = self._prices_for(model)
         if prices is None:
             return None
+        is_long = input_tokens > prices.get("long_context_threshold", float("inf"))
+        input_rate = prices.get("long_input", prices["input"]) if is_long else prices["input"]
+        output_rate = prices.get("long_output", prices["output"]) if is_long else prices["output"]
         cost = (
-            Decimal(input_tokens) * Decimal(str(prices["input"]))
-            + Decimal(output_tokens) * Decimal(str(prices["output"]))
+            Decimal(input_tokens) * Decimal(str(input_rate))
+            + Decimal(output_tokens) * Decimal(str(output_rate))
         ) / TOKENS_PER_PRICE_UNIT
         return cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP)
 

@@ -43,7 +43,7 @@ export function CandidatesTable({ candidates, busyId, onStatusChange, onClassify
           {candidates.length === 0 && (
             <TableRow>
               <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                No candidates. Add an RSS source and click “Fetch all”.
+                Brak tematów. Dodaj źródło RSS i wybierz „Pobierz RSS”.
               </TableCell>
             </TableRow>
           )}
@@ -74,19 +74,20 @@ export function CandidatesTable({ candidates, busyId, onStatusChange, onClassify
                 </TableCell>
                 <TableCell>
                   <StatusBadge status={candidate.status} />
+                  <span className="mt-1 block text-xs text-muted-foreground">{candidate.total_score === null ? "AI: do oceny" : "AI: oceniono"}</span>
                 </TableCell>
                 <TableCell className="pr-4">
                   <div className="flex justify-end gap-1">
                     {candidate.total_score === null && (
                       <Button
-                        size="icon-sm"
+                        size="sm"
                         variant="outline"
-                        title="Classify"
-                        aria-label="Classify"
+                        title="Oceń temat · płatne wywołanie AI"
+                        aria-label="Oceń temat · płatne wywołanie AI"
                         disabled={busy}
                         onClick={() => onClassify(candidate)}
                       >
-                        <SparklesIcon />
+                        <SparklesIcon /> Oceń · płatne
                       </Button>
                     )}
                     <Button

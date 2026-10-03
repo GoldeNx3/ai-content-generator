@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import Settings, get_settings
 from app.core.db import get_session, get_session_factory
 from app.services.ingestion_service import IngestionService
-from app.services.article.article_service import ArticleService
+from app.services.article.write import ArticleService
 from app.services.article.factory import article_llm_or_placeholder
 from app.services.llm.base import ArticleLLMProvider, LLMNotConfiguredError, LLMProvider, ResearchLLMProvider
 from app.services.llm.cost import LLMCostCalculator
@@ -22,7 +22,7 @@ from app.services.research.factory import (
     make_research_runner,
     research_llm_or_placeholder,
 )
-from app.services.research.research_service import ResearchService
+from app.services.research.research import ResearchService
 from app.services.research.search import SearchProvider, get_search_provider
 from app.services.rss_fetcher import RssFetcher
 

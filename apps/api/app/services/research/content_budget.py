@@ -8,12 +8,19 @@ TRUNCATION_MARKER = "\n\n[... treść skrócona ...]"
 def truncate_text(text: str, max_chars: int) -> str:
     """Keeps the beginning of the article (lead + key sections), cut on a paragraph/sentence boundary."""
     text = text.strip()
+    if max_chars <= 0:
+        return ""
     if len(text) <= max_chars:
         return text
-    cut = text[:max_chars]
+    # Znacznik też trafia do promptu: rezerwujemy dla niego miejsce w limicie.
+    # Przy bardzo małym budżecie zachowujemy sam początek tekstu bez znacznika.
+    if max_chars <= len(TRUNCATION_MARKER):
+        return text[:max_chars]
+    content_limit = max_chars - len(TRUNCATION_MARKER)
+    cut = text[:content_limit]
     for separator in ("\n\n", "\n", ". "):
         position = cut.rfind(separator)
-        if position > max_chars * 0.6:
+        if position > content_limit * 0.6:
             cut = cut[: position + (1 if separator == ". " else 0)]
             break
     return cut.rstrip() + TRUNCATION_MARKER

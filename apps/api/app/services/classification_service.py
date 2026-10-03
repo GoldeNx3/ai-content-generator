@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
+from app.services.llm.cost import LLMCostCalculator
 from app.models import Candidate
 from app.repositories.candidate_repository import CandidateRepository
 from app.schemas.classification import ClassifyBatchResult
@@ -34,6 +36,15 @@ class ClassificationService:
                 source=candidate.source.name,
                 published_at=candidate.original_published_at,
             )
+        )
+        usage = classification._usage
+        candidate.llm_model = str(usage["model"]) if usage else None
+        candidate.llm_input_tokens = int(usage["input_tokens"]) if usage else None
+        candidate.llm_output_tokens = int(usage["output_tokens"]) if usage else None
+        candidate.estimated_cost_usd = (
+            LLMCostCalculator(get_settings().llm_pricing).estimate(
+                candidate.llm_model, candidate.llm_input_tokens, candidate.llm_output_tokens
+            ) if usage else None
         )
         candidate.relevance_score = classification.relevance
         candidate.freshness_score = classification.freshness

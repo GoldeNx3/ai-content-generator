@@ -344,10 +344,10 @@ przepływu aplikacji, zamiast zaczynać od wszystkich szczegółów frameworków
    [`candidate_repository.py`](apps/api/app/repositories/candidate_repository.py)
    — cały przykład przejścia od HTTP przez logikę biznesową do zapisu w bazie.
 4. [`classification_service.py`](apps/api/app/services/classification_service.py)
-   i [`llm/openai_provider.py`](apps/api/app/services/llm/openai_provider.py)
+   i [`llm/classify.py`](apps/api/app/services/llm/classify.py)
    — oddzielenie logiki klasyfikacji od konkretnego dostawcy modelu.
-5. [`research_service.py`](apps/api/app/services/research/research_service.py)
-   i [`article_service.py`](apps/api/app/services/article/article_service.py)
+5. [`research.py`](apps/api/app/services/research/research.py)
+   i [`write.py`](apps/api/app/services/article/write.py)
    — większe procesy, korzystające z tych samych zasad podziału odpowiedzialności.
 6. [`tests/test_ingestion.py`](apps/api/tests/test_ingestion.py) — konkretne wejścia
    i oczekiwane rezultaty. Testy pomagają zrozumieć kontrakt serwisu.
@@ -499,3 +499,48 @@ docker compose exec api pytest tests/test_ingestion.py -q
 Pliki `__init__.py` oznaczają pakiety importowane np. jako `app.services`.
 Większość służy wyłącznie organizacji katalogów; `models/__init__.py` dodatkowo
 importuje modele, aby ich tabele zostały zarejestrowane w metadanych ORM.
+
+
+## 15. Podział etapów po review Pythona
+
+Każdy etap ma oddzielną logikę biznesową i własnego dostawcę LLM. Najłatwiej
+czytać od serwisu, a szczegóły promptów i komunikacji z modelem sprawdzać dopiero
+w drugiej kolumnie:
+
+| Etap | Serwis: co robi aplikacja | Dostawca: jak rozmawia z LLM |
+|---|---|---|
+| `classify` | [`classification_service.py`](apps/api/app/services/classification_service.py) — zapis ocen, kategorii i kosztu | [`llm/classify.py`](apps/api/app/services/llm/classify.py) — prompt i schemat klasyfikacji |
+| `research` | [`research/research.py`](apps/api/app/services/research/research.py) — rozpoczęcie, statusy, retry, ręczne źródła | [`llm/research.py`](apps/api/app/services/llm/research.py) — zapytania wyszukiwania i raport |
+| `write` | [`article/write.py`](apps/api/app/services/article/write.py) — brief, draft, walidacja i wersje | [`llm/write.py`](apps/api/app/services/llm/write.py) — generacja briefu i tekstu |
+
+Research składa się z trzech małych klas:
+
+- `ResearchService` w `research.py` odpowiada za publiczne operacje i stan raportu.
+- `ResearchPipeline` w [`pipeline.py`](apps/api/app/services/research/pipeline.py)
+  wykonuje kolejne kroki analizy; w metodzie `run()` są ponumerowane objaśnienia.
+- `ResearchSourceLoader` w [`source_loader.py`](apps/api/app/services/research/source_loader.py)
+  pobiera stronę i wypełnia obiekt źródła. Nie robi commitu; moment trwałego
+  zapisu wybiera serwis lub pipeline.
+
+To **kompozycja**: serwis przechowuje obiekty pomocnicze w polach i wywołuje ich
+metody, podobnie do delegowania w innych językach. Nie trzeba śledzić dodatkowej
+hierarchii dziedziczenia ani mixinów z logiką biznesową.
+
+Wspólny [`llm/client.py`](apps/api/app/services/llm/client.py) obsługuje HTTP,
+parsowanie odpowiedzi, wyjątki i liczniki tokenów. Dostawcy etapów przekazują mu
+model, prompt i typ oczekiwanego wyniku. [`llm/factory.py`](apps/api/app/services/llm/factory.py)
+tworzy tylko dostawcę potrzebnego etapu. `OpenAIProvider` pozostaje adapterem
+zgodności dla dotychczasowych integracji i deleguje do tych samych małych klas.
+
+Dawne `research_service.py` i `article_service.py` eksportują klasy z nowych
+plików. To most dla starszych importów, bez drugiej kopii logiki. Nowy kod
+aplikacji używa już docelowych ścieżek.
+
+Przy rozbudowie utrzymuj klasy do 300 linii, licząc także komentarze wewnątrz
+klasy. Gdy klasa rośnie, wydziel pełną odpowiedzialność z jawnymi argumentami;
+samo przenoszenie przypadkowych metod do drugiego pliku utrudnia czytanie.
+
+Limit znaków researchu obejmuje również znacznik skrócenia tekstu. Regresję tego
+zachowania sprawdza `tests/test_content_budget.py`; wybór modeli dla etapów
+sprawdza `tests/test_llm_steps.py`. Podsumowanie ustaleń:
+[review backendu](docs/python-review.md).

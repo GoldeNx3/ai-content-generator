@@ -1,8 +1,9 @@
 # Rola pliku: Modele tabel candidate: mapują rekordy SQL na obiekty Pythona i definiują pola oraz powiązania.
 
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -46,6 +47,10 @@ class Candidate(TimestampMixin, Base):
         Enum(CandidateCategory, name="candidate_category", values_callable=enum_values)
     )
     llm_reason: Mapped[str | None] = mapped_column(Text)
+    llm_model: Mapped[str | None] = mapped_column(String(200))
+    llm_input_tokens: Mapped[int | None] = mapped_column(Integer)
+    llm_output_tokens: Mapped[int | None] = mapped_column(Integer)
+    estimated_cost_usd: Mapped[Decimal | None] = mapped_column(Numeric(12, 6))
     classified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     source: Mapped[Source] = relationship(lazy="joined")

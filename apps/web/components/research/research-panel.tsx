@@ -4,12 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangleIcon, FlaskConicalIcon, Loader2Icon, RefreshCwIcon, SplitIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { WorkflowSection } from "@/components/workflow-section";
+import { UsageSummary } from "@/components/usage-summary";
+import { researchState } from "@/lib/workflow";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, errorText } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { Research, ResearchStatus } from "@/types/api";
+import type { Research } from "@/types/api";
 
 import { FactList } from "./fact-list";
 import { ManualSourceForm } from "./manual-source-form";
@@ -18,13 +19,6 @@ import { SourceList } from "./source-list";
 
 const POLL_INTERVAL_MS = 2000;
 
-const STATUS_STYLES: Record<ResearchStatus, string> = {
-  pending: "bg-zinc-100 text-zinc-600 ring-zinc-200",
-  running: "bg-sky-50 text-sky-800 ring-sky-200",
-  completed: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  failed: "bg-rose-50 text-rose-800 ring-rose-200",
-};
-
 interface ResearchPanelProps {
   candidateId: number;
   onResearchChange?: (research: Research | null) => void;
@@ -32,16 +26,19 @@ interface ResearchPanelProps {
 
 export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelProps) {
   const [research, setResearch] = useState<Research | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setResearch(await api.getResearch(candidateId));
-    } catch (error) {
-      toast.error("Could not load research", { description: errorText(error) });
-    } finally {
+      setLoadError(null);
       setLoaded(true);
+    } catch (error) {
+      setLoadError(errorText(error));
+      toast.error("Could not load research", { description: errorText(error) });
     }
   }, [candidateId]);
 
@@ -54,7 +51,7 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
     onResearchChange?.(research);
   }, [research, onResearchChange]);
 
-  const running = research?.status === "running";
+  const running = research?.status === "running" || research?.status === "pending";
   useEffect(() => {
     if (!running) return;
     const timer = setInterval(() => void load(), POLL_INTERVAL_MS);
@@ -63,9 +60,11 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
 
   async function trigger(kind: "start" | "retry") {
     setStarting(true);
+    setStartError(null);
     try {
       setResearch(kind === "start" ? await api.startResearch(candidateId) : await api.retryResearch(candidateId));
     } catch (error) {
+      setStartError(errorText(error));
       toast.error("Could not start research", { description: errorText(error) });
     } finally {
       setStarting(false);
@@ -76,37 +75,34 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
   const hasReport = research?.status === "completed";
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <CardTitle className="text-xs font-semibold tracking-[0.2em] uppercase">Research report</CardTitle>
-          {research && (
-            <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium ring-1", STATUS_STYLES[research.status])}>
-              {research.status}
-            </span>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <WorkflowSection number={3} title="Research — baza faktów" description="Źródła, zweryfikowane fakty i kontekst do napisania artykułu." paid
+      status={loadError ? "Błąd odczytu" : startError ? "Ostatnie uruchomienie: błąd" : starting ? "Uruchamianie…" : researchState(research, loaded)}
+      actions={<div className="flex flex-wrap gap-2">
           {research && research.sources.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => trigger("retry")} disabled={busy}>
+            <Button variant="outline" size="sm" onClick={() => trigger("retry")} disabled={busy || !loaded}>
               <RefreshCwIcon />
-              Re-run analysis
+              Ponów analizę · płatne
             </Button>
           )}
-          <Button size="sm" onClick={() => trigger("start")} disabled={busy}>
+          <Button size="sm" onClick={() => trigger("start")} disabled={busy || !loaded}>
             {busy ? <Loader2Icon className="animate-spin" /> : <FlaskConicalIcon />}
-            {research ? "Start new research" : "Start Research"}
+            {busy ? "Research w toku…" : research ? "Nowy research · płatne" : "Uruchom research · płatne"}
           </Button>
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-8">
-        {!loaded && <p className="text-sm text-muted-foreground">Loading…</p>}
+        </div>}
+      summary={<UsageSummary rows={[{label: "Wyszukiwanie i analiza źródeł", aggregated: true, configured: "research", model: research?.llm_model, input: research?.llm_model ? research.llm_input_tokens : null, output: research?.llm_model ? research.llm_output_tokens : null, cost: research?.estimated_cost_usd}]} note="Dane dotyczą aktualnego raportu. Nowy research zastępuje raport; ponowna analiza korzysta z zachowanych źródeł. Każde uruchomienie nalicza nowy koszt. Opłaty wyszukiwarki nie są ujęte." />}>
+      <div className="space-y-8">
+        <div className="space-y-1 text-sm text-muted-foreground">          {startError && <p className="text-destructive">{startError} — możesz ponowić uruchomienie; kolejne wywołanie może naliczyć koszt.</p>}
+          {loadError && <p className="text-destructive">{loadError}</p>}
+          <p>{research?.started_at ? `Uruchomiono: ${formatDate(research.started_at)}` : "Research nie został jeszcze uruchomiony."}</p>
+          {research?.completed_at && <p>Zakończono: {formatDate(research.completed_at)}</p>}
+          {research && <p>{research.sources.length} źródeł · {research.facts.length} faktów</p>}
+          <p className="mt-2">{hasReport ? "Kolejny krok: wygeneruj artykuł w sekcji poniżej." : "Do wygenerowania artykułu potrzebny jest ukończony research."}</p>
+</div>
+        {!loaded && <p className="text-sm text-muted-foreground">Ładowanie…</p>}
 
         {loaded && !research && (
           <p className="text-sm text-muted-foreground">
-            No research yet. “Start Research” fetches the original article, looks for additional sources and asks the
-            LLM to build a fact base with sources, uncertainties and conflicts.
+            Uruchom research, aby pobrać artykuł, zebrać dodatkowe źródła i opracować bazę faktów za pomocą AI.
           </p>
         )}
 
@@ -114,10 +110,10 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
           <div className="flex items-center gap-3 rounded-lg bg-sky-50 px-4 py-3 text-sm text-sky-900">
             <Loader2Icon className="size-4 animate-spin" />
             <span>
-              Fetching sources and analysing… <Elapsed since={research.started_at} />{" "}
+              Pobieranie źródeł i analiza… <Elapsed since={research.started_at} />{" "}
               {research.sources.length > 0 && `· ${research.sources.length} source(s) so far`}
               <span className="block text-xs text-sky-800/80">
-                Usually 20–90 s; larger models can take a few minutes.
+                Zwykle 20–90 s; większe modele mogą potrzebować kilku minut.
               </span>
             </span>
           </div>
@@ -127,9 +123,9 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
           <div className="flex gap-3 rounded-lg bg-rose-50 px-4 py-3 text-sm text-rose-900">
             <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" />
             <div>
-              <p className="font-medium">Research failed</p>
+              <p className="font-medium">Research zakończony błędem</p>
               <p>{research.error}</p>
-              <p className="mt-1 text-rose-800/80">Fetched sources were kept. Add a source manually or re-run.</p>
+              <p className="mt-1 text-rose-800/80">Pobrane źródła zachowano. Dodaj źródło ręcznie lub ponów analizę.</p>
             </div>
           </div>
         )}
@@ -137,14 +133,14 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
         {hasReport && research && (
           <>
             <div className="grid gap-6 md:grid-cols-3">
-              <ReportText title="Summary" text={research.summary} />
-              <ReportText title="Why it matters" text={research.why_it_matters} />
-              <ReportText title="Suggested angle" text={research.suggested_angle} />
+              <ReportText title="Podsumowanie" text={research.summary} />
+              <ReportText title="Dlaczego to ważne" text={research.why_it_matters} />
+              <ReportText title="Proponowana perspektywa" text={research.suggested_angle} />
             </div>
 
             <section className="space-y-3">
               <h3 className="font-semibold">
-                Verified facts <span className="font-normal text-muted-foreground">({research.facts.length})</span>
+                Zweryfikowane fakty <span className="font-normal text-muted-foreground">({research.facts.length})</span>
               </h3>
               <FactList facts={research.facts} sources={research.sources} />
             </section>
@@ -152,11 +148,11 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
             <div className="grid gap-6 lg:grid-cols-2">
               <section className="space-y-3">
                 <h3 className="font-semibold">
-                  Uncertainties{" "}
+                  Niepewności{" "}
                   <span className="font-normal text-muted-foreground">({research.uncertainties.length})</span>
                 </h3>
                 {research.uncertainties.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">None reported.</p>
+                  <p className="text-sm text-muted-foreground">Nie zgłoszono.</p>
                 ) : (
                   <ul className="space-y-2">
                     {research.uncertainties.map((item, index) => (
@@ -170,10 +166,10 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
               </section>
               <section className="space-y-3">
                 <h3 className="font-semibold">
-                  Conflicts <span className="font-normal text-muted-foreground">({research.conflicts.length})</span>
+                  Sprzeczności <span className="font-normal text-muted-foreground">({research.conflicts.length})</span>
                 </h3>
                 {research.conflicts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No conflicts between sources.</p>
+                  <p className="text-sm text-muted-foreground">Nie wykryto sprzeczności pomiędzy źródłami.</p>
                 ) : (
                   <ul className="space-y-2">
                     {research.conflicts.map((conflict, index) => (
@@ -209,7 +205,7 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
         {research && (
           <section className="space-y-3">
             <h3 className="font-semibold">
-              Sources <span className="font-normal text-muted-foreground">({research.sources.length})</span>
+              Źródła <span className="font-normal text-muted-foreground">({research.sources.length})</span>
             </h3>
             <SourceList sources={research.sources} />
             <ManualSourceForm candidateId={candidateId} disabled={busy} onAdded={load} />
@@ -221,21 +217,8 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
           </section>
         )}
 
-        {research && (research.llm_model || research.completed_at) && (
-          <p className="border-t pt-3 text-xs text-muted-foreground">
-            {research.llm_model && (
-              <>
-                {research.llm_model} · {research.llm_input_tokens.toLocaleString("en")} in /{" "}
-                {research.llm_output_tokens.toLocaleString("en")} out tokens
-                {research.estimated_cost_usd !== null && ` · ~$${Number(research.estimated_cost_usd).toFixed(4)}`}
-                {" · "}
-              </>
-            )}
-            {research.completed_at && `finished ${formatDate(research.completed_at)}`}
-          </p>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+    </WorkflowSection>
   );
 }
 

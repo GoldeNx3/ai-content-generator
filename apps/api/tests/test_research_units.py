@@ -200,3 +200,11 @@ def test_fact_count_is_capped_keeping_most_important() -> None:
     validated = validate_research_output(output(facts), sources, max_facts=2)
 
     assert [f.claim for f in validated.facts] == ["s0", "c"]  # original order kept
+
+def test_sol_pricing_matches_standard_and_long_context() -> None:
+    from decimal import Decimal
+    from app.core.config import DEFAULT_LLM_PRICING
+    from app.services.llm.cost import LLMCostCalculator
+    calculator = LLMCostCalculator(DEFAULT_LLM_PRICING)
+    assert calculator.estimate("gpt-6.1-sol", 1000, 200) == Decimal("0.004000")
+    assert calculator.estimate("gpt-6.1-sol", 300000, 1000) == Decimal("1.215000")

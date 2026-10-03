@@ -17,7 +17,7 @@ from app.services.llm.base import (
 from app.services.llm.cost import LLMCostCalculator
 from app.services.llm.factory import get_research_llm_provider
 from app.services.research.content_extractor import ContentExtractor
-from app.services.research.research_service import ResearchService
+from app.services.research.research import ResearchService
 from app.services.research.search import SearchProvider, get_search_provider
 
 ResearchRunner = Callable[[int, bool], Awaitable[None]]

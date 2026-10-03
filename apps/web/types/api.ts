@@ -48,6 +48,10 @@ export interface Candidate {
   total_score: number | null;
   category: CandidateCategory | null;
   llm_reason: string | null;
+  llm_model?: string | null;
+  llm_input_tokens?: number | null;
+  llm_output_tokens?: number | null;
+  estimated_cost_usd?: string | null;
   classified_at: string | null;
   created_at: string;
   updated_at: string;
@@ -256,3 +260,10 @@ export interface Article extends ArticleSummary {
 }
 
 export type ArticleUpdate = Partial<Pick<Article, "title" | "lead" | "content" | "meta_title" | "meta_description">>;
+
+export interface ModelPricing {
+  models: { classifier: string; research: string; brief: string; writer: string };
+  rates: Record<string, { input: number; output: number; cached_input?: number; long_context_threshold?: number; long_input?: number; long_output?: number; long_cached_input?: number }>;
+  source_url: string;
+  verified_at: string;
+}

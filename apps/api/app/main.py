@@ -15,7 +15,7 @@ from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.logging import setup_logging
 from app.jobs.scheduler import run_scheduler
-from app.services.research.research_service import mark_interrupted_researches
+from app.services.research.research import mark_interrupted_researches
 
 
 # Kod przed yield wykonuje się przy starcie API, a po yield przy zamykaniu; context manager wyznacza cykl

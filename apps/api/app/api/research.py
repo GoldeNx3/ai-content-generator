@@ -9,7 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 from app.api.deps import ResearchRunnerDep, ResearchServiceDep
 from app.models import Research, ResearchSource
 from app.schemas.research import ManualSourceCreate, ResearchRead, ResearchSourceRead
-from app.services.research.research_service import (
+from app.services.research.research import (
     CandidateNotFoundError,
     DuplicateSourceError,
     ResearchError,

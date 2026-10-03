@@ -15,7 +15,7 @@ from app.schemas.article import (
     ArticleUpdate,
     GenerateArticleRequest,
 )
-from app.services.article.article_service import (
+from app.services.article.write import (
     ArticleError,
     ArticleNotFoundError,
     CandidateNotFoundError,

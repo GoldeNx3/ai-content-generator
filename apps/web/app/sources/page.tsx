@@ -26,6 +26,7 @@ export default function SourcesPage() {
   const [sources, setSources] = useState<Source[] | null>(null);
   const [busy, setBusy] = useState<BusyAction>(null);
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  const [fetchSummary, setFetchSummary] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -47,6 +48,7 @@ export default function SourcesPage() {
     try {
       if (kind === "fetch") {
         const result = await api.fetchSource(source.id);
+        setFetchSummary(`${source.name}: ${result.new_candidates} nowych tematów · ${result.duplicates} duplikatów · ${result.skipped_old} zbyt starych · ${result.errors} błędów`);
         if (result.errors) {
           toast.error(`Fetching ${source.name} failed`, { description: "Check API logs for details." });
         } else {
@@ -63,6 +65,7 @@ export default function SourcesPage() {
       }
       await load();
     } catch (actionError) {
+      if (kind === "fetch") setFetchSummary(`${source.name}: błąd pobierania — ${errorText(actionError)}`);
       toast.error("Action failed", { description: errorText(actionError) });
     } finally {
       setBusy(null);
@@ -76,7 +79,7 @@ export default function SourcesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Sources</h1>
-        <p className="text-sm text-muted-foreground">RSS / Atom feeds checked by the fetcher.</p>
+        <p className="text-sm text-muted-foreground">Pobieranie RSS / Atom nie wywołuje AI. Ocena, research i generowanie są uruchamiane osobno.</p>
       </div>
 
       <Card>
@@ -87,6 +90,8 @@ export default function SourcesPage() {
           <SourceForm onCreated={load} />
         </CardContent>
       </Card>
+
+      {fetchSummary && <div className="rounded-lg border bg-card px-4 py-3 text-sm" role="status">Ostatnie pobieranie: {fetchSummary}</div>}
 
       {error && (
         <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
@@ -157,7 +162,7 @@ export default function SourcesPage() {
                       onClick={() => run(source, "fetch")}
                     >
                       {isBusy(source, "fetch") ? <Loader2Icon className="animate-spin" /> : <DownloadIcon />}
-                      Fetch now
+                      Pobierz · bez kosztu AI
                     </Button>
                     {confirmDelete === source.id ? (
                       <>

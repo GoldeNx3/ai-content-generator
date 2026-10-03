@@ -33,6 +33,7 @@ class LLMUsage:
     model: str
     input_tokens: int
     output_tokens: int
+    recorded: bool = True
 
 
 @dataclass(frozen=True, slots=True)

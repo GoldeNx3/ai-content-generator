@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangleIcon, CheckIcon, PencilIcon, RefreshCwIcon, SendIcon, SparklesIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { WorkflowSection } from "@/components/workflow-section";
+import { UsageSummary } from "@/components/usage-summary";
+import { articleState } from "@/lib/workflow";
 import { FilterSelect } from "@/components/filter-select";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, errorText } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -39,6 +41,9 @@ interface ArticlePanelProps {
 }
 
 export function ArticlePanel({ candidateId, candidateCategory, research }: ArticlePanelProps) {
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const [versions, setVersions] = useState<ArticleSummary[]>([]);
   const [article, setArticle] = useState<Article | null>(null);
   const [dialog, setDialog] = useState<"generate" | "regenerate" | null>(null);
@@ -53,7 +58,10 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
         setVersions(list);
         const target = selectId ?? list.find((v) => v.is_current)?.id ?? list[0]?.id;
         setArticle(target ? await api.getArticle(target) : null);
+        setLoadError(null);
+        setLoaded(true);
       } catch (error) {
+        setLoadError(errorText(error));
         toast.error("Could not load articles", { description: errorText(error) });
       }
     },
@@ -69,6 +77,7 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
 
   async function generate(options: GenerateArticleRequest) {
     setGenerating(true);
+    setGenerationError(null);
     try {
       const created =
         dialog === "regenerate" && article
@@ -81,6 +90,7 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
       setEditing(false);
       await loadVersions(created.id);
     } catch (error) {
+      setGenerationError(errorText(error));
       toast.error("Generation failed", { description: errorText(error) });
     } finally {
       setGenerating(false);
@@ -118,13 +128,24 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <CardTitle className="text-xs font-semibold tracking-[0.2em] uppercase">Article draft</CardTitle>
-          {article && (
+    <WorkflowSection number={4} title="Generowanie artykułu" description="Brief i treść opracowane na podstawie ukończonego researchu." paid
+      status={loadError ? "Błąd odczytu" : generationError ? "Ostatnie uruchomienie: błąd" : articleState(Boolean(article), generating, Boolean(researchReady), loaded)}
+      actions={<Button variant={article ? "outline" : "default"} size="sm" onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generating}>
+        {article ? <RefreshCwIcon /> : <SparklesIcon />}{article ? "Nowa wersja · płatne" : "Generuj artykuł · płatne"}
+      </Button>}
+      summary={<UsageSummary rows={[
+        {label: "Brief", configured: "brief", model: article?.brief_llm_model, input: article?.brief_llm_model ? article.brief_input_tokens : null, output: article?.brief_llm_model ? article.brief_output_tokens : null, cost: article?.brief_cost_usd},
+        {label: "Pisanie artykułu", configured: "writer", model: article?.llm_model, input: article?.llm_model ? article.writer_input_tokens : null, output: article?.llm_model ? article.writer_output_tokens : null, cost: article?.writer_cost_usd}
+      ]} total={article?.estimated_cost_usd} note="Każda generacja tworzy nową, płatną wersję. Poprzednie wersje pozostają dostępne. Edycja i zmiana statusu nie wywołują AI." />}>
+      <div className="space-y-6">
+        <div className="space-y-1 text-sm text-muted-foreground">          {loadError && <p className="text-destructive">{loadError}</p>}
+          {generationError && <p className="text-destructive">{generationError} — możesz ponowić generowanie; kolejne wywołanie może naliczyć koszt.</p>}
+          {article && <p>Wersja {article.version} · {formatDate(article.created_at)} · {article.word_count} słów</p>}
+          {article && <p className="mt-2">Kolejny krok: sprawdź treść i przekaż do weryfikacji.</p>}
+</div>
+        {article && <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 p-3">          {article && (
             <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium ring-1", STATUS_STYLES[article.status])}>
-              {article.status}
+              {{draft: "Szkic", review: "W weryfikacji", approved: "Zatwierdzony", rejected: "Odrzucony"}[article.status]}
             </span>
           )}
           {versions.length > 1 && article && (
@@ -139,60 +160,46 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
               onChange={(value) => value && void loadVersions(Number(value))}
             />
           )}
-        </div>
-        <div className="flex flex-wrap gap-2">
+
           {article && !editing && (
             <>
               <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
                 <PencilIcon />
-                Edit
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setDialog("regenerate")} disabled={!researchReady}>
-                <RefreshCwIcon />
-                Regenerate
+                Edytuj
               </Button>
               {article.status === "draft" && (
                 <Button size="sm" onClick={() => setStatus("review")}>
                   <SendIcon />
-                  Send to review
+                  Przekaż do weryfikacji
                 </Button>
               )}
               {article.status === "review" && (
                 <>
                   <Button size="sm" onClick={() => setStatus("approved")}>
                     <CheckIcon />
-                    Approve
+                    Zatwierdź
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => setStatus("rejected")}>
                     <XIcon />
-                    Reject
+                    Odrzuć
                   </Button>
                 </>
               )}
               {(article.status === "approved" || article.status === "rejected") && (
                 <Button size="sm" variant="ghost" onClick={() => setStatus("draft")}>
-                  Back to draft
+                  Przywróć szkic
                 </Button>
               )}
             </>
           )}
-          {!article && (
-            <Button size="sm" onClick={() => setDialog("generate")} disabled={!researchReady}>
-              <SparklesIcon />
-              Generate article
-            </Button>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-6">
+</div>}
         {!researchReady && (
-          <p className="text-sm text-muted-foreground">Complete research before generating an article.</p>
+          <p className="text-sm text-muted-foreground">Najpierw ukończ research, aby odblokować generowanie artykułu.</p>
         )}
 
         {researchReady && !article && (
           <p className="text-sm text-muted-foreground">
-            No draft yet. The writer builds a brief from the research and writes a draft using only research facts.
+            Brak artykułu. Generowanie przygotuje brief i treść na podstawie faktów z researchu.
           </p>
         )}
 
@@ -201,19 +208,19 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
         )}
 
         {article && !editing && <ArticleBody article={article} />}
-      </CardContent>
+      </div>
 
       <GenerateArticleDialog
         open={dialog !== null}
         onOpenChange={(open) => !open && setDialog(null)}
-        title={dialog === "regenerate" ? `Regenerate (new version from v${article?.version})` : "Generate article"}
+        title={dialog === "regenerate" ? `Generuj nową wersję na podstawie v${article?.version}` : "Generuj artykuł"}
         defaults={dialog === "regenerate" && article ? article.generation_options : {}}
         defaultType={candidateCategory ?? "news"}
         suggestedAngle={research?.suggested_angle ?? null}
         busy={generating}
         onSubmit={generate}
       />
-    </Card>
+    </WorkflowSection>
   );
 }
 
@@ -251,17 +258,6 @@ function ArticleBody({ article }: { article: Article }) {
             <Stat label="Research facts used" value={`${article.facts_used_count} / ${article.facts_available_count}`} />
             <Stat label="Sources referenced" value={article.source_count} />
             <Stat label="Type" value={article.article_type} />
-            <Stat label="LLM model" value={article.llm_model ?? "—"} />
-            <Stat label="Input tokens" value={article.llm_input_tokens.toLocaleString("en")} />
-            <Stat label="Output tokens" value={article.llm_output_tokens.toLocaleString("en")} />
-            <Stat
-              label="Estimated cost"
-              value={article.estimated_cost_usd ? `$${Number(article.estimated_cost_usd).toFixed(4)}` : "—"}
-            />
-            <Stat
-              label="Brief / writer"
-              value={`$${Number(article.brief_cost_usd ?? 0).toFixed(4)} / $${Number(article.writer_cost_usd ?? 0).toFixed(4)}`}
-            />
             <Stat label="Created" value={formatDate(article.created_at)} />
             <Stat label="Edited manually" value={article.is_edited ? "yes" : "no"} />
           </dl>
