@@ -1,3 +1,5 @@
+# Rola pliku: Ustawia format i poziom logów, aby komunikaty z różnych modułów miały wspólną postać.
+
 import logging
 
 

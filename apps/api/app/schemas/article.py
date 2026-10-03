@@ -1,3 +1,5 @@
+# Rola pliku: Schematy danych article: Pydantic waliduje dane wejścia/wyjścia; te klasy nie tworzą tabel SQL.
+
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
@@ -16,6 +18,8 @@ class ArticleBrief(BaseModel):
     target_audience: str
     suggested_title: str
     key_points: list[str]
+    # Field dodaje walidację Pydantic: ge/le to granice liczb, a default/default_factory określają
+    # wartość domyślną.
     required_facts: list[int] = Field(description="ID faktów (FACT #id), które muszą znaleźć się w tekście")
     optional_facts: list[int] = Field(description="ID faktów, które można wykorzystać")
     uncertainties_to_avoid: list[str]

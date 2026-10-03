@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu ingestion: scenariusze poprawnego działania i błędów. Funkcje test_* odkrywa i
+# uruchamia pytest.
+
 import httpx
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,9 +21,13 @@ def make_fetcher() -> RssFetcher:
         content = FEEDS.get(str(request.url))
         return httpx.Response(200, content=content) if content else httpx.Response(404)
 
+    # MockTransport przechwytuje HTTP i zwraca odpowiedź z lokalnej funkcji; to wywołanie nie trafia do
+    # Internetu.
     return RssFetcher(client=httpx.AsyncClient(transport=httpx.MockTransport(handler)), timeout=1)
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def count_candidates(session: AsyncSession) -> int:
     return await session.scalar(select(func.count(Candidate.id))) or 0
 
@@ -41,6 +48,7 @@ async def test_creates_candidates_from_feed(session: AsyncSession, source: Sourc
     assert candidates[0].status == CandidateStatus.PENDING
     assert candidates[0].total_score is None
     assert candidates[0].source_id == source.id
+    # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
     await session.refresh(source)
     assert source.last_fetched_at is not None
 
@@ -64,6 +72,8 @@ async def test_failing_source_does_not_stop_others(session: AsyncSession) -> Non
             Source(name="Inactive", url="https://example.com/feed.xml", active=False),
         ]
     )
+    # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+    # trwałego zapisu.
     await session.commit()
 
     result = await IngestionService(session, make_fetcher()).fetch_all_active()

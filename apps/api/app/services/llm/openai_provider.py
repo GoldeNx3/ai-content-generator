@@ -1,3 +1,6 @@
+# Rola pliku: Adapter OpenAI: buduje prompty, zleca Structured Outputs, waliduje odpowiedzi i zwraca
+# także zużycie tokenów.
+
 import logging
 import time
 from typing import TypeVar
@@ -41,6 +44,8 @@ T = TypeVar("T", bound=BaseModel)
 
 
 class OpenAIProvider:
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(
         self,
         api_key: str,
@@ -65,6 +70,8 @@ class OpenAIProvider:
         self._writer_timeout = writer_timeout
         self._research_timeout = research_timeout
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def classify_candidate(self, candidate: CandidateInput) -> CandidateClassification:
         parsed, _ = await self._parse(
             self._model, CLASSIFIER_SYSTEM_PROMPT, build_user_prompt(candidate), CandidateClassification
@@ -105,6 +112,8 @@ class OpenAIProvider:
         )
         return WriterResult(output=parsed, usage=usage)
 
+    # SDK parsuje odpowiedź do wskazanego modelu Pydantic; serwis dostaje typowane dane i informację o
+    # tokenach.
     async def _parse(
         self, model: str, system: str, user: str, text_format: type[T], timeout: float | None = None
     ) -> tuple[T, LLMUsage]:

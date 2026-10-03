@@ -1,3 +1,6 @@
+# Rola pliku: Koordynuje generację briefu i artykułu, walidację, koszty, wersjonowanie oraz ręczną edycję
+# zapisanych draftów.
+
 import logging
 import time
 from collections.abc import Sequence
@@ -54,6 +57,8 @@ class ResearchNotReadyError(ArticleError):
 
 
 class ArticleService:
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(
         self, session: AsyncSession, llm: ArticleLLMProvider, cost_calculator: LLMCostCalculator
     ) -> None:
@@ -63,6 +68,8 @@ class ArticleService:
 
     # ---------- queries ----------
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def list_versions(self, candidate_id: int) -> Sequence[Article]:
         await self._get_candidate(candidate_id)
         query = select(Article).where(Article.candidate_id == candidate_id).order_by(Article.version.desc())
@@ -76,6 +83,8 @@ class ArticleService:
 
     # ---------- generation ----------
 
+    # Najpierw ukończony research i fakty, potem brief i writer; zapis nowej wersji następuje po
+    # otrzymaniu i walidacji wyników.
     async def generate(self, candidate_id: int, request: GenerateArticleRequest) -> Article:
         candidate = await self._get_candidate(candidate_id)
         research = await self.session.scalar(select(Research).where(Research.candidate_id == candidate_id))
@@ -125,6 +134,8 @@ class ArticleService:
             )
         brief_cost = self._cost(brief_result.usage)
         writer_cost = self._cost(writer_result.usage)
+        # model_dump zamienia model Pydantic na słownik; exclude_unset pomija pola, których użytkownik
+        # nie przesłał.
         article = Article(
             candidate_id=candidate.id,
             research_id=research.id,
@@ -170,7 +181,10 @@ class ArticleService:
             .values(is_current=False)
         )
         self.session.add(article)
+        # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+        # trwałego zapisu.
         await self.session.commit()
+        # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
         await self.session.refresh(article)
         logger.info(
             "Article generated candidate_id=%s article_id=%s version=%s words=%d facts=%d/%d "
@@ -271,6 +285,7 @@ class ArticleService:
             instructions=(request.instructions or "").strip() or None,
         )
 
+    # staticmethod nie dostaje automatycznie self; to funkcja pomocnicza umieszczona w przestrzeni nazw klasy.
     @staticmethod
     def _reference_texts(context: ArticleContext) -> list[str]:
         texts = [fact.claim for fact in context.facts]
@@ -280,6 +295,7 @@ class ArticleService:
         texts += [str(c) for c in context.conflicts]
         return texts
 
+    # Kopia faktów i źródeł z chwili generacji pozwala odczytać historię artykułu po zmianie researchu.
     @staticmethod
     def _snapshot(context: ArticleContext) -> dict[str, object]:
         return {

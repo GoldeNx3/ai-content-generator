@@ -1,3 +1,5 @@
+# Rola pliku: Pierwsza migracja: tworzy schemat źródeł RSS i kandydatów.
+
 """initial schema
 
 Revision ID: 0001_initial
@@ -17,6 +19,8 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Alembic wywołuje upgrade przy przejściu do tej wersji schematu; operacje dotyczą struktury SQL, nie
+# endpointów API.
 def upgrade() -> None:
     op.create_table('sources',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -57,6 +61,7 @@ def upgrade() -> None:
     op.create_index(op.f('ix_candidates_total_score'), 'candidates', ['total_score'], unique=False)
 
 
+# downgrade opisuje cofnięcie tej migracji; usuwanie tabel lub kolumn może usunąć przechowywane dane.
 def downgrade() -> None:
     op.drop_index(op.f('ix_candidates_total_score'), table_name='candidates')
     op.drop_index(op.f('ix_candidates_status'), table_name='candidates')

@@ -1,3 +1,6 @@
+# Rola pliku: Składa serwis researchu i zadanie w tle z własną sesją bazy; placeholder obsługuje brak
+# konfiguracji LLM.
+
 from collections.abc import Awaitable, Callable
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -23,9 +26,13 @@ ResearchRunner = Callable[[int, bool], Awaitable[None]]
 class UnconfiguredResearchLLM:
     """Used when no API key is set: sources are still fetched and saved, analysis fails clearly."""
 
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, reason: str) -> None:
         self.reason = reason
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def generate_search_queries(self, candidate: CandidateInput) -> QueriesResult:
         raise LLMNotConfiguredError(self.reason)
 
@@ -61,6 +68,7 @@ def build_research_service(
     )
 
 
+# Zwracamy funkcję run, która pamięta zależności z otoczenia (closure), a nie wynik jej wykonania.
 def make_research_runner(
     session_factory: async_sessionmaker[AsyncSession],
     settings: Settings,

@@ -1,3 +1,6 @@
+# Rola pliku: Instrukcje klasyfikatora i składanie wiadomości z danymi wpisu. Tekst promptu to dane
+# przekazywane do LLM.
+
 from datetime import UTC, datetime
 
 from app.services.llm.base import CandidateInput
@@ -19,6 +22,7 @@ W polu reason podaj krótkie (1-2 zdania) uzasadnienie po polsku.
 Nie podawaj łącznego wyniku - zostanie obliczony osobno."""
 
 
+# f-string wstawia dane wpisu do szablonu; gotowy tekst jest wiadomością użytkownika dla klasyfikatora.
 def build_user_prompt(candidate: CandidateInput, now: datetime | None = None) -> str:
     now = now or datetime.now(UTC)
     published = candidate.published_at.isoformat() if candidate.published_at else "nieznana"

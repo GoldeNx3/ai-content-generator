@@ -1,3 +1,5 @@
+# Rola pliku: Schematy danych stats: Pydantic waliduje dane wejścia/wyjścia; te klasy nie tworzą tabel SQL.
+
 from pydantic import BaseModel
 
 

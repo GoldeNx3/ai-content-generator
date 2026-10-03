@@ -1,3 +1,6 @@
+# Rola pliku: Schematy danych classification: Pydantic waliduje dane wejścia/wyjścia; te klasy nie tworzą
+# tabel SQL.
+
 from pydantic import BaseModel, Field
 
 from app.models.enums import CandidateCategory
@@ -6,6 +9,8 @@ from app.models.enums import CandidateCategory
 class CandidateClassification(BaseModel):
     """Structured output expected from the LLM. total_score is computed by the backend."""
 
+    # Field dodaje walidację Pydantic: ge/le to granice liczb, a default/default_factory określają
+    # wartość domyślną.
     relevance: int = Field(ge=0, le=100)
     freshness: int = Field(ge=0, le=100)
     search_potential: int = Field(ge=0, le=100)

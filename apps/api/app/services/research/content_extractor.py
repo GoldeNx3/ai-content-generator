@@ -1,3 +1,6 @@
+# Rola pliku: Pobiera HTML i wydobywa treść artykułu przez trafilatura lub BeautifulSoup; usuwa elementy
+# nawigacji i inne dodatki strony.
+
 import logging
 import re
 import time
@@ -37,11 +40,15 @@ _TAIL_MARKERS = re.compile(
 
 
 class ExtractionError(Exception):
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, message: str, http_status: int | None = None) -> None:
         super().__init__(message)
         self.http_status = http_status
 
 
+# dataclass generuje m.in. konstruktor z zadeklarowanych pól; frozen blokuje przypisania do pól, slots
+# ogranicza atrybuty.
 @dataclass(slots=True)
 class ExtractedDocument:
     url: str
@@ -58,6 +65,8 @@ class ExtractedDocument:
 class ContentExtractor:
     """Downloads a page and extracts the main article text (trafilatura, BeautifulSoup fallback)."""
 
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(
         self,
         client: httpx.AsyncClient | None = None,
@@ -68,6 +77,8 @@ class ContentExtractor:
         self._timeout = timeout
         self._max_bytes = max_bytes
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def extract(self, url: str) -> ExtractedDocument:
         started = time.perf_counter()
         html, final_url, status = await self._download(url)
@@ -112,6 +123,9 @@ class ContentExtractor:
             if self._client is None:
                 await client.aclose()
 
+    # Najpierw dedykowany ekstraktor artykułu, potem fallback HTML; brak użytecznej treści daje błąd
+    # ekstrakcji.
+    # staticmethod nie dostaje automatycznie self; to funkcja pomocnicza umieszczona w przestrzeni nazw klasy.
     @staticmethod
     def extract_from_html(html: str, url: str) -> ExtractedDocument:
         if not html or not html.strip():

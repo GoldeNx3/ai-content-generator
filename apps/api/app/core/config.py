@@ -1,3 +1,6 @@
+# Rola pliku: Konfiguracja aplikacji: Pydantic odczytuje zmienne środowiskowe i .env, sprawdza typy oraz
+# stosuje wartości domyślne.
+
 from functools import lru_cache
 
 from pydantic import field_validator
@@ -64,6 +67,7 @@ class Settings(BaseSettings):
     def default_model(cls, value: str) -> str:
         return value.strip() or DEFAULT_CLASSIFIER_MODEL
 
+    # property pozwala odczytywać wynik metody jak pole: obj.nazwa zamiast obj.nazwa().
     @property
     def research_model(self) -> str:
         return self.openai_research_model.strip() or self.openai_classifier_model
@@ -81,6 +85,8 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
 
+# lru_cache zachowuje wynik wywołania; konfiguracja jest współdzielona, zamiast czytana od nowa przy
+# każdym żądaniu.
 @lru_cache
 def get_settings() -> Settings:
     return Settings()

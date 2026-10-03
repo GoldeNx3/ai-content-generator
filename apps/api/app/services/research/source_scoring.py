@@ -1,3 +1,6 @@
+# Rola pliku: Ocenia wiarygodność źródeł heurystyką domen i typów; sugestie LLM mają ograniczony wpływ na
+# ocenę nieznanej domeny.
+
 """Backend heuristic for source type and credibility score.
 
 The LLM may *suggest* a type for unknown domains, but the score always comes from here.
@@ -50,6 +53,8 @@ TYPE_SCORES = {
 LLM_SUGGESTION_MAX_SCORE = SCORE_SPECIALIST_BLOG
 
 
+# dataclass generuje m.in. konstruktor z zadeklarowanych pól; frozen blokuje przypisania do pól, slots
+# ogranicza atrybuty.
 @dataclass(frozen=True, slots=True)
 class SourceAssessment:
     source_type: ResearchSourceType
@@ -57,6 +62,7 @@ class SourceAssessment:
     recognized: bool
 
 
+# Ocena opiera się na regułach domeny i typu źródła; nie jest wynikiem liczby powtórzeń informacji.
 def assess_source(url: str, official_domains: set[str]) -> SourceAssessment:
     """official_domains: registered domains of the company behind the topic (e.g. {"openai.com"})."""
     host = hostname(url)
@@ -95,6 +101,7 @@ RESERVED_PATH_SEGMENTS = {
 }
 
 
+# Domena pierwotnego materiału może służyć jako oficjalna, z wyjątkami dla mediów i platform.
 def official_domains_for(article_url: str) -> set[str]:
     """Domains (or org names) treated as official for a topic.
 
@@ -132,6 +139,7 @@ def _is_official(domain: str, official: set[str]) -> bool:
     return domain in official or domain.split(".")[0] in official
 
 
+# Sugestia modelu nie może awansować nierozpoznanej domeny do zaufanego źródła oficjalnego.
 def apply_llm_suggestion(current: SourceAssessment, suggested: ResearchSourceType) -> SourceAssessment:
     """LLM hints only refine unrecognised sources and can never lift them to 'official' scores."""
     if current.recognized or suggested == ResearchSourceType.OTHER:

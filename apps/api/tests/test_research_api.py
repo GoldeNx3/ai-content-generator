@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu research_api: scenariusze poprawnego działania i błędów. Funkcje test_*
+# odkrywa i uruchamia pytest.
+
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,12 +12,17 @@ ORIGINAL = "https://openai.com/index/gpt-6-api"
 MANUAL = "https://techcrunch.com/gpt-6"
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def test_research_endpoints(client: httpx.AsyncClient, session: AsyncSession) -> None:
     source = Source(name="OpenAI", url="https://openai.com/news/rss.xml")
     session.add(source)
+    # flush wysyła zmiany do bazy (np. nadaje ID), ale nie zatwierdza jeszcze transakcji jak commit.
     await session.flush()
     candidate = Candidate(source_id=source.id, external_url=ORIGINAL, title="GPT-6 API")
     session.add(candidate)
+    # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+    # trwałego zapisu.
     await session.commit()
 
     app = client._transport.app  # type: ignore[attr-defined]

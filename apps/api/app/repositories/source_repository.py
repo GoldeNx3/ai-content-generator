@@ -1,3 +1,6 @@
+# Rola pliku: Operacje SQL na źródłach RSS: odczyt, dodawanie, usuwanie i aktualizacja czasu ostatniego
+# pobrania.
+
 from collections.abc import Sequence
 from datetime import datetime
 
@@ -8,9 +11,13 @@ from app.models import Source
 
 
 class SourceRepository:
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def list_all(self, active_only: bool = False) -> Sequence[Source]:
         query = select(Source).order_by(Source.name)
         if active_only:
@@ -25,6 +32,7 @@ class SourceRepository:
 
     async def add(self, source: Source) -> Source:
         self.session.add(source)
+        # flush wysyła zmiany do bazy (np. nadaje ID), ale nie zatwierdza jeszcze transakcji jak commit.
         await self.session.flush()
         return source
 

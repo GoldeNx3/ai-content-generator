@@ -1,3 +1,5 @@
+# Rola pliku: Modele tabel candidate: mapują rekordy SQL na obiekty Pythona i definiują pola oraz powiązania.
+
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
@@ -16,6 +18,8 @@ def enum_values(enum_cls: type) -> list[str]:
 class Candidate(TimestampMixin, Base):
     __tablename__ = "candidates"
 
+    # Mapped[T] opisuje typ pola ORM; mapped_column definiuje kolumnę SQL, a relationship relację między
+    # obiektami.
     id: Mapped[int] = mapped_column(primary_key=True)
     source_id: Mapped[int] = mapped_column(
         ForeignKey("sources.id", ondelete="CASCADE"), index=True, nullable=False
@@ -46,6 +50,7 @@ class Candidate(TimestampMixin, Base):
 
     source: Mapped[Source] = relationship(lazy="joined")
 
+    # property pozwala odczytywać wynik metody jak pole: obj.nazwa zamiast obj.nazwa().
     @property
     def source_name(self) -> str:
         return self.source.name

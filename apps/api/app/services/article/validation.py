@@ -1,3 +1,6 @@
+# Rola pliku: Sprawdza referencje do faktów i źródeł oraz tworzy ostrzeżenia dla redaktora. Heurystyki
+# nie zastępują weryfikacji prawdziwości tekstu.
+
 """Hallucination safeguards for writer output.
 
 - used_fact_ids / lead / conclusion fact ids must exist in the research -> unknown ids are removed;
@@ -29,6 +32,8 @@ TITLE_MAX_RECOMMENDED = 90
 _NUMBER = re.compile(r"(?<![\w.])\d+(?:[.,]\d+)*")
 
 
+# dataclass generuje m.in. konstruktor z zadeklarowanych pól; frozen blokuje przypisania do pól, slots
+# ogranicza atrybuty.
 @dataclass(slots=True)
 class ValidatedArticle:
     sections: list[dict[str, Any]]
@@ -41,6 +46,7 @@ class ValidatedArticle:
     rejected_source_ids: list[int] = field(default_factory=list)
 
 
+# Referencje briefu muszą należeć do przekazanych faktów; nieznane ID są odfiltrowywane i raportowane.
 def validate_brief(brief: ArticleBrief, facts: list[FactInput]) -> tuple[ArticleBrief, list[str]]:
     known = {fact.id for fact in facts}
     warnings = []
@@ -52,6 +58,8 @@ def validate_brief(brief: ArticleBrief, facts: list[FactInput]) -> tuple[Article
     return brief.model_copy(update={"required_facts": required, "optional_facts": optional}), warnings
 
 
+# Sprawdzamy ID względem researchu i zbieramy ostrzeżenia; poprawny kształt JSON nie gwarantuje pokrycia
+# twierdzeń w faktach.
 def validate_writer_output(
     output: WriterOutput,
     facts: list[FactInput],

@@ -1,3 +1,5 @@
+# Rola pliku: Pobiera RSS/Atom przez HTTP i normalizuje różne formaty feedów do wspólnego obiektu FeedEntry.
+
 import calendar
 import html
 import logging
@@ -23,6 +25,8 @@ class FeedFetchError(Exception):
     """Raised when a feed cannot be downloaded or parsed."""
 
 
+# dataclass generuje m.in. konstruktor z zadeklarowanych pól; frozen blokuje przypisania do pól, slots
+# ogranicza atrybuty.
 @dataclass(frozen=True, slots=True)
 class FeedEntry:
     title: str
@@ -34,10 +38,14 @@ class FeedEntry:
 class RssFetcher:
     """Downloads an RSS 2.0 / Atom feed and returns unified entries."""
 
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, client: httpx.AsyncClient | None = None, timeout: float = 15.0) -> None:
         self._client = client
         self._timeout = timeout
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def fetch(self, source: Source) -> list[FeedEntry]:
         content = await self._download(source.url)
         return self.parse(content, source.url)
@@ -59,6 +67,7 @@ class RssFetcher:
             raise FeedFetchError(f"Request failed for {url}: {exc}") from exc
         return response.content
 
+    # staticmethod nie dostaje automatycznie self; to funkcja pomocnicza umieszczona w przestrzeni nazw klasy.
     @staticmethod
     def parse(content: bytes, feed_url: str = "") -> list[FeedEntry]:
         parsed = feedparser.parse(content)

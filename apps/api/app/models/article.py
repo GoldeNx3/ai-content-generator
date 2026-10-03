@@ -1,3 +1,5 @@
+# Rola pliku: Modele tabel article: mapują rekordy SQL na obiekty Pythona i definiują pola oraz powiązania.
+
 from decimal import Decimal
 from typing import Any
 
@@ -25,6 +27,8 @@ class Article(TimestampMixin, Base):
         ),
     )
 
+    # Mapped[T] opisuje typ pola ORM; mapped_column definiuje kolumnę SQL, a relationship relację między
+    # obiektami.
     id: Mapped[int] = mapped_column(primary_key=True)
     candidate_id: Mapped[int] = mapped_column(
         ForeignKey("candidates.id", ondelete="CASCADE"), index=True, nullable=False

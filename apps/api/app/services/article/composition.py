@@ -1,3 +1,6 @@
+# Rola pliku: Czyści wynik writera, tworzy slug i składa sekcje w Markdown. Tu powstaje tekst zapisywany
+# jako content.
+
 import re
 import unicodedata
 
@@ -15,6 +18,7 @@ _MARKDOWN_NOISE = re.compile(r"[#*_>`\[\]()|]|https?://\S+")
 _WORD = re.compile(r"[\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ][\w\-ąćęłńóśźżĄĆĘŁŃÓŚŹŻ.,%]*")
 
 
+# Usuwamy techniczne znaczniki z tekstu, ale zwracamy znalezione ID faktów, aby zachować referencje.
 def strip_markers(text: str) -> tuple[str, list[int]]:
     """Removes inline FACT/SOURCE markers, returning clean text and the fact ids they named."""
     fact_ids: list[int] = []
@@ -24,6 +28,8 @@ def strip_markers(text: str) -> tuple[str, list[int]]:
     return _MARKER.sub("", text), fact_ids
 
 
+# Kopie sekcji łączą referencje ze structured output i znaczniki znalezione w tekście; wynik jest nowym
+# obiektem.
 def sanitize_output(output: WriterOutput) -> WriterOutput:
     """Strips leaked markers; fact ids named in them are merged into the structured references."""
     lead, lead_ids = strip_markers(output.lead)
@@ -46,6 +52,7 @@ def sanitize_output(output: WriterOutput) -> WriterOutput:
     )
 
 
+# Normalizacja Unicode i zamiana polskich znaków tworzą fragment URL z małych liter, cyfr i myślników.
 def slugify(text: str, max_length: int = 120) -> str:
     text = unicodedata.normalize("NFKD", text.translate(_POLISH)).encode("ascii", "ignore").decode()
     slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
@@ -56,6 +63,7 @@ def strip_heading_marks(heading: str) -> str:
     return heading.strip().lstrip("#").strip()
 
 
+# Tytuł i lead mają osobne pola; content zawiera sekcje z nagłówkami H2 i opcjonalne zakończenie.
 def compose_content(output: WriterOutput) -> str:
     """Markdown body: H2 sections + conclusion. Title and lead are stored separately."""
     parts = []
@@ -66,6 +74,7 @@ def compose_content(output: WriterOutput) -> str:
     return "\n\n".join(parts).strip() + "\n"
 
 
+# *texts zbiera dowolną liczbę tekstów; sum sumuje wyniki generatora po usunięciu składni Markdown.
 def count_words(*texts: str) -> int:
     return sum(len(_WORD.findall(_MARKDOWN_NOISE.sub(" ", text))) for text in texts)
 
@@ -75,6 +84,7 @@ _DANGLING = {"i", "a", "o", "u", "w", "z", "ze", "we", "na", "do", "od", "po", "
              "ale", "że", "to", "the", "and", "of", "for", "to", "in", "with"}
 
 
+# Skracamy do pełnych słów i usuwamy końcowe spójniki/przyimki, aby tytuł nie urwał się np. na „z”.
 def trim_text(text: str, max_length: int) -> str:
     text = " ".join(text.split())
     if len(text) <= max_length:

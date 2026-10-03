@@ -1,3 +1,5 @@
+# Rola pliku: Modele tabel source: mapują rekordy SQL na obiekty Pythona i definiują pola oraz powiązania.
+
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Enum, String
@@ -11,6 +13,8 @@ from app.models.mixins import TimestampMixin
 class Source(TimestampMixin, Base):
     __tablename__ = "sources"
 
+    # Mapped[T] opisuje typ pola ORM; mapped_column definiuje kolumnę SQL, a relationship relację między
+    # obiektami.
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     type: Mapped[SourceType] = mapped_column(

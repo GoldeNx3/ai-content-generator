@@ -1,3 +1,5 @@
+# Rola pliku: Modele tabel research: mapują rekordy SQL na obiekty Pythona i definiują pola oraz powiązania.
+
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -39,6 +41,8 @@ research_fact_sources = Table(
 class Research(TimestampMixin, Base):
     __tablename__ = "researches"
 
+    # Mapped[T] opisuje typ pola ORM; mapped_column definiuje kolumnę SQL, a relationship relację między
+    # obiektami.
     id: Mapped[int] = mapped_column(primary_key=True)
     # One current research per candidate.
     candidate_id: Mapped[int] = mapped_column(
@@ -133,6 +137,7 @@ class ResearchFact(TimestampMixin, Base):
         secondary=research_fact_sources, lazy="selectin", order_by="ResearchSource.id"
     )
 
+    # property pozwala odczytywać wynik metody jak pole: obj.nazwa zamiast obj.nazwa().
     @property
     def source_ids(self) -> list[int]:
         return [source.id for source in self.sources]

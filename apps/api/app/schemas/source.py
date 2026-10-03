@@ -1,3 +1,5 @@
+# Rola pliku: Schematy danych source: Pydantic waliduje dane wejścia/wyjścia; te klasy nie tworzą tabel SQL.
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
@@ -6,6 +8,8 @@ from app.models.enums import SourceType
 
 
 class SourceCreate(BaseModel):
+    # Field dodaje walidację Pydantic: ge/le to granice liczb, a default/default_factory określają
+    # wartość domyślną.
     name: str = Field(min_length=1, max_length=200)
     url: HttpUrl
     type: SourceType = SourceType.RSS

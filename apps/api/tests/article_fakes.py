@@ -1,3 +1,6 @@
+# Rola pliku: Dane researchu i fałszywy dostawca artykułów: testy dostają kontrolowane odpowiedzi bez
+# płatnych wywołań LLM.
+
 """Fixtures and LLM doubles for the article writer (no network, no cost)."""
 
 from collections.abc import Callable
@@ -21,11 +24,14 @@ from app.schemas.article import ArticleBrief, WriterOutput, WriterSection
 from app.services.llm.base import ArticleContext, BriefResult, LLMError, LLMUsage, WriterResult
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def research_fixture(
     session: AsyncSession, status: ResearchStatus = ResearchStatus.COMPLETED
 ) -> tuple[Candidate, Research]:
     feed = Source(name="Anthropic", url="https://anthropic.example/rss.xml")
     session.add(feed)
+    # flush wysyła zmiany do bazy (np. nadaje ID), ale nie zatwierdza jeszcze transakcji jak commit.
     await session.flush()
     candidate = Candidate(
         source_id=feed.id,
@@ -63,7 +69,10 @@ async def research_fixture(
                      importance=FactImportance.SUPPORTING, confidence=85, sources=[official]),
     ]
     session.add(research)
+    # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+    # trwałego zapisu.
     await session.commit()
+    # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
     await session.refresh(research)
     return candidate, research
 
@@ -113,6 +122,8 @@ def make_output(fact_ids: list[int], source_ids: list[int], **overrides: object)
 
 
 class FakeArticleLLM:
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(
         self,
         brief: Callable[[ArticleContext], ArticleBrief] | None = None,

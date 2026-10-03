@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu scoring: scenariusze poprawnego działania i błędów. Funkcje test_* odkrywa i
+# uruchamia pytest.
+
 import pytest
 from pydantic import ValidationError
 
@@ -17,6 +20,7 @@ def classification(relevance: int, freshness: int, search: int, commercial: int)
     )
 
 
+# parametrize uruchamia ten sam test dla wielu zestawów danych, zamiast powielać jego kod.
 @pytest.mark.parametrize(
     ("scores", "expected"),
     [

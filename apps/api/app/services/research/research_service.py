@@ -1,3 +1,6 @@
+# Rola pliku: Koordynuje research: pobranie źródła, wyszukiwanie dodatkowych materiałów, analiza LLM i
+# zapis faktów powiązanych ze źródłami.
+
 import asyncio
 import logging
 import time
@@ -60,6 +63,8 @@ class DuplicateSourceError(ResearchError):
 
 
 class ResearchService:
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(
         self,
         session: AsyncSession,
@@ -78,6 +83,8 @@ class ResearchService:
 
     # ---------- public API ----------
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def research_candidate(self, candidate_id: int) -> Research:
         """Full pipeline: fetch original, discover sources, analyse with the LLM."""
         research = await self.start(candidate_id, discover=True)
@@ -86,6 +93,8 @@ class ResearchService:
     async def get_for_candidate(self, candidate_id: int) -> Research | None:
         return await self.session.scalar(select(Research).where(Research.candidate_id == candidate_id))
 
+    # Zapisuje status running przed uruchomieniem analizy; discover decyduje, czy zachować dotychczasowe
+    # źródła.
     async def start(self, candidate_id: int, discover: bool) -> Research:
         """Creates or resets the candidate's research with status running. Does not execute it.
 
@@ -116,7 +125,10 @@ class ResearchService:
         research.llm_model = None
         research.llm_input_tokens = research.llm_output_tokens = 0
         research.estimated_cost_usd = None
+        # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+        # trwałego zapisu.
         await self.session.commit()
+        # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
         await self.session.refresh(research)  # load server defaults + relationships for the response
         return research
 
@@ -143,6 +155,7 @@ class ResearchService:
             )
         except Exception as exc:
             logger.exception("Research failed candidate_id=%s research_id=%s", candidate.id, research.id)
+            # rollback wycofuje niezakończoną transakcję po błędzie; wcześniejsze commity pozostają zapisane.
             await self.session.rollback()  # discard half-applied report; committed sources stay
             research = await self.session.get(Research, research_id, populate_existing=True)
             assert research is not None
@@ -159,6 +172,7 @@ class ResearchService:
         if research is None:
             research = Research(candidate_id=candidate_id, search_queries=[], uncertainties=[], conflicts=[])
             self.session.add(research)
+            # flush wysyła zmiany do bazy (np. nadaje ID), ale nie zatwierdza jeszcze transakcji jak commit.
             await self.session.flush()
         elif research.status == ResearchStatus.RUNNING:
             raise ResearchInProgressError("Research is running - add sources after it finishes")
@@ -285,6 +299,7 @@ class ResearchService:
             ResearchSource(url=item.url, title=item.title[:1000] or None, origin=ResearchSourceOrigin.SEARCH)
             for item, _ in picked
         ]
+        # gather wykonuje korutyny współbieżnie i zbiera wyniki w kolejności przekazanych argumentów.
         extractions = await asyncio.gather(*(self._safe_extract(source.url) for source in new_sources))
         for source, extraction in zip(new_sources, extractions, strict=True):
             research.sources.append(source)
@@ -301,6 +316,8 @@ class ResearchService:
             raise CandidateNotFoundError("Candidate not found")
         return candidate
 
+    # Błąd jednego URL-a zamieniamy na wynik ExtractionError, aby dało się zapisać nieudane źródło i
+    # kontynuować.
     async def _safe_extract(self, url: str) -> ExtractedDocument | ExtractionError:
         try:
             return await self.extractor.extract(url)
@@ -346,6 +363,8 @@ class ResearchService:
             source.source_type, source.source_score,
         )
 
+    # Oryginał idzie pierwszy, potem źródła z wyższym score; nieudane lub puste pobrania są pomijane.
+    # staticmethod nie dostaje automatycznie self; to funkcja pomocnicza umieszczona w przestrzeni nazw klasy.
     @staticmethod
     def _ordered_fetched_sources(sources: Sequence[ResearchSource]) -> list[ResearchSource]:
         fetched = [s for s in sources if s.fetch_status == FetchStatus.SUCCESS and s.extracted_content]
@@ -354,6 +373,7 @@ class ResearchService:
             key=lambda s: (s.origin != ResearchSourceOrigin.ORIGINAL, -s.source_score, s.id or 0),
         )
 
+    # Oddziela treść do analizy od pełnych rekordów źródeł i nakłada limity znaków przed wysłaniem do LLM.
     def _build_documents(self, sources: list[ResearchSource]) -> tuple[list[ResearchDocument], list[ResearchSource]]:
         limits = [
             self.settings.research_max_chars_original
@@ -379,6 +399,8 @@ class ResearchService:
         ]
         return documents, used
 
+    # Sumuje tokeny wszystkich wywołań; koszt pozostaje nieznany, jeśli brakuje ceny choć jednego użytego
+    # modelu.
     def _record_usage(self, research: Research, usages: list[LLMUsage]) -> None:
         if not usages:
             return
@@ -403,6 +425,7 @@ def _recognized(source: ResearchSource, official: set[str]) -> bool:
     return assess_source(source.url, official).recognized
 
 
+# Po restarcie procesu zadania w tle już nie istnieją; pozostawione running zmieniamy na failed.
 async def mark_interrupted_researches(session: AsyncSession) -> int:
     """Researches left running by a restarted process can never finish - mark them failed."""
     stale = (

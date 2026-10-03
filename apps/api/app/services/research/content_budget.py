@@ -1,6 +1,10 @@
+# Rola pliku: Przycina teksty źródeł do limitów znaków, aby łączny materiał przekazany LLM mieścił się w
+# budżecie konfiguracji.
+
 TRUNCATION_MARKER = "\n\n[... treść skrócona ...]"
 
 
+# Slice zachowuje początek, rfind szuka końca akapitu lub zdania; na końcu dodajemy znacznik skrócenia.
 def truncate_text(text: str, max_chars: int) -> str:
     """Keeps the beginning of the article (lead + key sections), cut on a paragraph/sentence boundary."""
     text = text.strip()
@@ -15,6 +19,7 @@ def truncate_text(text: str, max_chars: int) -> str:
     return cut.rstrip() + TRUNCATION_MARKER
 
 
+# Dokumenty przychodzą w kolejności priorytetu; dalsze materiały dostają tylko pozostały budżet.
 def fit_documents(
     contents: list[str], per_document: list[int], total_budget: int
 ) -> list[str]:

@@ -1,3 +1,5 @@
+# Rola pliku: Schematy danych research: Pydantic waliduje dane wejścia/wyjścia; te klasy nie tworzą tabel SQL.
+
 from datetime import datetime
 from decimal import Decimal
 
@@ -16,6 +18,8 @@ from app.models.enums import (
 
 
 class SearchQueries(BaseModel):
+    # Field dodaje walidację Pydantic: ge/le to granice liczb, a default/default_factory określają
+    # wartość domyślną.
     queries: list[str] = Field(description="Maksymalnie 3 krótkie zapytania wyszukiwania")
 
 

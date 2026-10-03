@@ -1,3 +1,6 @@
+# Rola pliku: Kontrakty dostawców LLM i obiekty danych wejścia/wyjścia. Serwisy korzystają z tych
+# kontraktów zamiast znać szczegóły OpenAI.
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
@@ -15,6 +18,8 @@ class LLMNotConfiguredError(LLMError):
     """Raised when the provider is missing required configuration (e.g. API key)."""
 
 
+# dataclass generuje m.in. konstruktor z zadeklarowanych pól; frozen blokuje przypisania do pól, slots
+# ogranicza atrybuty.
 @dataclass(frozen=True, slots=True)
 class CandidateInput:
     title: str
@@ -53,7 +58,10 @@ class ResearchResult:
     usage: LLMUsage
 
 
+# Protocol opisuje wymagane metody (typowanie strukturalne); implementacja nie musi po nim dziedziczyć.
 class LLMProvider(Protocol):
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def classify_candidate(self, candidate: CandidateInput) -> CandidateClassification: ...
 
 

@@ -1,3 +1,5 @@
+# Rola pliku: Łączy routery poszczególnych zasobów w jeden router API, który main.py podpina do aplikacji.
+
 from fastapi import APIRouter
 
 from app.api import articles, candidates, research, sources, stats

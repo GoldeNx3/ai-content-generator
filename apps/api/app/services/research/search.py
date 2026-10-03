@@ -1,3 +1,6 @@
+# Rola pliku: Kontrakt wyszukiwarki i implementacje manual/Tavily. Serwis researchu może zmienić dostawcę
+# bez zmiany swojego pipeline’u.
+
 import logging
 from dataclasses import dataclass
 from typing import Protocol
@@ -9,6 +12,8 @@ from app.core.config import Settings
 logger = logging.getLogger(__name__)
 
 
+# dataclass generuje m.in. konstruktor z zadeklarowanych pól; frozen blokuje przypisania do pól, slots
+# ogranicza atrybuty.
 @dataclass(frozen=True, slots=True)
 class SearchResult:
     title: str
@@ -16,7 +21,10 @@ class SearchResult:
     snippet: str
 
 
+# Protocol opisuje wymagane metody (typowanie strukturalne); implementacja nie musi po nim dziedziczyć.
 class SearchProvider(Protocol):
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def search(self, query: str, limit: int = 5) -> list[SearchResult]: ...
 
 
@@ -31,6 +39,8 @@ class ManualSearchProvider:
     POST /api/candidates/{id}/research/sources.
     """
 
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, urls: list[str] | None = None) -> None:
         self._results = [SearchResult(title="", url=url, snippet="") for url in urls or []]
 
@@ -43,6 +53,8 @@ class TavilySearchProvider:
 
     ENDPOINT = "https://api.tavily.com/search"
 
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, api_key: str, client: httpx.AsyncClient | None = None, timeout: float = 20.0) -> None:
         self._api_key = api_key
         self._client = client
@@ -71,6 +83,7 @@ class TavilySearchProvider:
         ][:limit]
 
 
+# Konfiguracja wybiera implementację wspólnego kontraktu SearchProvider; manual nie odpytuje wyszukiwarki.
 def get_search_provider(settings: Settings) -> SearchProvider:
     if settings.search_provider == "tavily":
         if settings.tavily_api_key:

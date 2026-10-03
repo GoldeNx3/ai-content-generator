@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu research_service: scenariusze poprawnego działania i błędów. Funkcje test_*
+# odkrywa i uruchamia pytest.
+
 from decimal import Decimal
 
 import httpx
@@ -37,13 +40,19 @@ PAGES = {
 }
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
+# Fixture przygotowuje zależność testu; pytest przekazuje ją według nazwy argumentu funkcji testowej.
 @pytest.fixture
 async def candidate(session: AsyncSession) -> Candidate:
     source = Source(name="OpenAI", url="https://openai.com/news/rss.xml")
     session.add(source)
+    # flush wysyła zmiany do bazy (np. nadaje ID), ale nie zatwierdza jeszcze transakcji jak commit.
     await session.flush()
     item = Candidate(source_id=source.id, external_url=ORIGINAL, title="OpenAI releases GPT-6 API")
     session.add(item)
+    # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+    # trwałego zapisu.
     await session.commit()
     return item
 

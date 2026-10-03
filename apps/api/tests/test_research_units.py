@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu research_units: scenariusze poprawnego działania i błędów. Funkcje test_*
+# odkrywa i uruchamia pytest.
+
 from decimal import Decimal
 
 import pytest
@@ -14,6 +17,7 @@ from app.services.research.urls import normalize_url
 OFFICIAL = {"openai.com"}
 
 
+# parametrize uruchamia ten sam test dla wielu zestawów danych, zamiast powielać jego kod.
 @pytest.mark.parametrize(
     ("url", "expected_type", "expected_score"),
     [
@@ -118,6 +122,8 @@ def test_truncation_and_total_budget() -> None:
     assert len(fitted[0]) > len(fitted[-1])
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def test_tavily_provider_parses_results() -> None:
     import json
 
@@ -131,6 +137,8 @@ async def test_tavily_provider_parses_results() -> None:
         captured.append(request)
         return httpx.Response(200, json={"results": [{"title": "T", "url": "https://a.com", "content": "snip"}, {"title": "no url"}]})
 
+    # MockTransport przechwytuje HTTP i zwraca odpowiedź z lokalnej funkcji; to wywołanie nie trafia do
+    # Internetu.
     provider = TavilySearchProvider("tvly-test", client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
     found = await provider.search("gpt-6 api", limit=3)
 

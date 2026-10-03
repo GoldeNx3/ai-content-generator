@@ -1,3 +1,6 @@
+# Rola pliku: Dodaje przykładowe źródła RSS do bazy. Sprawdzenie istniejących adresów pozwala uruchamiać
+# seed wielokrotnie.
+
 """Idempotent seed of example RSS sources: python -m app.jobs.seed"""
 
 import asyncio
@@ -19,6 +22,8 @@ SEED_SOURCES: list[tuple[str, str]] = [
 ]
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def seed() -> None:
     async with SessionLocal() as session:
         repo = SourceRepository(session)
@@ -27,6 +32,8 @@ async def seed() -> None:
             if await repo.get_by_url(url) is None:
                 await repo.add(Source(name=name, url=url))
                 created += 1
+        # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+        # trwałego zapisu.
         await session.commit()
     logger.info("Seed finished: %d new sources (%d total in seed list)", created, len(SEED_SOURCES))
 

@@ -1,3 +1,6 @@
+# Rola pliku: Buduje prompty briefu i autora z faktów, źródeł oraz ryzyk researchu; oddziela instrukcje
+# redaktora od reguł użycia faktów.
+
 import json
 
 from app.schemas.article import ArticleBrief
@@ -124,6 +127,7 @@ def _instructions_block(context: ArticleContext) -> str:
     )
 
 
+# Brief planuje artykuł z kontekstu researchu i referencji do faktów.
 def build_brief_prompt(context: ArticleContext) -> str:
     angle = context.angle or context.suggested_angle or "brak - zaproponuj na podstawie faktów"
     return (
@@ -138,6 +142,7 @@ def build_brief_prompt(context: ArticleContext) -> str:
     )
 
 
+# Writer dostaje plan i dozwolone fakty/źródła; wygenerowany tekst nadal wymaga walidacji backendu.
 def build_writer_prompt(context: ArticleContext, brief: ArticleBrief) -> str:
     return (
         f"{_header(context)}\n"

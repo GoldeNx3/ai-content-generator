@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu article_writer: scenariusze poprawnego działania i błędów. Funkcje test_*
+# odkrywa i uruchamia pytest.
+
 from decimal import Decimal
 
 import pytest
@@ -22,6 +25,8 @@ def service(session: AsyncSession, llm: FakeArticleLLM) -> ArticleService:
     return ArticleService(session, llm, LLMCostCalculator(PRICING))
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def test_generates_draft_from_research(session: AsyncSession) -> None:
     candidate, research = await research_fixture(session)
     llm = FakeArticleLLM()
@@ -77,6 +82,8 @@ async def test_requires_research(session: AsyncSession, source) -> None:  # type
 
     candidate = Candidate(source_id=source.id, external_url="https://x.example/a", title="No research")
     session.add(candidate)
+    # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+    # trwałego zapisu.
     await session.commit()
 
     with pytest.raises(ResearchNotReadyError):
@@ -152,6 +159,7 @@ async def test_regenerate_keeps_previous_versions(session: AsyncSession) -> None
     assert second.article_type == CandidateCategory.RELEASE  # inherited option
     assert second.generation_options["instructions"] == "Krócej"
     assert second.generation_options["length"] == "short"
+    # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
     await session.refresh(first)
     assert first.content  # previous draft untouched
 
@@ -171,6 +179,8 @@ async def test_manual_edit_and_status(session: AsyncSession) -> None:
 
 
 def test_brief_structured_output_validation() -> None:
+    # model_dump zamienia model Pydantic na słownik; exclude_unset pomija pola, których użytkownik nie
+    # przesłał.
     base = make_brief([1, 2]).model_dump()
     with pytest.raises(ValidationError):
         ArticleBrief.model_validate({**base, "article_type": "gossip"})

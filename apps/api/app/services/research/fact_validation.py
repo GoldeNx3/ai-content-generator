@@ -1,3 +1,6 @@
+# Rola pliku: Sprawdza URL-e wskazane przez LLM, wiąże fakty z istniejącymi źródłami i ogranicza
+# confidence oraz liczbę faktów.
+
 """Validates LLM research output against the sources that were actually sent to the LLM.
 
 The LLM must never introduce URLs: every reference is matched (after normalisation) to an
@@ -24,6 +27,8 @@ BASIS_MAX_CONFIDENCE = {
 UNSOURCED_REASON = "Brak potwierdzenia w przekazanych źródłach (LLM nie wskazał poprawnego źródła)."
 
 
+# dataclass generuje m.in. konstruktor z zadeklarowanych pól; frozen blokuje przypisania do pól, slots
+# ogranicza atrybuty.
 @dataclass(slots=True)
 class ValidatedFact:
     claim: str
@@ -41,6 +46,7 @@ class ValidatedResearch:
     dropped_references: int = 0
 
 
+# Minimum ogranicza ocenę faktu zarówno regułą rodzaju dowodu, jak i oceną najlepszego źródła.
 def cap_confidence(confidence: int, basis: FactBasis, sources: Iterable[ResearchSource]) -> int:
     """A fact can't be more credible than its basis allows, nor than its best source."""
     best_source = max((source.source_score or 0 for source in sources), default=0)
@@ -50,6 +56,8 @@ def cap_confidence(confidence: int, basis: FactBasis, sources: Iterable[Research
 IMPORTANCE_ORDER = {FactImportance.CRITICAL: 0, FactImportance.IMPORTANT: 1, FactImportance.SUPPORTING: 2}
 
 
+# Słownik znormalizowanych URL-i jest listą dozwolonych referencji; fakty bez dopasowania stają się
+# niepewnościami.
 def validate_research_output(
     output: ResearchOutput, sources: list[ResearchSource], max_facts: int | None = None
 ) -> ValidatedResearch:

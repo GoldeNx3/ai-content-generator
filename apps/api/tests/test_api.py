@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu api: scenariusze poprawnego działania i błędów. Funkcje test_* odkrywa i
+# uruchamia pytest.
+
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,6 +9,8 @@ from app.models import Candidate, CandidateCategory, CandidateStatus, Source
 from tests.test_classification import FakeProvider
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def test_source_crud(client: httpx.AsyncClient) -> None:
     created = await client.post("/api/sources", json={"name": "Feed", "url": "https://example.com/rss"})
     assert created.status_code == 201
@@ -37,6 +42,8 @@ async def test_candidate_list_filters_sorting_and_status(
             Candidate(source_id=source.id, external_url="https://e.com/c", title="C"),
         ]
     )
+    # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+    # trwałego zapisu.
     await session.commit()
 
     page = (await client.get("/api/candidates")).json()

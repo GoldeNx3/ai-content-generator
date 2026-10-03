@@ -1,3 +1,6 @@
+# Rola pliku: Uruchamia cykliczne pobieranie RSS i klasyfikację. To zadanie asyncio w procesie API, a nie
+# osobna kolejka zadań.
+
 import asyncio
 import logging
 
@@ -11,6 +14,8 @@ from app.services.rss_fetcher import RssFetcher
 logger = logging.getLogger(__name__)
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def run_pipeline_once() -> None:
     """Fetch all active sources, then classify new candidates if an LLM is configured."""
     settings = get_settings()
@@ -20,6 +25,8 @@ async def run_pipeline_once() -> None:
             RssFetcher(timeout=settings.http_timeout_seconds),
             max_age_days=settings.fetch_max_age_days,
         ).fetch_all_active()
+        # model_dump zamienia model Pydantic na słownik; exclude_unset pomija pola, których użytkownik
+        # nie przesłał.
         logger.info("Scheduled fetch finished: %s", fetch_result.model_dump())
 
         if not settings.openai_api_key:

@@ -1,3 +1,6 @@
+# Rola pliku: Składa zależności endpointów: sesję bazy, konfigurację, klientów i serwisy. FastAPI
+# wywołuje te fabryki na podstawie Depends.
+
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
@@ -23,6 +26,8 @@ from app.services.research.research_service import ResearchService
 from app.services.research.search import SearchProvider, get_search_provider
 from app.services.rss_fetcher import RssFetcher
 
+# Depends wskazuje fabrykę zależności; FastAPI dostarcza jej wynik jako argument endpointu lub kolejnej
+# fabryki.
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
@@ -36,6 +41,7 @@ def get_ingestion_service(
     return IngestionService(session, fetcher, max_age_days=get_settings().fetch_max_age_days)
 
 
+# Brak konfiguracji LLM jest tłumaczony na HTTP 503; raise ... from zachowuje przyczynę wyjątku.
 def get_provider() -> LLMProvider:
     try:
         return get_llm_provider()
@@ -73,6 +79,7 @@ def get_research_service(
     return build_research_service(session, settings, extractor, search, llm)
 
 
+# Zadanie w tle dostaje fabrykę sesji, żeby otworzyć własną sesję zamiast używać sesji żądania.
 def get_research_runner(
     session_factory: Annotated[async_sessionmaker[AsyncSession], Depends(get_session_factory)],
     settings: SettingsDep,

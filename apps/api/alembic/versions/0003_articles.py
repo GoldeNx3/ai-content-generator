@@ -1,3 +1,5 @@
+# Rola pliku: Migracja writera: dodaje artykuły z wersjami, metadanymi generacji i kosztami.
+
 """articles
 
 Revision ID: 0003_articles
@@ -17,6 +19,8 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Alembic wywołuje upgrade przy przejściu do tej wersji schematu; operacje dotyczą struktury SQL, nie
+# endpointów API.
 def upgrade() -> None:
     op.create_table('articles',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -68,6 +72,7 @@ def upgrade() -> None:
     op.create_index('uq_articles_one_current_per_candidate', 'articles', ['candidate_id'], unique=True, postgresql_where=sa.text('is_current'))
 
 
+# downgrade opisuje cofnięcie tej migracji; usuwanie tabel lub kolumn może usunąć przechowywane dane.
 def downgrade() -> None:
     op.drop_index('uq_articles_one_current_per_candidate', table_name='articles', postgresql_where=sa.text('is_current'))
     op.drop_index(op.f('ix_articles_candidate_id'), table_name='articles')

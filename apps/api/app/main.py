@@ -1,3 +1,6 @@
+# Rola pliku: Punkt wejścia API: tworzy aplikację FastAPI, podpina routery i CORS oraz zarządza startem i
+# zatrzymaniem schedulera.
+
 import asyncio
 import contextlib
 import logging
@@ -15,6 +18,10 @@ from app.jobs.scheduler import run_scheduler
 from app.services.research.research_service import mark_interrupted_researches
 
 
+# Kod przed yield wykonuje się przy starcie API, a po yield przy zamykaniu; context manager wyznacza cykl
+# życia aplikacji.
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     setup_logging()

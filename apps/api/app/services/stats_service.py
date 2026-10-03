@@ -1,3 +1,6 @@
+# Rola pliku: Buduje dane kart dashboardu z zapytań repozytorium, zamiast liczyć statystyki po stronie
+# przeglądarki.
+
 from datetime import UTC, datetime, time
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +10,8 @@ from app.repositories.candidate_repository import CandidateRepository
 from app.schemas.stats import DashboardStats
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def get_dashboard_stats(session: AsyncSession) -> DashboardStats:
     repo = CandidateRepository(session)
     start_of_day = datetime.combine(datetime.now(UTC).date(), time.min, tzinfo=UTC)

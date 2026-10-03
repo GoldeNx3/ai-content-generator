@@ -1,3 +1,6 @@
+# Rola pliku: Reguły redakcyjne typów artykułów i docelowej długości. Liczba dostępnych faktów ogranicza
+# cel długości tekstu.
+
 from dataclasses import dataclass
 
 from app.models import CandidateCategory
@@ -10,6 +13,8 @@ BASE_WORDS = 150
 SHORT_DRAFT_RATIO = 0.6
 
 
+# dataclass generuje m.in. konstruktor z zadeklarowanych pól; frozen blokuje przypisania do pól, slots
+# ogranicza atrybuty.
 @dataclass(frozen=True, slots=True)
 class ArticleTypeGuide:
     min_words: int

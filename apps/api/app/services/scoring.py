@@ -1,3 +1,6 @@
+# Rola pliku: Oblicza wynik 0–100 z ważonej średniej ocen LLM; reguła punktacji jest oddzielona od
+# komunikacji z modelem.
+
 from app.schemas.classification import CandidateClassification
 
 # Weights in percent (sum = 100). Integer math avoids float rounding surprises.

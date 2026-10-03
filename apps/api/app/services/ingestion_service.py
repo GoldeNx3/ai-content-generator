@@ -1,3 +1,6 @@
+# Rola pliku: Pipeline RSS: pobiera wpisy, odrzuca zbyt stare, deduplikuje po URL i zapisuje nowe rekordy
+# Candidate.
+
 import logging
 from datetime import UTC, datetime, timedelta
 
@@ -15,6 +18,8 @@ logger = logging.getLogger(__name__)
 class IngestionService:
     """Fetches sources, deduplicates entries by URL and stores new candidates."""
 
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, session: AsyncSession, fetcher: RssFetcher, max_age_days: int = 0) -> None:
         self.session = session
         self.fetcher = fetcher
@@ -22,6 +27,8 @@ class IngestionService:
         self.sources = SourceRepository(session)
         self.candidates = CandidateRepository(session)
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def fetch_all_active(self) -> FetchResult:
         total = FetchResult()
         for source in await self.sources.list_all(active_only=True):
@@ -48,8 +55,11 @@ class IngestionService:
         try:
             result.new_candidates = await self._save_new(source, fresh_entries)
             await self.sources.mark_fetched(source, datetime.now(UTC))
+            # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza
+            # jeszcze trwałego zapisu.
             await self.session.commit()
         except Exception:
+            # rollback wycofuje niezakończoną transakcję po błędzie; wcześniejsze commity pozostają zapisane.
             await self.session.rollback()
             logger.exception("Saving candidates for source %s failed", source.id)
             result.errors = 1
@@ -61,12 +71,15 @@ class IngestionService:
         )
         return result
 
+    # Brak daty nie eliminuje wpisu; list comprehension tworzy nową listę wpisów spełniających warunek wieku.
     def _drop_old(self, entries: list[FeedEntry]) -> list[FeedEntry]:
         if self.max_age_days <= 0:
             return entries
         cutoff = datetime.now(UTC) - timedelta(days=self.max_age_days)
         return [e for e in entries if e.published_at is None or e.published_at >= cutoff]
 
+    # Najpierw deduplikacja w samym feedzie, potem porównanie z bazą; końcowy insert chroni też przed
+    # konfliktem równoległych zapisów.
     async def _save_new(self, source: Source, entries: list[FeedEntry]) -> int:
         unique: dict[str, FeedEntry] = {}
         for entry in entries:

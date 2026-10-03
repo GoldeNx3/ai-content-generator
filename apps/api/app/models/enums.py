@@ -1,3 +1,5 @@
+# Rola pliku: Modele tabel enums: mapują rekordy SQL na obiekty Pythona i definiują pola oraz powiązania.
+
 from enum import StrEnum
 
 

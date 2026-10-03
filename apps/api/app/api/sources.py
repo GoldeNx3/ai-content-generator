@@ -1,3 +1,6 @@
+# Rola pliku: Endpointy HTTP zasobu sources: przekazują pracę serwisom/repozytoriom i wystawiają wyniki
+# oraz błędy przez FastAPI.
+
 from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.deps import IngestionDep, SessionDep
@@ -8,6 +11,9 @@ from app.schemas.source import FetchResult, SourceCreate, SourceRead, SourceUpda
 router = APIRouter(prefix="/sources", tags=["sources"])
 
 
+# Pobranie rekordu i sprawdzenie braku danych są wspólne dla endpointów, które potrzebują istniejącego zasobu.
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def _get_or_404(repo: SourceRepository, source_id: int) -> Source:
     source = await repo.get(source_id)
     if source is None:
@@ -29,7 +35,10 @@ async def create_source(payload: SourceCreate, session: SessionDep) -> Source:
     source = await repo.add(
         Source(name=payload.name.strip(), url=url, type=payload.type, active=payload.active)
     )
+    # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+    # trwałego zapisu.
     await session.commit()
+    # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
     await session.refresh(source)
     return source
 

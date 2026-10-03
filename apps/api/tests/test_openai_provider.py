@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu openai_provider: scenariusze poprawnego działania i błędów. Funkcje test_*
+# odkrywa i uruchamia pytest.
+
 """OpenAIProvider tests with a mocked HTTP transport - no real requests to OpenAI."""
 
 import json
@@ -39,10 +42,14 @@ def provider_returning(response: httpx.Response, captured: list[httpx.Request]) 
         captured.append(request)
         return response
 
+    # MockTransport przechwytuje HTTP i zwraca odpowiedź z lokalnej funkcji; to wywołanie nie trafia do
+    # Internetu.
     client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
     return OpenAIProvider(api_key="sk-test", model="test-model", http_client=client)
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def test_parses_structured_output() -> None:
     body = {
         "relevance": 95,

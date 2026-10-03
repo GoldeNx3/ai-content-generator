@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu rss_fetcher: scenariusze poprawnego działania i błędów. Funkcje test_* odkrywa
+# i uruchamia pytest.
+
 from datetime import UTC, datetime
 
 import httpx
@@ -10,10 +13,13 @@ from tests.feeds import ATOM_FEED, BROKEN_FEED, RSS_FEED
 SOURCE = Source(name="Example", url="https://example.com/feed.xml")
 
 
+# MockTransport przechwytuje HTTP i zwraca odpowiedź z lokalnej funkcji; to wywołanie nie trafia do Internetu.
 def fetcher_for(handler: httpx.MockTransport) -> RssFetcher:
     return RssFetcher(client=httpx.AsyncClient(transport=handler), timeout=1)
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def test_parses_rss_feed() -> None:
     fetcher = fetcher_for(httpx.MockTransport(lambda request: httpx.Response(200, content=RSS_FEED)))
 

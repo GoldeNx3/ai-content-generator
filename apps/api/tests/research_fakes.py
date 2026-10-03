@@ -1,3 +1,6 @@
+# Rola pliku: Kontrolowane strony HTML, wyszukiwarka i dostawca LLM do testów researchu bez zewnętrznych
+# usług.
+
 """Test doubles for the research engine: HTTP pages, search provider and LLM (no network, no cost)."""
 
 from collections.abc import Callable
@@ -46,6 +49,7 @@ def article_html(title: str, body: str = PARAGRAPH * 4) -> str:
 </body></html>"""
 
 
+# MockTransport przechwytuje HTTP i zwraca odpowiedź z lokalnej funkcji; to wywołanie nie trafia do Internetu.
 def page_transport(pages: dict[str, httpx.Response | Callable[[httpx.Request], httpx.Response]]) -> httpx.MockTransport:
     def handler(request: httpx.Request) -> httpx.Response:
         page = pages.get(str(request.url))
@@ -65,11 +69,15 @@ def extractor_for(pages: dict[str, httpx.Response | Callable[[httpx.Request], ht
 
 
 class FakeSearch:
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, results: list[SearchResult] | None = None, fail: bool = False) -> None:
         self.results = results or []
         self.fail = fail
         self.queries: list[str] = []
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def search(self, query: str, limit: int = 5) -> list[SearchResult]:
         self.queries.append(query)
         if self.fail:
@@ -109,6 +117,8 @@ def default_output(documents: list[ResearchDocument]) -> ResearchOutput:
 
 
 class FakeResearchLLM:
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(
         self,
         queries: list[str] | None = None,

@@ -1,3 +1,6 @@
+# Rola pliku: Przekazuje wpis do dostawcy LLM, zapisuje cztery oceny i kategorię oraz wylicza wynik
+# łączny w backendzie.
+
 import logging
 from datetime import UTC, datetime
 
@@ -13,11 +16,15 @@ logger = logging.getLogger(__name__)
 
 
 class ClassificationService:
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, session: AsyncSession, provider: LLMProvider) -> None:
         self.session = session
         self.provider = provider
         self.candidates = CandidateRepository(session)
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def classify(self, candidate: Candidate) -> Candidate:
         """Classify one candidate. On LLM failure raises LLMError and leaves the row untouched."""
         classification = await self.provider.classify_candidate(
@@ -36,7 +43,10 @@ class ClassificationService:
         candidate.category = classification.category
         candidate.llm_reason = classification.reason
         candidate.classified_at = datetime.now(UTC)
+        # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+        # trwałego zapisu.
         await self.session.commit()
+        # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
         await self.session.refresh(candidate)
         return candidate
 
@@ -55,6 +65,8 @@ class ClassificationService:
                 raise
             except Exception:
                 logger.exception("Classification of candidate %s failed", candidate_id)
+                # rollback wycofuje niezakończoną transakcję po błędzie; wcześniejsze commity pozostają
+                # zapisane.
                 await self.session.rollback()
                 result.errors += 1
         return result

@@ -1,3 +1,5 @@
+# Rola pliku: Wybiera i konfiguruje dostawcę LLM dla klasyfikacji, researchu i artykułów.
+
 from app.core.config import get_settings
 from app.services.llm.base import ArticleLLMProvider, LLMProvider, ResearchLLMProvider
 from app.services.llm.openai_provider import OpenAIProvider

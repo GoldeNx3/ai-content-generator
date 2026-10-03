@@ -1,3 +1,6 @@
+# Rola pliku: Schematy danych candidate: Pydantic waliduje dane wejścia/wyjścia; te klasy nie tworzą
+# tabel SQL.
+
 from datetime import datetime
 from enum import StrEnum
 
@@ -6,6 +9,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models.enums import CandidateCategory, CandidateStatus
 
 
+# Field dodaje walidację Pydantic: ge/le to granice liczb, a default/default_factory określają wartość
+# domyślną.
 class CandidateSortField(StrEnum):
     CREATED_AT = "created_at"
     ORIGINAL_PUBLISHED_AT = "original_published_at"

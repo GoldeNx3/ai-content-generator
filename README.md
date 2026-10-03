@@ -323,3 +323,179 @@ mockowanym transporcie HTTP oraz podstawowe endpointy. Research: ekstraktor (pop
 Writer: brief (poprawny, brak researchu, research failed, walidacja structured output), draft, błąd LLM,
 nieistniejące ID faktów i źródeł (także źródło niepobrane), liczby bez pokrycia, wersjonowanie, edycja, status, endpointy.
 HTTP, SearchProvider i LLM są mockowane — testy nie wykonują płatnych ani sieciowych requestów.
+
+## 14. Przewodnik po backendzie dla programisty znającego inne języki
+
+Komentarze w plikach `.py` opisują rolę modułu i konstrukcje charakterystyczne dla
+Pythona lub używanych bibliotek. Poniżej jest mapa, która pozwala czytać kod od
+przepływu aplikacji, zamiast zaczynać od wszystkich szczegółów frameworków.
+
+### Od czego zacząć czytanie
+
+1. [`main.py`](apps/api/app/main.py) — odpowiednik bootstrapu aplikacji. `create_app()`
+   tworzy FastAPI, dołącza routery i middleware. `lifespan()` wykonuje przygotowanie
+   przy starcie i sprzątanie przy zamknięciu procesu.
+2. [`api/router.py`](apps/api/app/api/router.py) i [`api/deps.py`](apps/api/app/api/deps.py)
+   — rejestracja tras oraz składanie zależności. Tutaj widać, skąd endpoint dostaje
+   sesję bazy, serwis i dostawcę LLM.
+3. [`api/sources.py`](apps/api/app/api/sources.py) →
+   [`ingestion_service.py`](apps/api/app/services/ingestion_service.py) →
+   [`rss_fetcher.py`](apps/api/app/services/rss_fetcher.py) →
+   [`candidate_repository.py`](apps/api/app/repositories/candidate_repository.py)
+   — cały przykład przejścia od HTTP przez logikę biznesową do zapisu w bazie.
+4. [`classification_service.py`](apps/api/app/services/classification_service.py)
+   i [`llm/openai_provider.py`](apps/api/app/services/llm/openai_provider.py)
+   — oddzielenie logiki klasyfikacji od konkretnego dostawcy modelu.
+5. [`research_service.py`](apps/api/app/services/research/research_service.py)
+   i [`article_service.py`](apps/api/app/services/article/article_service.py)
+   — większe procesy, korzystające z tych samych zasad podziału odpowiedzialności.
+6. [`tests/test_ingestion.py`](apps/api/tests/test_ingestion.py) — konkretne wejścia
+   i oczekiwane rezultaty. Testy pomagają zrozumieć kontrakt serwisu.
+
+### Składnia Pythona w tym projekcie
+
+| Zapis | Jak go czytać |
+|---|---|
+| `def f(x: int) -> str:` | Deklaracja funkcji: argument `x` typu `int`, wynik typu `str`. |
+| `self` | Jawny argument wskazujący instancję, podobny do `this`. Przy `obj.metoda()` Python przekazuje go automatycznie. |
+| `__init__` | Inicjalizator instancji, w praktyce miejsce na przypisanie zależności i pól. |
+| `str \| None` | Tekst albo brak wartości; `None` odpowiada idei `null`. |
+| `list[T]`, `dict[K, V]`, `set[T]` | Lista, słownik klucz–wartość i zbiór unikalnych elementów. |
+| `tuple[A, B]` | Krotka o dwóch elementach; np. `items, total = wynik` rozpakowuje wynik. |
+| `@dekorator` | Funkcja przetwarzająca deklarowaną funkcję lub klasę, np. rejestrująca endpoint albo fixture. |
+| `@property` | Metoda odczytywana jak pole, np. `candidate.source_name`. |
+| `@staticmethod` / `@classmethod` | Metoda bez automatycznego `self` / metoda dostająca klasę jako `cls`. |
+| `@dataclass(frozen=True, slots=True)` | Generuje m.in. inicjalizator; blokuje przypisania do pól i ogranicza zestaw atrybutów. Nie zamraża rekurencyjnie zawartości list. |
+| `[x.id for x in items if x.active]` | List comprehension: filtr i mapowanie w jednym wyrażeniu, tworzące nową listę. |
+| `{x.url for x in items}` | Set comprehension: analogiczna konstrukcja tworząca zbiór bez duplikatów. |
+| `value or fallback` | Zwraca pierwszą wartość, jeśli jest truthy, inaczej drugą; `0`, `False`, pusty tekst i pusta kolekcja też uruchamiają fallback. |
+| `x if warunek else y` | Wyrażenie warunkowe, odpowiednik operatora trójargumentowego. |
+| `items[:limit]` | Slice: elementy od początku do `limit`, bez elementu pod tym indeksem. |
+| `*args`, `**kwargs` | Zbieranie argumentów pozycyjnych/nazwanych; przy wywołaniu `f(*items)` i `f(**data)` oznacza rozpakowanie. |
+| `f"ID={item.id}"` | Interpolacja wartości w tekście. |
+| `with` / `async with` | Zarządzanie zasobem: wejście do kontekstu i sprzątanie także po wyjątku, podobnie do `using`/try-with-resources. |
+| `raise X(...) from exc` | Rzucenie wyjątku z zachowaniem oryginalnej przyczyny. |
+| `pass` / `...` | `pass` jest pustą instrukcją; `...` w metodach protokołów oznacza tu brak implementacji kontraktu. |
+
+Wcięcia wyznaczają bloki kodu; nie ma klamer. `#` rozpoczyna komentarz.
+Tekst w potrójnych cudzysłowach na początku modułu, klasy lub funkcji to **docstring**,
+dostępny także przez introspekcję. Potrójne cudzysłowy w promptach oznaczają zwykły
+wielowierszowy tekst, który aplikacja wysyła modelowi.
+
+Adnotacje typów zwykle pomagają edytorowi i analizatorom, ale sam Python nie wymusza
+ich przy każdym przypisaniu. W tym projekcie **Pydantic** sprawdza dane przy
+budowaniu modeli, a **SQLAlchemy** wykorzystuje deklaracje do mapowania bazy.
+`_nazwa` oznacza umownie element wewnętrzny; nie jest modyfikatorem dostępu.
+Nazwy w `UPPER_CASE` oznaczają umownie stałe, bez blokady ich zmiany przez język.
+
+### `async`, `await` i zadania w tle
+
+Wywołanie `async def` tworzy korutynę. Dopiero `await` lub zaplanowanie jej jako
+zadania uruchamia pracę. Podczas oczekiwania na asynchroniczną operację I/O pętla
+zdarzeń może wykonywać inne zadania. `await` nie tworzy osobnego wątku i nie
+przyspiesza automatycznie obliczeń CPU.
+
+```python
+# Najpierw czekamy na pobranie, potem wykorzystujemy wynik.
+entries = await fetcher.fetch(source)
+```
+
+`asyncio.create_task(...)` w schedulerze planuje pracę współbieżną z obsługą API.
+`asyncio.gather(...)` w researchu zbiera wyniki kilku korutyn. Pętla z `await` w
+każdej iteracji jest natomiast sekwencyjna — tak działa klasyfikacja batcha.
+
+`yield` w `lifespan()` rozdziela start od zamknięcia aplikacji. W zależności sesji
+bazy przekazuje sesję do obsługi żądania, po czym wykonanie wraca do funkcji i
+kontekst sesji jest zamykany. W fixtures pytest podobnie rozdziela przygotowanie
+zasobów od sprzątania po teście.
+
+Research używa FastAPI `BackgroundTasks`: endpoint zapisuje `running` i zwraca
+`202`, a analiza odbywa się po odpowiedzi. Zadanie otwiera własną sesję bazy w
+[`research/factory.py`](apps/api/app/services/research/factory.py). To ważne,
+ponieważ sesja żądania ma osobny cykl życia. Te zadania nie są trwałą kolejką;
+restart procesu przerywa ich wykonywanie.
+
+### Trzy różne rodzaje modeli
+
+| Miejsce | Odpowiedzialność | Przykład |
+|---|---|---|
+| `models/` — SQLAlchemy | Tabele, kolumny, klucze i relacje w bazie. | `Candidate` reprezentuje rekord `candidates`. |
+| `schemas/` — Pydantic | Walidacja danych HTTP i Structured Outputs LLM. | `CandidateRead` opisuje odpowiedź API. |
+| `services/llm/base.py` — dataclasses | Przekazywanie danych pomiędzy serwisami a dostawcą LLM. | `CandidateInput` zawiera dane do klasyfikacji. |
+
+`Mapped[str] = mapped_column(...)` oznacza pole ORM, a nie zwykłe przypisanie
+tekstu. `relationship(...)` pozwala przejść do powiązanych rekordów.
+`lazy="joined"` ładuje relację razem z zapytaniem głównym; inne strategie
+ładowania są dobierane w modelach i zapytaniach.
+
+`BaseModel` Pydantic sprawdza pola. `Field(ge=0, le=100)` ogranicza wartość do
+zakresu 0–100. `ConfigDict(from_attributes=True)` pozwala budować odpowiedź z
+atrybutów obiektu ORM. `model_dump()` daje słownik, `model_validate()` waliduje
+wejście, a `model_copy(update=...)` tworzy kopię ze zmianami — samo `update` w tej
+metodzie nie wykonuje ponownej walidacji.
+
+### Jak czytać zapis do bazy
+
+```python
+session.add(candidate)             # dołącz obiekt do sesji
+await session.flush()             # wyślij zmiany; można otrzymać ID, bez commitu
+await session.commit()            # zatwierdź transakcję
+await session.refresh(candidate)  # odczytaj aktualne wartości z bazy
+```
+
+To przykład znaczenia operacji; nie każda ścieżka potrzebuje wszystkich czterech.
+`rollback()` wycofuje bieżącą transakcję po błędzie. Wcześniej zatwierdzone dane
+pozostają zapisane — dlatego research może zachować pobrane źródła, nawet jeśli
+późniejsza analiza LLM się nie powiedzie.
+
+`select(Model).where(...)` buduje opis zapytania SQL. Dopiero `await
+session.execute(...)`, `scalar(...)` lub `scalars(...)` je wykonuje. `scalar`
+zwraca pojedynczą wartość, a `scalars` pozwala odczytać wartości pierwszej kolumny
+kolejnych wierszy, często obiekty ORM. `session.get(Model, id)` szuka po kluczu
+głównym i może korzystać z obiektu już obecnego w sesji.
+
+Zmiana klasy w `models/` sama nie aktualizuje działającej bazy. Do tego służą
+migracje w `alembic/versions/`: `upgrade()` wprowadza zmianę schematu,
+`downgrade()` opisuje jej cofnięcie. `alembic/env.py` ładuje metadane wszystkich
+modeli, aby Alembic mógł porównać deklaracje z bazą.
+
+### Przykład całego przepływu: pobranie RSS
+
+1. Router `api/sources.py` odbiera żądanie pobrania źródeł.
+2. `Depends` z `api/deps.py` dostarcza `IngestionService` z sesją i `RssFetcher`.
+3. Fetcher pobiera HTTP, parsuje XML RSS/Atom i zwraca listę `FeedEntry`.
+4. Serwis filtruje wiek wpisów i usuwa duplikaty z pobranego zestawu.
+5. Repozytorium sprawdza istniejące URL-e i zapisuje nowe przez
+   `INSERT ... ON CONFLICT DO NOTHING`; unikalność w bazie chroni także przed
+   równoległymi zapisami tego samego adresu.
+6. Serwis zatwierdza transakcję i zwraca `FetchResult` z licznikami.
+7. FastAPI serializuje wynik do JSON, który odczytuje frontend.
+
+Klasyfikacja jest kolejną operacją. Research buduje materiał i fakty ze źródeł,
+a writer korzysta z tego researchu do utworzenia nowej wersji artykułu.
+`Protocol` opisuje metody wymagane od dostawcy LLM lub wyszukiwarki, podobnie do
+interfejsu. Zgodność jest strukturalna: klasa z odpowiednimi metodami nie musi
+jawnie dziedziczyć po protokole.
+
+### Jak czytać i uruchamiać testy
+
+Funkcje `test_*` są scenariuszami, a `assert` opisuje oczekiwany wynik.
+`pytest.raises(...)` sprawdza spodziewany wyjątek. `parametrize` powtarza scenariusz
+dla wielu danych. Nazwy argumentów testu wskazują fixtures, które pytest ma
+przygotować; wspólne fixtures są w `tests/conftest.py`.
+
+`FakeProvider`, `FakeResearchLLM` i `FakeArticleLLM` zastępują prawdziwy LLM.
+`httpx.MockTransport` udaje odpowiedzi zewnętrznych usług, a `ASGITransport`
+wywołuje aplikację FastAPI w procesie testu, bez otwierania portu HTTP.
+Testy integracyjne nadal potrzebują PostgreSQL; fixture tworzy tabele i czyści
+dane w **bazie testowej** wskazanej przez `TEST_DATABASE_URL`.
+
+```bash
+make test
+# Jeden plik testów w działającym kontenerze:
+docker compose exec api pytest tests/test_ingestion.py -q
+```
+
+Pliki `__init__.py` oznaczają pakiety importowane np. jako `app.services`.
+Większość służy wyłącznie organizacji katalogów; `models/__init__.py` dodatkowo
+importuje modele, aby ich tabele zostały zarejestrowane w metadanych ORM.

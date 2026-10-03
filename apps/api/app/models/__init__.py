@@ -1,3 +1,5 @@
+# Rola pliku: Eksportuje modele ORM i rejestruje ich tabele w metadanych SQLAlchemy.
+
 from app.models.article import Article
 from app.models.candidate import Candidate
 from app.models.enums import (

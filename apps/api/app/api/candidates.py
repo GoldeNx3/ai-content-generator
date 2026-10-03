@@ -1,3 +1,6 @@
+# Rola pliku: Endpointy HTTP zasobu candidates: przekazują pracę serwisom/repozytoriom i wystawiają
+# wyniki oraz błędy przez FastAPI.
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -14,6 +17,9 @@ from app.services.llm.base import LLMError, LLMNotConfiguredError
 router = APIRouter(prefix="/candidates", tags=["candidates"])
 
 
+# Pobranie rekordu i sprawdzenie braku danych są wspólne dla endpointów, które potrzebują istniejącego zasobu.
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def _get_or_404(session: SessionDep, candidate_id: int) -> Candidate:
     candidate = await CandidateRepository(session).get(candidate_id)
     if candidate is None:
@@ -21,6 +27,8 @@ async def _get_or_404(session: SessionDep, candidate_id: int) -> Candidate:
     return candidate
 
 
+# Depends wskazuje fabrykę zależności; FastAPI dostarcza jej wynik jako argument endpointu lub kolejnej
+# fabryki.
 @router.get("", response_model=CandidatePage)
 async def list_candidates(
     session: SessionDep, filters: Annotated[CandidateFilters, Depends()]
@@ -70,6 +78,9 @@ async def update_status(
 ) -> Candidate:
     candidate = await _get_or_404(session, candidate_id)
     candidate.status = payload.status
+    # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+    # trwałego zapisu.
     await session.commit()
+    # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
     await session.refresh(candidate)
     return candidate

@@ -1,3 +1,6 @@
+# Rola pliku: Endpointy HTTP zasobu articles: przekazują pracę serwisom/repozytoriom i wystawiają wyniki
+# oraz błędy przez FastAPI.
+
 from collections.abc import Awaitable, Callable, Sequence
 from typing import TypeVar
 
@@ -33,6 +36,9 @@ _ERROR_STATUS: dict[type[Exception], int] = {
 }
 
 
+# Wspólna granica API: wyjątki domenowe z serwisu są tłumaczone na odpowiedzi HTTP dla klienta.
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def _call(fn: Callable[[], Awaitable[T]]) -> T:
     try:
         return await fn()

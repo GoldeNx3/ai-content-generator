@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu content_extractor: scenariusze poprawnego działania i błędów. Funkcje test_*
+# odkrywa i uruchamia pytest.
+
 import httpx
 import pytest
 
@@ -8,6 +11,8 @@ from tests.research_fakes import extractor_for, html_response
 URL = "https://example.com/post"
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def test_extracts_article_without_boilerplate() -> None:
     document = await extractor_for({URL: html_response("GPT-6 API released")}).extract(URL)
 

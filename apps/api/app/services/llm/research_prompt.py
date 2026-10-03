@@ -1,3 +1,6 @@
+# Rola pliku: Prompty generowania zapytań i analizy researchu: przekazują modelowi treść źródeł oraz
+# oczekiwane reguły odpowiedzi.
+
 from datetime import UTC, datetime
 
 from app.services.llm.base import CandidateInput, ResearchDocument
@@ -63,6 +66,7 @@ Pola:
 - source_types: dla każdego źródła sugerowany typ (official, documentation, github, news, blog, community, other)."""
 
 
+# Prompt prosi o zapytania do wyszukiwarki na podstawie tytułu i kontekstu wpisu.
 def build_query_prompt(candidate: CandidateInput) -> str:
     published = candidate.published_at.date().isoformat() if candidate.published_at else "nieznana"
     return (
@@ -73,6 +77,7 @@ def build_query_prompt(candidate: CandidateInput) -> str:
     )
 
 
+# Przekazane dokumenty tworzą kontekst analizy; model ma odwoływać się do ich URL-i.
 def build_research_prompt(
     candidate: CandidateInput, documents: list[ResearchDocument], now: datetime | None = None
 ) -> str:

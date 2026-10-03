@@ -1,3 +1,6 @@
+# Rola pliku: Zapytania o wpisy: filtrowanie, paginacja, statystyki i zbiorczy zapis z ochroną przed
+# duplikatami URL.
+
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any
@@ -13,9 +16,13 @@ INSERT_CHUNK_SIZE = 500
 
 
 class CandidateRepository:
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def get(self, candidate_id: int) -> Candidate | None:
         return await self.session.get(Candidate, candidate_id)
 
@@ -26,10 +33,13 @@ class CandidateRepository:
         query = select(Candidate.external_url).where(Candidate.external_url.in_(url_list))
         return set((await self.session.scalars(query)).all())
 
+    # Zapis porcjami ogranicza rozmiar zapytania; RETURNING zwraca ID tylko rekordów rzeczywiście dodanych.
     async def insert_many(self, rows: list[dict[str, Any]]) -> int:
         """Insert rows, silently skipping URLs that already exist. Returns inserted count."""
         inserted = 0
         for start in range(0, len(rows), INSERT_CHUNK_SIZE):
+            # ON CONFLICT DO NOTHING pomija konflikt unikalności w bazie, także gdy dwa procesy próbują
+            # zapisać ten sam URL.
             statement = (
                 insert(Candidate)
                 .values(rows[start : start + INSERT_CHUNK_SIZE])
@@ -55,6 +65,7 @@ class CandidateRepository:
         items = (await self.session.scalars(query)).unique().all()
         return items, total or 0
 
+    # „Niesklasyfikowany” oznacza tutaj brak total_score, niezależnie od statusu decyzji redaktora.
     async def list_unclassified_ids(self, limit: int | None = None) -> list[int]:
         query = (
             select(Candidate.id)
@@ -79,6 +90,8 @@ class CandidateRepository:
             conditions.append(Candidate.status == status)
         return await self.count(*conditions)
 
+    # Kolejne where zawężają zapytanie; sprawdzamy is not None, bo zero jest prawidłową granicą punktacji.
+    # staticmethod nie dostaje automatycznie self; to funkcja pomocnicza umieszczona w przestrzeni nazw klasy.
     @staticmethod
     def _apply_filters(query: Select[Any], filters: CandidateFilters) -> Select[Any]:
         if filters.status is not None:

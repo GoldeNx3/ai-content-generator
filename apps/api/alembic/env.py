@@ -1,3 +1,6 @@
+# Rola pliku: Środowisko Alembic: ładuje konfigurację i modele oraz wybiera migracje online lub
+# generowanie SQL offline.
+
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -16,6 +19,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+# Tryb offline generuje SQL bez aktywnego połączenia z bazą.
 def run_migrations_offline() -> None:
     context.configure(
         url=config.get_main_option("sqlalchemy.url"),
@@ -27,6 +31,7 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+# Tryb online łączy się z bazą i wykonuje migracje w transakcji.
 def run_migrations_online() -> None:
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),

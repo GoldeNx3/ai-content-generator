@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu article_api: scenariusze poprawnego działania i błędów. Funkcje test_* odkrywa
+# i uruchamia pytest.
+
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -5,6 +8,8 @@ from app.api.deps import get_article_llm
 from tests.article_fakes import FakeArticleLLM, research_fixture
 
 
+# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
+# inne zadania.
 async def test_article_endpoints(client: httpx.AsyncClient, session: AsyncSession) -> None:
     candidate, _ = await research_fixture(session)
     app = client._transport.app  # type: ignore[attr-defined]

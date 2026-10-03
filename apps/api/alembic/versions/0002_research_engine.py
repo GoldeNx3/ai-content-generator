@@ -1,3 +1,5 @@
+# Rola pliku: Migracja researchu: dodaje raporty, źródła, fakty i ich powiązania.
+
 """research engine
 
 Revision ID: 0002_research
@@ -17,6 +19,8 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Alembic wywołuje upgrade przy przejściu do tej wersji schematu; operacje dotyczą struktury SQL, nie
+# endpointów API.
 def upgrade() -> None:
     op.create_table('researches',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -84,6 +88,7 @@ def upgrade() -> None:
     )
 
 
+# downgrade opisuje cofnięcie tej migracji; usuwanie tabel lub kolumn może usunąć przechowywane dane.
 def downgrade() -> None:
     op.drop_table('research_fact_sources')
     op.drop_index(op.f('ix_research_sources_research_id'), table_name='research_sources')

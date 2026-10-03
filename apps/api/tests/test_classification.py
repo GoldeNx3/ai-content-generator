@@ -1,3 +1,6 @@
+# Rola pliku: Testy modułu classification: scenariusze poprawnego działania i błędów. Funkcje test_*
+# odkrywa i uruchamia pytest.
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Candidate, CandidateCategory, Source
@@ -9,10 +12,14 @@ from app.services.llm.base import CandidateInput, LLMError
 class FakeProvider:
     """Mock LLM provider: no network calls. Fails for titles listed in `fail_titles`."""
 
+    # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
+    # jej polach.
     def __init__(self, fail_titles: set[str] | None = None) -> None:
         self.fail_titles = fail_titles or set()
         self.calls: list[CandidateInput] = []
 
+    # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
+    # obsługiwać inne zadania.
     async def classify_candidate(self, candidate: CandidateInput) -> CandidateClassification:
         self.calls.append(candidate)
         if candidate.title in self.fail_titles:
@@ -32,7 +39,10 @@ async def add_candidate(session: AsyncSession, source: Source, title: str, **fie
         source_id=source.id, external_url=f"https://example.com/{title}", title=title, **fields
     )
     session.add(candidate)
+    # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
+    # trwałego zapisu.
     await session.commit()
+    # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
     await session.refresh(candidate)
     return candidate
 
