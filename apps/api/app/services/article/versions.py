@@ -45,6 +45,12 @@ async def child_version(session, parent, changes, created_by, iteration=None):
     number=await session.scalar(select(func.max(Article.version)).where(Article.candidate_id==parent.candidate_id))
     data={column.name:deepcopy(getattr(parent,column.name)) for column in Article.__table__.columns
         if column.name not in {'id','created_at','updated_at','generation_job_id','approved_at','approved_by','rejection_reason'}}
+    if not parent.seo_data:
+        from app.services.article.seo import preview_seo
+        resolved,origin=await preview_seo(session,parent)
+        if origin=='publication_profile':
+            resolved['canonical_url']=None
+            data['seo_data']=resolved
     data.update(changes)
     if iteration is None:
         from app.services.auto_fix.context import iterations_used

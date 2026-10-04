@@ -4,6 +4,7 @@
 import json
 
 from app.schemas.article import ArticleBrief
+from app.services.article.readability import READABILITY_GUIDELINES
 from app.services.llm.base import ArticleContext
 
 BRIEF_SYSTEM_PROMPT = """\
@@ -89,8 +90,9 @@ Styl:
   Nie zaczynaj zawsze od „Firma ogłosiła”. Nie wymyślaj scen, własnych doświadczeń ani anegdot.
 - Kolejność sekcji wynika z pytania czytelnika i zależności wyjaśnienia. Nie realizuj automatycznie
   wstępu, listy zalet, ograniczeń i podsumowania. Dopuszczaj różne długości sekcji i akapitów.
-- Przejścia mają pokazać konkretny związek między myślami, bez seryjnego „Co więcej”, „Jednak”,
-  „W praktyce”. Unikaj powtarzania początku zdań, retorycznych pytań i symetrycznych list po trzy.
+- Przejścia mają pokazać konkretny związek między myślami. Stosuj naturalne słowa łączące,
+  również „jednak”, gdy wskazuje rzeczywisty kontrast. Unikaj seryjnych identycznych przejść,
+  powtarzania początku zdań, retorycznych pytań i symetrycznych list po trzy.
   Nie naśladuj poprzednich tekstów. Powtarzalny format zachowaj tylko, gdy zadanie go uzasadnia.
 - Naturalny polski, konkretny, informacyjny, techniczny tam, gdzie temat tego wymaga.
 - Akapity kończą się, gdy wyczerpią myśl; nie rozciągaj ich do ustalonej liczby zdań.
@@ -139,8 +141,11 @@ Pola wyjściowe:
 - used_fact_ids / source_ids: wyłącznie numery z list FACT #id i SOURCE #id. Nie twórz własnych.
 - slug: małe litery, myślniki, bez polskich znaków.
 - meta_title: naturalny, około 50–60 znaków, fraza blisko początku; nie przycinaj sztucznie. meta_description: 140–160 znaków, konkretna, bez clickbaitu.
-- seo_data: przygotuj excerpt, focus_keyword, secondary_keywords, 3–8 krótkich tags, og_title/og_description i twitter_title/twitter_description (fallback meta_title/meta_description). robots_index i robots_follow true. schema_type NewsArticle dla newsów, Article dla reszty; TechArticle dla technicznych opracowań. FAQ/HowTo tylko jeśli rzeczywiście są w tekście. canonical_url null; author_id i featured_image_url null. Nie wymyślaj internal links."""
+- seo_data: obowiązkowo wypełnij excerpt, focus_keyword, secondary_keywords (co najmniej jedną), 3–8 krótkich tags, category z dozwolonej listy, og_title/og_description i twitter_title/twitter_description (fallback meta_title/meta_description). robots_index i robots_follow true. schema_type NewsArticle dla newsów, Article dla reszty; TechArticle dla technicznych opracowań. FAQ/HowTo tylko jeśli rzeczywiście są w tekście. canonical_url null; author_id i featured_image_url null. Nie wymyślaj internal links."""
 
+
+BRIEF_SYSTEM_PROMPT += "\n\n" + READABILITY_GUIDELINES + "\nZaplanuj podtematy długich sekcji. Budżet ponad 250 słów wymaga H3 w treści; nie zmniejszaj całkowitego celu długości."
+WRITER_SYSTEM_PROMPT += "\n\n" + READABILITY_GUIDELINES + "\nPrzed zwróceniem wyniku sprawdź również rozkład H2/H3, akapity i naturalne przejścia w całym tekście, w tym zakończeniu."
 
 def _facts_block(context: ArticleContext) -> str:
     lines = []

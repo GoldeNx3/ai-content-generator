@@ -1,6 +1,7 @@
 import json
 from dataclasses import dataclass
 from app.schemas.auto_fix import FixOutput
+from app.services.article.readability import READABILITY_GUIDELINES
 from app.services.llm.base import LLMUsage
 
 FIX_SYSTEM_PROMPT='''Jesteś redaktorem poprawiającym istniejący artykuł na podstawie raportu QA.
@@ -24,6 +25,13 @@ Dla każdego przekazanego issue podaj jeden fix_results: fixed, skipped lub fail
 z reason po polsku. fixed musi mieć rzeczywistą podmianę. Nie wymyślaj ID.
 Nie zmieniaj slugu bez issue SEO. Summary po polsku, bez pełnego artykułu.
 '''
+
+FIX_SYSTEM_PROMPT += "\n\n" + READABILITY_GUIDELINES + """
+Tylko dla przekazanych issues czytelności: dodaj konkretne H3 między istniejącymi
+akapitami, podziel długi akapit lub zdanie i popraw naturalne przejście.
+Nie skracaj potrzebnych wyjaśnień, nie zmieniaj liczb, modalności ani referencji.
+Dodanie nagłówka nadal musi być literalną podmianą fragmentu content, nie nowym faktem.
+"""
 
 @dataclass(frozen=True)
 class FixResult:

@@ -28,14 +28,17 @@ class WordPressClient:
         except (httpx.TimeoutException,httpx.NetworkError) as exc:
             raise WordPressError('wordpress_timeout' if isinstance(exc,httpx.TimeoutException) else 'wordpress_connection',True) from None
         if response.status_code>=300:
+            code=f'wordpress_http_{response.status_code}'
             delay=None
             try: delay=float(response.headers.get('Retry-After',''))
             except ValueError: pass
             details=None
             if response.status_code==409:
-                try: details=response.json().get('data',{})
+                try:
+                    body=response.json();details=body.get('data',{})
+                    if body.get('code')=='ce_content_conflict':code='wordpress_conflict'
                 except ValueError: pass
-            raise WordPressError(f'wordpress_http_{response.status_code}',response.status_code==429 or response.status_code>=500,delay,details)
+            raise WordPressError(code,response.status_code==429 or response.status_code>=500,delay,details)
         try: return response.json()
         except ValueError: raise WordPressError('wordpress_invalid_json') from None
     async def create_post(self, payload, *, identity=None, operation=None):

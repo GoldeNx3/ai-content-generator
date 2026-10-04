@@ -3,6 +3,7 @@ import json
 from dataclasses import dataclass
 
 from app.schemas.qa import QAOutput
+from app.services.article.readability import READABILITY_GUIDELINES
 from app.services.llm.base import LLMUsage
 
 QA_SYSTEM_PROMPT = '''Jesteś redaktorem QA / Fact Checkerem polskich artykułów.
@@ -58,9 +59,21 @@ Zawsze kopiuj excerpt bez zmian: nie łącz kilku zdań, punktów listy ani wier
 w własne zdanie. Dla listy wersji każde twierdzenie może być krótkim osobnym fragmentem
 (np. 'Node 22.17'). Nie dopisuj własnych słów przed ani po fragmencie. Upewnij się,
 że excerpt naprawdę występuje w article.content/lead/title lub metadanych SEO.
+Dla issue SEO excerpt to jedna dosłowna wartość jednego pola, bez etykiet
+„meta_title:”, „lead:” itd. Nigdy nie sklejaj metadanych i leadu w jeden excerpt.
+Jeśli uwaga dotyczy kilku pól, wybierz jeden rzeczywisty fragment jako excerpt,
+a zależności między polami wyjaśnij w reason/suggestion. section_heading='SEO'.
 Raport i sugestie pisz po polsku. severity high/critical tylko dla istotnych problemów.
 '''
 
+
+QA_SYSTEM_PROMPT += "\n\n" + READABILITY_GUIDELINES + """
+Oceniaj te reguły na aktualnym Markdown. Długie bloki bez H2/H3 oznacz structure_issue,
+zbyt długie akapity/zdania, monotonne początki i niejasne przejścia jako style_issue.
+Sugestie mają być konkretne i auto_fixable=true, gdy można poprawić formę bez zmiany faktów.
+Nie wymyślaj dokładnego procentu słów łączących ani wyniku Yoast. Nie oceniaj długości
+kodu jak prozy. Nie zgłaszaj braku linków lub obrazka, jeśli nie ma odpowiednich danych.
+"""
 
 @dataclass(frozen=True)
 class QAResult:

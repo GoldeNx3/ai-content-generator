@@ -162,3 +162,21 @@ def test_half_score_rounds_up_and_threshold_is_configurable():
 def test_unsupported_info_is_still_a_factual_problem():
     checked = output(issues=[issue('unsupported_claim', 'info')])
     assert not calculate_scores(checked, 85)['qa_passed']
+
+
+def test_seo_labeled_existing_fields_become_single_literal_excerpt():
+    data=payload();data['article']['meta_title']='Claude w Barclays';data['article']['meta_description']='Opis wdrożenia.'
+    excerpt='meta_title: Claude w Barclays\nmeta_description: Opis wdrożenia.\nlead: Barclays wdraża Claude.'
+    checked=validate_output(output(issues=[issue('seo_issue','warning',excerpt)]),data,[])
+    assert checked.issues[0].excerpt=='Claude w Barclays' and checked.issues[0].section_heading=='SEO'
+
+
+@pytest.mark.parametrize('kind,excerpt',[
+    ('seo_issue','meta_title: Zmyślony tytuł\nlead: Barclays wdraża Claude.'),
+    ('seo_issue','meta_title: Claude w Barclays\nZmyślone zdanie.'),
+    ('unsupported_claim','meta_title: Claude w Barclays\nlead: Barclays wdraża Claude.'),
+])
+def test_labeled_excerpt_never_accepts_invented_or_factual_composites(kind,excerpt):
+    from app.services.llm.base import LLMError
+    data=payload();data['article']['meta_title']='Claude w Barclays'
+    with pytest.raises(LLMError):validate_output(output(issues=[issue(kind,'warning',excerpt)]),data,[])

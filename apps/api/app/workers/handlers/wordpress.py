@@ -50,7 +50,9 @@ async def handle(job,session,execution,providers,recorder,settings):
         article=await approved_version(session,job.article_id,settings)
         publication=await publication_for(session,article)
         overrides=publication.profile if publication and publication.profile.get('version_id',article.id)==article.id else {}
-        profile=seo_profile(article,overrides)
+        from app.services.article.seo import preview_seo
+        resolved,_=await preview_seo(session,article)
+        profile=seo_profile(article,{**resolved,**overrides})
         if job.kind=='prepare_wordpress' or not all(profile.get(k) for k in ('seo_title','meta_description','slug','excerpt','og_title','og_description')):
             profile=await prepare_profile(article,profile,recorder,settings)
             publication=await service.prepare(article.id,profile)

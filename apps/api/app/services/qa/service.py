@@ -38,7 +38,8 @@ class ArticleQAService:
         await save(self.session, self.execution)
         started = time.perf_counter()
         await stage(self.execution, 'validating_references')
-        reference_issues = validate_references(payload)
+        from app.services.article.readability import readability_issues
+        reference_issues = validate_references(payload) + readability_issues(payload["article"]["lead"],payload["article"]["content"])
         result = await self.llm.evaluate(payload)
         report.llm_model = result.usage.model
         report.llm_input_tokens = result.usage.input_tokens if result.usage.recorded else None

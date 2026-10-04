@@ -23,16 +23,20 @@ async def main():
         await client.update_post(post_id,{'content':'<p>Manual WordPress edit.</p>'})
         try:
             await client.update_post(post_id,{'content':body['content']},identity=identity,operation=str(uuid4()),expected_hash=expected)
-        except WordPressError as exc:assert exc.code=='wordpress_http_409'
+        except WordPressError as exc:assert exc.code=='wordpress_conflict'
         else:raise AssertionError('Manual conflict was not blocked')
         manual=await client.get_post(post_id)
         assert manual['content']['raw']=='<p>Manual WordPress edit.</p>'
         restored=await client.update_post(post_id,{'content':body['content']},identity=identity,operation=str(uuid4()),expected_hash=wp_content_hash(manual))
         assert restored['id']==post_id
         await client.request('DELETE',f'wp/v2/posts/{post_id}',params={'force':'false'})
-        trashed=await client.get_post(post_id)
-        untrashed=await client.update_post(post_id,body,identity=identity,operation=str(uuid4()),expected_hash=wp_content_hash(trashed))
-        assert untrashed['id']==post_id and untrashed['status']=='draft'
+        trashed_id=post_id
+        replacement_operation=str(uuid4())
+        replacement=await client.create_post(body,identity=identity,operation=replacement_operation)
+        post_id=replacement['id']
+        assert post_id!=trashed_id and replacement['status']=='draft'
+        assert (await client.get_post(trashed_id))['status']=='trash'
+        assert (await client.create_post(body,identity=identity,operation=replacement_operation))['id']==post_id
         # Permanent deletion is restricted to this freshly created temporary test post.
         await client.request('DELETE',f'wp/v2/posts/{post_id}',params={'force':'true'})
         old_id=post_id;post_id=None
@@ -41,7 +45,7 @@ async def main():
         post_id=recreated['id'];assert post_id!=old_id
         again=await client.create_post(body,identity=identity,operation=recreate_operation)
         assert again['id']==post_id
-        print('PASS: concurrency, recovery, conflict, trash restore, permanent deletion recreation + replay; final temporary WP post '+str(post_id))
+        print('PASS: concurrency, recovery, conflict, new draft after trash, permanent deletion recreation + replay; final temporary WP post '+str(post_id))
     finally:
         if post_id:await client.request('DELETE',f'wp/v2/posts/{post_id}',params={'force':'false'})
         await client.close()

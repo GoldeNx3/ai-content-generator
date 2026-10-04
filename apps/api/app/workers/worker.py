@@ -21,6 +21,7 @@ from app.repositories.job_repository import JobRepository
 from app.services.jobs.errors import LeaseLostError, JobInputError
 from app.services.jobs.execution import JobExecution
 from app.services.jobs.retry import failure
+from app.services.llm.base import LLMError
 from app.services.research.errors import NoSourceContentError
 from app.workers.calls import CallRecorder
 from app.workers.handlers import wordpress, classify, research, write, qa, auto_fix
@@ -117,8 +118,12 @@ class Worker:
                 current.error_code = 'worker_interrupted' if interrupted else code
                 current.error_message = ('Praca została przerwana; poprzednie wywołanie mogło naliczyć koszt.'
                                          if interrupted else str(exc) if isinstance(exc, JobInputError)
+                                         else 'Nieprawidłowy raport QA: ' + str(exc)
+                                         if job.kind=='qa_article' and isinstance(exc,LLMError) and code=='invalid_output'
                                          else exc.public_message
                                          if isinstance(exc, NoSourceContentError)
+                                         else 'WordPress zawiera inną treść. Sprawdź istniejący wpis i potwierdź nadpisanie w sekcji WordPress.'
+                                         if code=='wordpress_conflict'
                                          else 'Nie udało się wykonać zadania. ' + code)
                 current.available_at = now + timedelta(seconds=delay)
                 current.finished_at = now if current.status == 'failed' else None
@@ -133,7 +138,7 @@ class Worker:
                     if p:
                         p.status = 'queued' if current.status == 'retrying' else 'failed'
                         p.error_code = code
-                        if getattr(exc, 'details', None) and exc.code == 'wordpress_http_409':
+                        if getattr(exc, 'details', None) and code == 'wordpress_conflict':
                             p.conflict = exc.details
                         # Conflict may have been checkpointed in another transaction.
                 if current.kind == 'auto_fix_article':

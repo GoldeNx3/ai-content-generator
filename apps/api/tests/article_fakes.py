@@ -114,6 +114,13 @@ def make_output(fact_ids: list[int], source_ids: list[int], **overrides: object)
         ],
         "conclusion": "Bank stawia na AI.",
         "conclusion_fact_ids": [],
+        "seo_data": {
+            "excerpt": "Barclays rozszerza współpracę z Anthropic.",
+            "focus_keyword": "Claude Code", "secondary_keywords": ["Barclays", "Anthropic"],
+            "tags": ["Claude", "Anthropic", "Barclays"], "category": "Newsy", "schema_type": "NewsArticle",
+            "og_title": "Barclays rozszerza wdrożenie Claude", "og_description": "Barclays rozszerza współpracę z Anthropic.",
+            "twitter_title": "Barclays rozszerza wdrożenie Claude", "twitter_description": "Barclays rozszerza współpracę z Anthropic.",
+        },
         "meta_title": "Barclays rozszerza wdrożenie Claude",
         "meta_description": "Barclays rozszerza współpracę z Anthropic i chce, by połowa programistów używała Claude Code.",
     }

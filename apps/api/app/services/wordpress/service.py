@@ -85,8 +85,10 @@ class WordPressPublisherService:
         request=PublishRequest.model_validate({'status':target_status,'scheduled_at':scheduled_at},context={'check_time':False})
         article=await approved_version(self.session,article_version_id,self.settings,lock=True)
         p=await publication_for(self.session,article,True)
+        from app.services.article.seo import preview_seo
+        resolved,_=await preview_seo(self.session,article)
         overrides=p.profile if p.profile.get('version_id',article.id)==article.id else {}
-        profile=seo_profile(article,overrides);profile['version_id']=article.id
+        profile=seo_profile(article,{**resolved,**overrides});profile['version_id']=article.id
         for key in ('title','slug','seo_title','meta_description'):
             if not profile.get(key):raise JobInputError(f'Brak wymaganego pola {key}. Przygotuj SEO przed wysłaniem.',422)
         if not article.content.strip():raise JobInputError('Brak treści.',422)
@@ -137,6 +139,11 @@ class WordPressPublisherService:
                 p.wordpress_post_id=None;p.last_synced_content_hash=None;p.conflict=None
                 original=None
                 await self.save(p,{'wp_original':None})
+        if current is not None and current['status']=='trash':
+            # A deleted publication stays in Trash; an explicit send creates a new draft.
+            p.wordpress_post_id=None;p.last_synced_content_hash=None;p.conflict=None
+            current=None;original=None
+            await self.save(p,{'wp_original':None})
         if current is not None:
             digest=wp_content_hash(current)
             expected=original.get('expected_hash') if original else options.get('expected_wp_hash') or p.last_synced_content_hash
@@ -152,14 +159,26 @@ class WordPressPublisherService:
         # Re-check approval/QA under the same candidate lock as approval immediately before mutation.
         await approved_version(self.session,article_version_id,self.settings,lock=True)
         if not p.wordpress_post_id:
-            current=await self.client.create_post({**payload,'status':'draft'},identity=identity,operation=operation+':create')
+            try:
+                current=await self.client.create_post({**payload,'status':'draft'},identity=identity,operation=operation+':create')
+            except WordPressError as exc:
+                # The Bridge still owns the identity when a local mapping was lost.
+                # Recover the link, but require explicit consent before replacing its content.
+                if exc.code=='wordpress_conflict' and isinstance(exc.details,dict) and isinstance(exc.details.get('post_id'),int):
+                    remote=await self.client.get_post(exc.details['post_id'])
+                    p.wordpress_post_id=remote['id'];p.wp_status=remote['status']
+                    p.wordpress_url=remote.get('ce_permalink') or remote.get('link')
+                    p.conflict={'current_hash':wp_content_hash(remote),'post_id':remote['id']}
+                    p.error_code='wordpress_conflict'
+                    await self.save(p)
+                raise
             p.wordpress_post_id=current['id'];p.wp_status=current['status']
             p.wordpress_url=current.get('ce_permalink') or current['link']
             await self.save(p,{'wp_created':p.wordpress_post_id})
         else:
             content_payload=self.cached('wp_content_payload')
             if content_payload is None:
-                content_payload={**payload,'status':'draft'} if current['status']=='trash' else payload
+                content_payload=payload
                 await self.save(p,{'wp_content_payload':content_payload})
             current=await self.client.update_post(p.wordpress_post_id,content_payload,identity=identity,
                 operation=operation+':content',expected_hash=original['expected_hash'] if original else None)

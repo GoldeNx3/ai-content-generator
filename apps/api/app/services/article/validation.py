@@ -127,6 +127,10 @@ def validate_writer_output(
     if missing_required:
         warnings.append(f"Nie wykorzystano wymaganych faktów z briefu: {missing_required}")
 
+    from app.services.article.readability import readability_issues
+    from app.services.article.composition import compose_content
+    warnings.extend(issue.reason for issue in readability_issues(output.lead, compose_content(output)))
+
     text = " ".join([output.title, output.lead, *(s.content for s in output.sections), output.conclusion])
     unsupported = unsupported_numbers(text, reference_texts)
     if unsupported:

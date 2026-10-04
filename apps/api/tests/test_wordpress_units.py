@@ -119,3 +119,15 @@ def test_verification_checks_body_and_taxonomy():
     payload={'title':'Title','content':'<p>Approved</p>','categories':[1],'tags':[2],'author':1}
     post={'title':{'raw':'Title'},'content':{'raw':'<p>Changed</p>'},'slug':'title','categories':[1],'tags':[2],'author':1}
     with pytest.raises(WordPressError):WordPressPublisherService.verify(post,payload,{'slug':'title'},None)
+
+
+def test_writer_requires_nonempty_extended_seo_when_supplied():
+    from app.schemas.article import WriterSEOData
+    with pytest.raises(ValueError):WriterSEOData.model_validate({'excerpt':'','focus_keyword':'','secondary_keywords':[],'tags':[],'category':None,'og_title':'','og_description':'','twitter_title':'','twitter_description':''})
+    from openai.lib._pydantic import to_strict_json_schema
+    from app.schemas.article import WriterOutput
+    schema=to_strict_json_schema(WriterOutput)
+    seo=schema['$defs']['WriterSEOData']
+    assert seo['properties']['focus_keyword']['minLength']==1
+    assert seo['properties']['tags']['minItems']==3
+    assert 'seo_data' in schema['required']

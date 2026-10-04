@@ -158,6 +158,7 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
     {report?.status === "completed" && <QualityReport report={report} article={article} />}
   </WorkflowSection>
     <FixApprovalPanel selectingVersion={selectingVersion} versions={versions} article={article} qa={report} fixes={fixes} jobs={fixJobs} error={fixError} editing={editing}
+      actionsLoading={!loaded || !jobs.loaded || !fixJobs.loaded || Boolean(jobs.active)}
       onAutoFix={runFix} autoFixDisabledReason={autoFixDisabledReason} fixSubmitting={fixSubmitting} fixableCount={fixable}
       onRefresh={onArticleChange} onSelectVersion={onSelectVersion} onEdit={onEdit} />
   </>;

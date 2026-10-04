@@ -117,6 +117,8 @@ class ArticleService:
         article.qa_status = ('stale' if not matches_article(qa, article) else qa.status) if qa else 'required'
         from app.core.config import get_settings
         article.auto_fix_iterations_remaining = max(0, get_settings().auto_fix_max_iterations - await iterations_used(self.session, article))
+        from app.services.article.seo import preview_seo
+        article.seo_preview,article.seo_origin=await preview_seo(self.session,article)
         return article
 
     # ---------- generation ----------

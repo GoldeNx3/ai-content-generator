@@ -83,12 +83,33 @@ def validate_references(payload):
     return issues
 
 
+
+def literal_seo_excerpt(item, article):
+    """Repair field labels only when every supplied value exactly matches a current field."""
+    if item.type != 'seo_issue':return item
+    pattern=r'(?m)^(title|meta_title|meta_description|lead|slug):[ \t]*'
+    matches=list(re.finditer(pattern,item.excerpt))
+    if not matches or item.excerpt[:matches[0].start()].strip():return item
+    fields=[]
+    for index,match in enumerate(matches):
+        field=match.group(1)
+        end=matches[index+1].start() if index+1<len(matches) else len(item.excerpt)
+        value=item.excerpt[match.end():end].strip()
+        if not value or normalize(value)!=normalize(article.get(field,'')) or field in fields:return item
+        fields.append(field)
+    # Keep one real field as the edit anchor; reason/suggestion retain the cross-field observation.
+    field=next((f for f in fields if f.startswith('meta_')),fields[0])
+    heading='SEO' if field.startswith('meta_') or field=='slug' else 'Lead' if field=='lead' else 'Title'
+    return item.model_copy(update={'excerpt':article[field],'section_heading':heading})
+
+
 def validate_output(output, payload, reference_issues):
     output = QAOutput.model_validate(output)
     facts, sources = reference_sets(payload)
     article_text = ' '.join(str(payload['article'].get(name, ''))
                             for name in ('title', 'lead', 'content', 'meta_title', 'meta_description', 'slug'))
     normalized_text = normalize(article_text)
+    output=output.model_copy(update={'issues':[literal_seo_excerpt(item,payload['article']) for item in output.issues]})
     for item in output.issues:
         if item.excerpt and normalize(item.excerpt) not in normalized_text:
             raise LLMError('Odpowiedź QA zawiera fragment spoza aktualnego artykułu.', code='invalid_output')

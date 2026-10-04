@@ -123,8 +123,10 @@ function ce_bridge_mutate($request) {
             return ce_bridge_read($done->post_id);
         }
         $mapped=(int)$wpdb->get_var($wpdb->prepare("SELECT post_id FROM {$wpdb->prefix}ce_publications WHERE identity=%s FOR UPDATE",$identity));
-        if ($mapped && !get_post($mapped)) {
+        $mapped_status=$mapped ? $wpdb->get_var($wpdb->prepare("SELECT post_status FROM {$wpdb->posts} WHERE ID=%d FOR UPDATE",$mapped)) : null;
+        if ($mapped && (!$mapped_status || $mapped_status==='trash')) {
             if ($requested_id) { throw new Exception('missing'); }
+            // Retire only the engine mapping. Keep the deleted WordPress post in Trash.
             $wpdb->delete($wpdb->prefix.'ce_operations',['identity'=>$identity]);
             $wpdb->delete($wpdb->prefix.'ce_publications',['identity'=>$identity]);
             $mapped=0;
@@ -137,7 +139,7 @@ function ce_bridge_mutate($request) {
             clean_post_cache($id);
             $post=$locked ? new WP_Post($locked) : null;
             if (!$post) { throw new Exception('missing'); }
-            if ($post->post_status==='trash' && ($payload['status'] ?? '')!=='draft') { throw new Exception('missing'); }
+            if ($post->post_status==='trash') { throw new Exception('missing'); }
             if (!current_user_can('edit_post',$id)) { throw new Exception('forbidden'); }
             $expected=$request->get_param('expected_hash');
             // A new operation may recover a create whose local DB checkpoint was lost.
@@ -155,9 +157,6 @@ function ce_bridge_mutate($request) {
                 return new WP_Error('ce_content_conflict','WordPress content changed.',['status'=>409,'current_hash'=>ce_bridge_hash($post),'post_id'=>$id]);
             }
         } elseif (($payload['status'] ?? 'draft')!=='draft') { throw new Exception('draft_required'); }
-        if ($id && $post->post_status==='trash') {
-            if (!wp_untrash_post($id)) { throw new Exception('restore_failed'); }
-        }
         // Delegate field validation, permissions and saving to the native WP REST controller.
         $native=new WP_REST_Request('POST',$id ? '/wp/v2/posts/'.$id : '/wp/v2/posts');
         foreach ($payload as $key=>$value) { $native->set_param($key,$value); }

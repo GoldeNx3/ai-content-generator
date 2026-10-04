@@ -5,7 +5,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import ArticleStatus, CandidateCategory
 
@@ -49,12 +49,40 @@ class ArticleBrief(BaseModel):
 
 class WriterSection(BaseModel):
     heading: str
-    content: str = Field(description="Treść sekcji w Markdown, bez nagłówka")
+    content: str = Field(description="Treść sekcji w Markdown, bez powtarzania jej H2; dopuszczalne konkretne H3 dla podtematów")
     used_fact_ids: list[int]
     source_ids: list[int]
 
 
 from app.schemas.wordpress import SEOData
+
+
+class WriterSEOData(SEOData):
+    excerpt: str = Field(default='', min_length=1)
+    focus_keyword: str = Field(default='', min_length=1)
+    secondary_keywords: list[str] = Field(default_factory=list, min_length=1)
+    tags: list[str] = Field(default_factory=list, min_length=3, max_length=8)
+    category: Literal['AI','Modele AI','Programowanie','Narzędzia AI','Automatyzacja','Biznes','Newsy','Poradniki','Porównania'] = 'AI'
+    og_title: str = Field(default='', min_length=1)
+    og_description: str = Field(default='', min_length=1)
+    twitter_title: str = Field(default='', min_length=1)
+    twitter_description: str = Field(default='', min_length=1)
+
+    @field_validator('excerpt','focus_keyword','og_title','og_description','twitter_title','twitter_description', mode='before')
+    @classmethod
+    def nonblank(cls,value):
+        return value.strip() if isinstance(value,str) else value
+
+    @field_validator('tags','secondary_keywords', mode='before')
+    @classmethod
+    def distinct_terms(cls,value):
+        if not isinstance(value,list):return value
+        terms=[];seen=set()
+        for term in value:
+            if not isinstance(term,str):return value
+            term=term.strip()
+            if term and term.casefold() not in seen:terms.append(term);seen.add(term.casefold())
+        return terms
 
 
 class WriterOutput(BaseModel):
@@ -65,7 +93,12 @@ class WriterOutput(BaseModel):
     sections: list[WriterSection]
     conclusion: str
     conclusion_fact_ids: list[int]
-    seo_data: SEOData = Field(default_factory=SEOData)
+    seo_data: WriterSEOData = Field(default_factory=WriterSEOData)
+
+    @field_validator("seo_data", mode="before")
+    @classmethod
+    def seo_model(cls,value):
+        return value.model_dump() if isinstance(value,BaseModel) else value
     meta_title: str
     meta_description: str
 
@@ -137,6 +170,8 @@ class ArticleSummary(BaseModel):
 class ArticleRead(ArticleSummary):
     seo_title: str
     seo_data: dict[str, Any] = Field(default_factory=dict)
+    seo_preview: dict[str, Any] = Field(default_factory=dict)
+    seo_origin: str = "article"
     research_id: int | None
     slug: str
     lead: str

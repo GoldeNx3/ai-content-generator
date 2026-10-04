@@ -38,7 +38,11 @@ class WPHTTP:
             if op in self.operations:return httpx.Response(200,json=self.operations[op])
             payload=data['post'];tail=path.rsplit('/',1)[-1]
             if tail=='posts':
-                if self.posts:post=next(iter(self.posts.values()))
+                active=[p for p in self.posts.values() if p['status']!='trash']
+                if active:
+                    post=active[-1]
+                    if wp_content_hash(post)!=__import__('hashlib').sha256(payload['content'].encode()).hexdigest():
+                        return httpx.Response(409,json={'code':'ce_content_conflict','data':{'current_hash':wp_content_hash(post),'post_id':post['id']}})
                 else:
                     self.creates+=1;self.next_id+=1
                     post={'id':self.next_id,'title':{'raw':''},'content':{'raw':''},'status':'draft','featured_media':0,'meta':{},'link':'https://wp.example/blog/article/','ce_permalink':'https://wp.example/blog/article/'}
@@ -105,6 +109,28 @@ async def test_unapproved_blocked(client,session,wordpress):
     a,_=await article_fixture(session)
     assert (await client.post(f'/api/article-versions/{a.id}/wordpress',json={'status':'draft'})).status_code==409
     assert wordpress.creates==0
+
+async def test_lost_local_mapping_recovers_conflict_and_allows_explicit_sync(client,session,execute_job,wordpress):
+    a=await approved(client,session,execute_job)
+    await publish(client,a,execute_job)
+    p=await session.scalar(select(WordPressPublication).where(WordPressPublication.candidate_id==a.candidate_id))
+    p.wordpress_post_id=None;p.last_synced_content_hash=None
+    await session.commit()
+    wordpress.posts[101]['content']={'raw':'Ręczna treść WordPress'}
+    job,state=await publish(client,a,execute_job)
+    assert job['status']=='failed'
+    assert job['error_code']=='wordpress_conflict'
+    assert 'WordPress' in job['error_message'] and 'nadpis' in job['error_message']
+    assert state['publication']['wordpress_post_id']==101
+    assert state['conflict']['current_hash']==wp_content_hash(wordpress.posts[101])
+    assert wordpress.posts[101]['content']['raw']=='Ręczna treść WordPress'
+    result=await client.post(f'/api/article-versions/{a.id}/wordpress/sync',json={'expected_wp_hash':state['conflict']['current_hash']})
+    assert result.status_code==202,result.text
+    await execute_job({'wordpress':True})
+    state=(await client.get(f'/api/article-versions/{a.id}/wordpress')).json()
+    assert state['publication']['status']=='draft_created'
+    assert state['publication']['wordpress_post_id']==101
+    assert wordpress.creates==1
 
 async def test_stale_qa_blocked(client,session,execute_job,wordpress):
     a=await approved(client,session,execute_job);a.content+=' changed';await session.commit()
@@ -266,14 +292,15 @@ async def test_failed_publication_manual_retry_tracks_job(client,session,execute
     assert wordpress.creates==1
 
 
-async def test_trashed_publication_restored_as_same_draft(client,session,execute_job,wordpress):
+async def test_trashed_publication_creates_new_draft_and_preserves_trash(client,session,execute_job,wordpress):
     a=await approved(client,session,execute_job)
     await publish(client,a,execute_job)
     wordpress.posts[101]['status']='trash'
     job,state=await publish(client,a,execute_job)
     assert job['status']=='succeeded',job
-    assert state['publication']['wordpress_post_id']==101
-    assert wordpress.posts[101]['status']=='draft' and wordpress.creates==1
+    assert state['publication']['wordpress_post_id']==102
+    assert wordpress.posts[101]['status']=='trash' and wordpress.posts[102]['status']=='draft'
+    assert wordpress.creates==2
 
 async def test_permanently_deleted_post_recreated_once(client,session,execute_job,wordpress):
     a=await approved(client,session,execute_job)
@@ -286,28 +313,28 @@ async def test_permanently_deleted_post_recreated_once(client,session,execute_jo
     assert job['status']=='succeeded' and wordpress.creates==2
 
 
-async def test_restore_lost_response_retries_same_payload(client,session,execute_job,wordpress,monkeypatch):
+async def test_recreate_after_trash_lost_response_retries_same_payload(client,session,execute_job,wordpress,monkeypatch):
     a=await approved(client,session,execute_job)
     await publish(client,a,execute_job)
     wordpress.posts[101]['status']='trash'
-    original=WordPressClient.update_post
+    original=WordPressClient.create_post
     sent=[]
-    async def lose_response(self,post_id,payload,**kwargs):
-        result=await original(self,post_id,payload,**kwargs)
-        if kwargs.get('operation','').endswith(':content'):
+    async def lose_response(self,payload,**kwargs):
+        result=await original(self,payload,**kwargs)
+        if kwargs.get('operation','').endswith(':create'):
             sent.append(dict(payload))
             if len(sent)==1:
                 from app.services.wordpress.errors import WordPressError
                 raise WordPressError('wordpress_timeout',True)
         return result
-    monkeypatch.setattr(WordPressClient,'update_post',lose_response)
+    monkeypatch.setattr(WordPressClient,'create_post',lose_response)
     job,_=await publish(client,a,execute_job)
     assert job['status']=='retrying'
     await session.execute(update(Job).where(Job.id==UUID(job['id'])).values(available_at=datetime.now(timezone.utc)))
     await session.commit();await execute_job({'wordpress':True})
     assert (await client.get('/api/jobs/'+job['id'])).json()['status']=='succeeded'
     assert len(sent)==2 and sent[0]==sent[1] and sent[1]['status']=='draft'
-    assert wordpress.creates==1
+    assert wordpress.creates==2 and wordpress.posts[101]['status']=='trash'
 
 @pytest.mark.parametrize('deleted',['trash','missing'])
 async def test_new_approved_version_can_be_sent_after_wp_deletion(client,session,execute_job,wordpress,deleted):
@@ -323,6 +350,26 @@ async def test_new_approved_version_can_be_sent_after_wp_deletion(client,session
     assert result.status_code==202,result.text
     await execute_job({'wordpress':True})
     assert (await client.get('/api/jobs/'+result.json()['id'])).json()['status']=='succeeded'
-    post=next(iter(wordpress.posts.values()))
+    post=wordpress.posts[102]
     assert post['status']=='draft' and 'Nowa wersja po usunięciu' in post['content']['raw']
-    assert wordpress.creates==(1 if deleted=='trash' else 2)
+    assert wordpress.creates==2
+
+async def test_legacy_seo_preview_and_child_inherit_profile_without_mutating_parent(client,session,execute_job,wordpress):
+    a,_=await article_fixture(session)
+    a.seo_data={};await session.commit()
+    await client.post(f'/api/articles/{a.id}/qa');await execute_job({'qa_article':FakeQA()})
+    await client.post(f'/api/article-versions/{a.id}/approve')
+    p=await session.scalar(select(WordPressPublication).where(WordPressPublication.candidate_id==a.candidate_id))
+    if p is None:
+        from app.services.wordpress.api_helpers import publication_for
+        p=await publication_for(session,a,True)
+    p.profile={**p.profile,'version_id':a.id,'focus_keyword':'Claude','secondary_keywords':['Barclays'],
+        'excerpt':'Zapisany excerpt','tags':['Claude','Anthropic','Barclays'],'category':'Newsy','schema_type':'NewsArticle'}
+    await session.commit()
+    state=(await client.get(f'/api/articles/{a.id}')).json()
+    assert state['seo_data']=={} and state['seo_preview']['focus_keyword']=='Claude'
+    assert state['seo_origin']=='publication_profile'
+    assert not (await client.get(f'/api/articles/{a.id}/qa')).json()['is_stale']
+    child=(await client.patch(f'/api/articles/{a.id}',json={'content':a.content+'\n\nNowy akapit.'})).json()
+    assert child['seo_data']['focus_keyword']=='Claude' and child['seo_data']['tags']==['Claude','Anthropic','Barclays']
+    assert child['seo_data']['canonical_url'] is None

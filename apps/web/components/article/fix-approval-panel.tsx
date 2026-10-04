@@ -16,7 +16,8 @@ import type { Article, ArticleSummary, ArticleFix, ArticleQA, Job } from "@/type
 import type { useCandidateJobs } from "@/hooks/use-candidate-jobs";
 
 type Jobs = ReturnType<typeof useCandidateJobs>;
-export function FixApprovalPanel({article, versions, qa, fixes, jobs, error, editing, selectingVersion, onRefresh, onSelectVersion, onEdit, onAutoFix, autoFixDisabledReason, fixSubmitting, fixableCount}: {
+export function FixApprovalPanel({article, versions, qa, fixes, jobs, error, editing, selectingVersion, onRefresh, onSelectVersion, onEdit, onAutoFix, autoFixDisabledReason, fixSubmitting, fixableCount, actionsLoading}: {
+  actionsLoading: boolean;
   onAutoFix: () => Promise<void>; autoFixDisabledReason: string | null; fixSubmitting: boolean; fixableCount: number;
   versions: ArticleSummary[]; article: Article; qa: ArticleQA | null; fixes: ArticleFix[]; jobs: Jobs; error: string | null;
   selectingVersion: boolean; editing: boolean; onRefresh: () => Promise<void>; onSelectVersion: (id: number) => Promise<void>; onEdit: () => void;
@@ -27,7 +28,7 @@ export function FixApprovalPanel({article, versions, qa, fixes, jobs, error, edi
   const [reason, setReason] = useState("");
   const fix = fixes[0];
   const qaCurrent = qa?.status === "completed" && !qa.is_stale;
-  const busy = selectingVersion || editing || approving || Boolean(jobs.active);
+  const busy = actionsLoading || selectingVersion || editing || approving || Boolean(jobs.active);
   async function decide(reject = false) {
     setApproving(true);
     try {
@@ -45,11 +46,11 @@ export function FixApprovalPanel({article, versions, qa, fixes, jobs, error, edi
     actionTitle="Decyzja redakcyjna" actionDescription={article.status === "approved" ? "Ta wersja została zatwierdzona. Decyzja jest zapisana w historii." : "Zatwierdź konkretną wersję po zaliczonym QA lub popraw pozostałe problemy."}
     actionDetails={<p className="text-sm text-slate-600">Wersja {article.version} · {ARTICLE_STATUS_LABELS[article.status]}</p>}
     actions={<>
+      <Button variant={article.status === "ready_for_approval" ? "outline" : "default"} disabled={busy || autoFixDisabledReason !== null} title={autoFixDisabledReason ?? "Auto Fix tworzy nową wersję i uruchamia jej QA."} onClick={() => void onAutoFix()}>{fixSubmitting || jobs.active?.kind === "auto_fix_article" ? "Fixing…" : `Auto Fix · ${demo ? "demo · bezpłatne" : "płatne"}`}</Button>
       {article.status === "ready_for_approval" && <>
         <Button disabled={busy || !qaCurrent || !qa.qa_passed} onClick={() => void decide()}>Zatwierdź wersję</Button>
         <Button variant="outline" disabled={busy} onClick={() => setRejecting(true)}>Odrzuć wersję</Button>
       </>}
-      {(autoFixDisabledReason === null || fixSubmitting || jobs.active?.kind === "auto_fix_article") && <Button variant={article.status === "ready_for_approval" ? "outline" : "default"} disabled={busy || autoFixDisabledReason !== null} title="Auto Fix tworzy nową wersję i uruchamia jej QA." onClick={() => void onAutoFix()}>{fixSubmitting || jobs.active?.kind === "auto_fix_article" ? "Fixing…" : `Auto Fix · ${demo ? "demo · bezpłatne" : "płatne"}`}</Button>}
       <Button variant="outline" disabled={busy} onClick={onEdit}>Edytuj tekst</Button>
       {rejecting && <div className="space-y-2"><label className="block text-sm">Powód odrzucenia (opcjonalny)<textarea className="mt-1 block w-full rounded-lg border p-2" value={reason} maxLength={2000} onChange={(event) => setReason(event.target.value)} /></label>
       <div className="flex gap-2"><Button variant="destructive" disabled={busy} onClick={() => void decide(true)}>Potwierdź odrzucenie</Button><Button variant="ghost" onClick={() => setRejecting(false)}>Anuluj</Button></div></div>}

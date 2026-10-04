@@ -239,6 +239,8 @@ export interface ArticleSummary {
 
 export interface Article extends ArticleSummary {
   seo_data?: Partial<WordPressProfile>;
+  seo_preview?: Partial<WordPressProfile>;
+  seo_origin?: "article" | "publication_profile" | "fallback";
   research_id: number | null;
   slug: string;
   lead: string;

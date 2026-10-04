@@ -52,7 +52,9 @@ async def get_state(version_id:int,session:SessionDep):
     try:await approved_version(session,version_id)
     except JobInputError:qa_ok=False
     overrides=publication.profile if publication and publication.profile.get('version_id',article.id)==article.id else {}
-    profile=seo_profile(article,overrides)
+    from app.services.article.seo import preview_seo
+    resolved,_=await preview_seo(session,article)
+    profile=seo_profile(article,{**resolved,**overrides})
     current=await session.scalar(select(Article).where(Article.candidate_id==article.candidate_id,Article.status=='approved'))
     remote_status=None
     if publication and publication.wordpress_post_id:
@@ -63,7 +65,7 @@ async def get_state(version_id:int,session:SessionDep):
     return {'publication':PublicationRead.model_validate(publication) if publication else None,'profile':profile,
         'remote_status':remote_status,'checks':readiness(article,profile,publication,qa_ok),'categories':CATEGORIES,'qa_ok':qa_ok,
         'newer_approved_version_id':current.id if publication and current and current.id!=publication.article_version_id else None,
-        'conflict':publication.conflict if publication and remote_status!='missing' else None,
+        'conflict':publication.conflict if publication and remote_status not in ('missing','trash') else None,
         'wordpress_admin_url':f'{get_settings().wordpress_url.rstrip("/")}/wp-admin/post.php?post={publication.wordpress_post_id}&action=edit' if publication and publication.wordpress_post_id else None}
 
 @router.patch('/article-versions/{version_id}/wordpress/settings')
