@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import {
   Select,
   SelectContent,
@@ -25,16 +27,20 @@ interface FilterSelectProps {
 }
 
 export function FilterSelect({ label, value, options, onChange, allowAll = true, disabled = false }: FilterSelectProps) {
-  const items = allowAll ? [{ value: ALL, label: `All ${label.toLowerCase()}` }, ...options] : options;
+  const labelId = useId();
+  const triggerId = `${labelId}-control`;
+  const items = allowAll ? [{ value: ALL, label: "Wszystkie" }, ...options] : options;
 
   return (
+    <div className="grid gap-1.5">
+      <label id={labelId} htmlFor={triggerId} className="text-xs font-medium text-muted-foreground">{label}</label>
     <Select
       disabled={disabled}
       items={items}
       value={value ?? ALL}
       onValueChange={(next) => onChange(next === ALL || next === null ? undefined : String(next))}
     >
-      <SelectTrigger aria-label={label} className="min-w-36">
+      <SelectTrigger id={triggerId} aria-labelledby={labelId} className="min-w-36">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -45,5 +51,6 @@ export function FilterSelect({ label, value, options, onChange, allowAll = true,
         ))}
       </SelectContent>
     </Select>
+    </div>
   );
 }

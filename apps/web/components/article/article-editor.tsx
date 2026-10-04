@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useState, cloneElement, type ReactElement, type FormEvent } from "react";
 import { Loader2Icon, SaveIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ interface ArticleEditorProps {
 }
 
 export function ArticleEditor({ article, saving, onSave, onCancel }: ArticleEditorProps) {
+  const contentId = useId();
   const [form, setForm] = useState<Required<ArticleUpdate>>({
     title: article.title,
     lead: article.lead,
@@ -39,8 +40,9 @@ export function ArticleEditor({ article, saving, onSave, onCancel }: ArticleEdit
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Field label="Title" length={form.title.length} max={90}>
+    <form onSubmit={handleSubmit} aria-busy={saving}>
+      <fieldset disabled={saving} className="space-y-4">
+      <Field label="Tytuł" length={form.title.length} max={90}>
         <Input value={form.title} onChange={(e) => set("title")(e.target.value)} required />
       </Field>
       <Field label="Lead">
@@ -48,19 +50,20 @@ export function ArticleEditor({ article, saving, onSave, onCancel }: ArticleEdit
       </Field>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <Label>Content (Markdown)</Label>
+          <Label htmlFor={contentId}>Treść (Markdown)</Label>
           <div className="flex gap-1 text-xs">
             {(["Write", "Preview"] as const).map((mode) => (
               <button
-                key={mode}
+                key={mode === "Write" ? "Edytuj" : "Podgląd"}
                 type="button"
+                aria-pressed={preview === (mode === "Preview")}
                 onClick={() => setPreview(mode === "Preview")}
                 className={cn(
                   "rounded px-2 py-1",
                   preview === (mode === "Preview") ? "bg-foreground text-background" : "text-muted-foreground",
                 )}
               >
-                {mode}
+                {mode === "Write" ? "Edytuj" : "Podgląd"}
               </button>
             ))}
           </div>
@@ -71,6 +74,7 @@ export function ArticleEditor({ article, saving, onSave, onCancel }: ArticleEdit
           </div>
         ) : (
           <Textarea
+            id={contentId}
             value={form.content}
             onChange={(e) => set("content")(e.target.value)}
             className="min-h-[28rem] font-mono text-sm leading-6"
@@ -94,12 +98,13 @@ export function ArticleEditor({ article, saving, onSave, onCancel }: ArticleEdit
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
           {saving ? <Loader2Icon className="animate-spin" /> : <SaveIcon />}
-          Save changes
+          Zapisz nową wersję
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel} disabled={saving}>
-          Cancel
+          Anuluj
         </Button>
       </div>
+      </fieldset>
     </form>
   );
 }
@@ -115,17 +120,18 @@ function Field({
   max?: number;
   children: React.ReactNode;
 }) {
+  const id = useId();
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between">
-        <Label>{label}</Label>
+        <Label htmlFor={id}>{label}</Label>
         {length !== undefined && max !== undefined && (
           <span className={cn("text-xs tabular-nums", length > max ? "text-rose-600" : "text-muted-foreground")}>
             {length}/{max}
           </span>
         )}
       </div>
-      {children}
+      {cloneElement(children as ReactElement<{id?:string}>, {id})}
     </div>
   );
 }

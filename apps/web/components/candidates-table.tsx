@@ -26,17 +26,17 @@ interface CandidatesTableProps {
 
 export function CandidatesTable({ candidates, busyId, onStatusChange, onClassify }: CandidatesTableProps) {
   return (
-    <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
-      <Table>
+    <div className="min-w-0 overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
+      <Table aria-label="Lista tematów">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-16 pl-4">Score</TableHead>
-            <TableHead>Title</TableHead>
-            <TableHead>Source</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Published</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="pr-4 text-right">Actions</TableHead>
+            <TableHead scope="col" className="w-16 pl-4">Wynik</TableHead>
+            <TableHead scope="col">Temat</TableHead>
+            <TableHead scope="col">Źródło</TableHead>
+            <TableHead scope="col">Kategoria</TableHead>
+            <TableHead scope="col">Publikacja</TableHead>
+            <TableHead scope="col">Status</TableHead>
+            <TableHead scope="col" className="pr-4 text-right">Akcje</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -57,7 +57,7 @@ export function CandidatesTable({ candidates, busyId, onStatusChange, onClassify
                 <TableCell className="max-w-[28rem] whitespace-normal">
                   <Link
                     href={`/candidates/${candidate.id}`}
-                    className="line-clamp-2 font-medium hover:underline"
+                    className="line-clamp-2 font-medium hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   >
                     {candidate.title}
                   </Link>
@@ -83,7 +83,7 @@ export function CandidatesTable({ candidates, busyId, onStatusChange, onClassify
                         size="sm"
                         variant="outline"
                         title="Oceń temat · płatne wywołanie AI"
-                        aria-label="Oceń temat · płatne wywołanie AI"
+                        aria-label={`Oceń temat · płatne wywołanie AI: ${candidate.title}`}
                         disabled={busy}
                         onClick={() => onClassify(candidate)}
                       >
@@ -93,8 +93,8 @@ export function CandidatesTable({ candidates, busyId, onStatusChange, onClassify
                     <Button
                       size="icon-sm"
                       variant="outline"
-                      title="Approve"
-                      aria-label="Approve"
+                      title="Zatwierdź temat"
+                      aria-label={`Zatwierdź temat: ${candidate.title}`}
                       disabled={busy || candidate.status === "approved"}
                       onClick={() => onStatusChange(candidate, "approved")}
                     >
@@ -103,8 +103,8 @@ export function CandidatesTable({ candidates, busyId, onStatusChange, onClassify
                     <Button
                       size="icon-sm"
                       variant="outline"
-                      title="Ignore"
-                      aria-label="Ignore"
+                      title="Pomiń temat"
+                      aria-label={`Pomiń temat: ${candidate.title}`}
                       disabled={busy || candidate.status === "ignored"}
                       onClick={() => onStatusChange(candidate, "ignored")}
                     >

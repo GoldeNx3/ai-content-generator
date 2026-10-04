@@ -113,6 +113,7 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
     finally { setSubmitting(false); }
   }
   return <><WorkflowSection number={5} title="QA / Fact Checker" paid status={status}
+    tone={report?.status === "completed" && !report.is_stale ? report.qa_passed ? "success" : "attention" : undefined}
     description="Kontrola artykułu względem jego researchu, briefu i zapisanych źródeł."
     headerDetails={<div data-qa-target={article.id} className="space-y-2 rounded-lg border bg-background p-3">
       <FilterSelect label="Wersja artykułu do QA" allowAll={false} value={String(article.id)}
@@ -123,23 +124,25 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
       <p className="text-xs font-medium text-muted-foreground">Artykuł wybrany do QA · Wersja {article.version}</p>
       <p className="break-words text-sm font-semibold">{article.title}</p>
       <p data-qa-target-status className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${report?.status === "completed" && !report.is_stale ? "bg-emerald-50 text-emerald-800" : "bg-muted text-muted-foreground"}`}>{targetStatus}</p>
-      <p className="text-xs text-muted-foreground">Run QA sprawdzi wybraną wersję. Wybór jest wspólny z krokiem Write.</p>
+      <p className="text-xs text-muted-foreground">Run QA sprawdzi wybraną wersję. Wybór jest wspólny z podglądem artykułu.</p>
+      <a href="#article-workspace" onClick={() => window.dispatchEvent(new Event(`article-${article.id}-reveal`))} className="inline-flex min-h-9 items-center rounded px-2 text-sm font-medium underline underline-offset-4 focus-visible:outline-2">Czytaj wybrany tekst</a>
     </div>}
     initiallyCollapsed={loaded ? report?.status === "completed" && !report.is_stale : undefined}
     actions={<Button size="sm" variant={report ? "outline" : "default"} disabled={busy} onClick={() => void run()}>
       {report ? <RefreshCwIcon /> : <ShieldCheckIcon />}{report ? `Run QA ponownie · ${demo ? "demo · bezpłatne" : "płatne"}` : `Run QA · ${demo ? "demo · bezpłatne" : "płatne"}`}
     </Button>}
-    summary={<UsageSummary rows={[{label: "QA / Fact Checker", configured: "qa", model: report?.llm_model,
+    activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active}
+      error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
+      summary={<UsageSummary rows={[{label: "QA / Fact Checker", configured: "qa", model: report?.llm_model,
       input: report?.llm_input_tokens, output: report?.llm_output_tokens, cost: report?.estimated_cost_usd}]}
       note="QA korzysta wyłącznie z zapisanych materiałów tej wersji. Nie poprawia ani nie publikuje artykułu." />}>
-    <JobStatus jobs={jobs.history} active={jobs.active}
-      error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} />
+
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {editing && <p className="text-sm text-muted-foreground">Zapisz lub anuluj edycję przed uruchomieniem QA.</p>}
     {!report && loaded && <p className="text-sm text-muted-foreground">Uruchom QA, aby sprawdzić fakty i jakość artykułu. Ocena wykona się w tle.</p>}
     {report?.is_stale && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Treść zmieniła się od tej oceny. Raport dotyczy poprzedniej treści; uruchom QA ponownie.</p>}
     {report?.status === "completed" && <div className="flex flex-wrap items-center gap-3">
-      <p className="text-sm">{report.issues.length} issues · {fixable} auto-fixable · {report.issues.length - fixable} require manual review</p>
+      <p className="text-sm">Problemy: {report.issues.length} · automatycznie: {fixable} · ręcznie: {report.issues.length - fixable}</p>
     </div>}
     {article.auto_fix_iterations_remaining === 0 && <p className="text-sm text-amber-800">Limit Auto Fix został wykorzystany. Wymagana ręczna weryfikacja.</p>}
     {report?.status === "completed" && <QualityReport report={report} article={article} />}
@@ -155,16 +158,16 @@ function QualityReport({report, article}: {report: ArticleQA; article: Article})
     ["Struktura", report.structure_score], ["SEO", report.seo_score]] as const;
   return <div className="space-y-6" data-qa-report={report.id}>
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quality report</h3>
+      <div><h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Raport jakości</h3>
         <p className="mt-2 text-3xl font-semibold tabular-nums">{report.overall_score}<span className="text-base text-muted-foreground"> / 100</span></p></div>
       <span className={`rounded-full px-3 py-1 text-sm font-medium ${report.qa_passed ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
         {report.is_stale ? "Ocena nieaktualna" : report.qa_passed ? "QA passed" : "Wymaga weryfikacji"}</span>
     </div>
     <div className="grid gap-4 sm:grid-cols-2">{scores.map(([label, value]) => <ScoreBar key={label} label={label} value={value} />)}</div>
-    <dl className="grid grid-cols-2 gap-4 rounded-lg border bg-muted/20 p-4 lg:grid-cols-4">
-      {[["Supported claims", report.supported_claims_count], ["Unsupported claims", report.unsupported_claims_count],
-        ["Warnings", report.warning_count], ["Critical issues", report.critical_issue_count]].map(([label, value]) =>
-        <div key={label}><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{value}</dd></div>)}
+    <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {[["Poparte twierdzenia", report.supported_claims_count], ["Niepoparte twierdzenia", report.unsupported_claims_count],
+        ["Ostrzeżenia", report.warning_count], ["Krytyczne problemy", report.critical_issue_count]].map(([label, value]) =>
+        <div key={label} className={`rounded-lg border p-3 ${Number(value) > 0 && label === "Krytyczne problemy" ? "border-rose-200 bg-rose-50 text-rose-900" : Number(value) > 0 && (label === "Niepoparte twierdzenia" || label === "Ostrzeżenia") ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-700"}`}><dt className="text-xs">{label}</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{value}</dd></div>)}
     </dl>
     <p className="text-sm leading-relaxed">{report.summary}</p>
     <p className="text-xs text-muted-foreground">Próg QA passed: {report.pass_score}/100, bez krytycznych problemów i niepopartych twierdzeń.</p>
@@ -193,6 +196,8 @@ function IssueCard({issue, article, stale}: {issue: ArticleQAIssue; article: Art
 
 
 function jumpToSection(prefix: string, anchor: string) {
+  window.location.hash = anchor;
+  window.dispatchEvent(new Event("article-workspace-read"));
   window.dispatchEvent(new Event(`${prefix}-reveal`));
-  requestAnimationFrame(() => document.getElementById(anchor)?.scrollIntoView({behavior: "smooth"}));
+  requestAnimationFrame(() => document.getElementById(anchor)?.scrollIntoView({behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}));
 }

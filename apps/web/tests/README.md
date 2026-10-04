@@ -28,3 +28,7 @@ wykonuje classify → research → write → QA oraz klika Auto Fix i Approval w
 Koszty są równe 0 dzięki dostawcom demo. Ustaw `PLAYWRIGHT_MODULE` jak w testach powyżej.
 Pełny test kolejki bez przeglądarki i bez zewnętrznych klientów:
 `docker compose exec -T api pytest -q tests/test_demo_runtime.py tests/test_demo_seed.py`.
+
+Testy UI obejmują stale widoczny obszar „Wybrany artykuł”, wspólny wybór wersji z QA i Auto Fix, nawigację między kartami, polskie akcje, powrót do tekstu i zachowanie niezapisanej edycji po zakończeniu generowania w tle. Formularz ma powiązane etykiety, a listy i kolejka nazwane tabele.
+
+`candidate-navigation-live-check.mjs` sprawdza rzeczywistą stronę istniejącego tematu bez zmian danych: siedem widoków, aktywną nawigację, izolację paneli, Wstecz/Dalej, historię wersji, czytanie, brak przewijania poziomego na komputerze/tablecie/telefonie oraz link pomijający nawigację. Ustaw `UI_TEST_CANDIDATE` na temat z wygenerowanym artykułem (domyślnie demo 259), `UI_TEST_PORT` i opcjonalnie `PLAYWRIGHT_MODULE`. Test wymaga gotowej aplikacji; nie uruchamia AI ani jobów.

@@ -62,7 +62,7 @@ export default function QueuePage() {
   return <div className="space-y-6">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight"><ListTodoIcon />Kolejka zadań</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Bieżąca praca i historia wszystkich zadań AI. Stan pochodzi z bazy.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Bieżąca praca i historia wszystkich zadań AI. Stan pochodzi z bazy. Zadania działają w tle także po zamknięciu przeglądarki.</p>
       </div>
       <Button variant="outline" size="sm" disabled={refreshing} onClick={() => void load()}><RefreshCwIcon className={refreshing ? "animate-spin" : ""} />Odśwież</Button>
     </div>
@@ -86,14 +86,14 @@ export default function QueuePage() {
     <p className="text-xs text-muted-foreground">Liczniki obejmują całą historię. Filtry dotyczą listy poniżej.</p>
     {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">Nie udało się odświeżyć kolejki: {error}. Ostatni odczyt pozostaje widoczny.</p>}
     <div className="min-w-0 rounded-xl border bg-card">
-      <Table>
-        <TableHeader><TableRow><TableHead>Temat / zadanie</TableHead><TableHead>Etap</TableHead><TableHead>Status</TableHead><TableHead>Postęp</TableHead><TableHead>Próby</TableHead><TableHead>Utworzono</TableHead><TableHead><span className="sr-only">Szczegóły</span></TableHead></TableRow></TableHeader>
+      <Table aria-label="Zadania w kolejce">
+        <TableHeader><TableRow><TableHead scope="col">Temat / zadanie</TableHead><TableHead scope="col">Etap</TableHead><TableHead scope="col">Status</TableHead><TableHead scope="col">Postęp</TableHead><TableHead scope="col">Próby</TableHead><TableHead scope="col">Utworzono</TableHead><TableHead scope="col"><span className="sr-only">Szczegóły</span></TableHead></TableRow></TableHeader>
         <TableBody>
           {!page && <TableRow><TableCell colSpan={7}>Ładowanie zadań…</TableCell></TableRow>}
           {page?.items.length === 0 && <TableRow><TableCell colSpan={7} className="py-12 text-center text-muted-foreground">Brak zadań pasujących do filtrów.</TableCell></TableRow>}
           {page?.items.map((job) => <TableRow key={job.id}>
             <TableCell className="max-w-80 whitespace-normal">
-              <Link href={`/candidates/${job.candidate_id}`} className="line-clamp-2 font-medium hover:underline">{job.candidate_title ?? `Temat #${job.candidate_id}`}</Link>
+              <Link href={`/candidates/${job.candidate_id}`} className="line-clamp-2 font-medium hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">{job.candidate_title ?? `Temat #${job.candidate_id}`}</Link>
               <p className="mt-1 font-mono text-xs text-muted-foreground">{job.id.slice(0, 8)}…</p>
               {job.error_code && job.status !== "succeeded" && <p className="mt-1 text-xs text-destructive">{job.error_code}</p>}
             </TableCell>
@@ -122,7 +122,7 @@ export default function QueuePage() {
 }
 
 function CountCard({ label, value, selected, onClick }: { label: string; value?: number; selected: boolean; onClick: () => void }) {
-  return <button onClick={onClick} aria-pressed={selected} aria-label={`Filtr: ${label}`} className={`rounded-xl border bg-card p-4 text-left transition-colors hover:bg-muted/40 ${selected ? "border-primary ring-1 ring-primary" : ""}`}>
+  return <button onClick={onClick} aria-pressed={selected} aria-label={`Filtr: ${label}`} className={`rounded-xl border bg-card p-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${selected ? "border-primary ring-1 ring-primary" : ""}`}>
     <p className="text-xs font-medium text-muted-foreground">{label}</p><p className="mt-2 text-3xl font-semibold tabular-nums">{value ?? "—"}</p>
   </button>;
 }

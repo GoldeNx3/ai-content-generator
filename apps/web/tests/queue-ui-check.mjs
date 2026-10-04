@@ -61,6 +61,13 @@ try {
  await page.goto(`http://localhost:${port}/queue`);
  await page.getByRole('heading',{name:'Kolejka zadań',exact:true}).waitFor();
  await page.getByText('27 zadań · strona 1/2',{exact:true}).waitFor();
+ assert.equal(await page.getByRole('table',{name:'Zadania w kolejce'}).count(),1,'queue table has a navigable accessible name');
+ assert.equal(await page.locator('thead th:not([scope="col"])').count(),0,'headers identify their columns');
+ await page.getByRole('combobox',{name:'Status',exact:true}).click();
+ await page.getByRole('option',{name:'Aktywne zadania',exact:true}).click();
+ assert.equal(await page.locator('label').filter({hasText:/^Status$/}).isVisible(),true,'filter label stays visible after choosing a value');
+ await page.getByRole('button',{name:'Filtr: Wszystkie',exact:true}).click();
+ await page.getByText('27 zadań · strona 1/2',{exact:true}).waitFor();
  assert.equal(await page.getByRole('link',{name:'Kolejka',exact:true}).count(),1);
  await page.getByRole('button',{name:'Następna',exact:true}).click();
  await page.getByText('Temat kolejki 27',{exact:true}).waitFor();

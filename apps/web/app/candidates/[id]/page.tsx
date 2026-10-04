@@ -17,11 +17,12 @@ import {
 import { toast } from "sonner";
 
 import { DemoModeProvider, PipelineGuide } from "@/components/demo-mode";
+import { CandidateScreen } from "@/components/nav";
 import { WorkflowSection } from "@/components/workflow-section";
 import { ModelPricingProvider, UsageSummary } from "@/components/usage-summary";
 import { ArticlePanel } from "@/components/article/article-panel";
 import { ResearchPanel } from "@/components/research/research-panel";
-import { ScoreBadge, ScoreBar } from "@/components/score-badge";
+import { ScoreBar } from "@/components/score-badge";
 import { CategoryBadge, StatusBadge } from "@/components/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { api, errorText } from "@/lib/api";
@@ -91,7 +92,7 @@ export default function CandidatePage() {
     );
   }
   if (!candidate) {
-    return <p className="text-muted-foreground">Loading…</p>;
+    return <p role="status" className="text-muted-foreground">Ładowanie tematu…</p>;
   }
 
   const classified = candidate.total_score !== null;
@@ -100,25 +101,29 @@ export default function CandidatePage() {
   return (
     <DemoModeProvider value={Boolean(candidate.is_demo)}>
     <ModelPricingProvider>
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <BackLink />
 
-      <PipelineGuide demo={Boolean(candidate.is_demo)} />
-
       <div className="flex flex-wrap items-start gap-5">
-        <ScoreBadge score={candidate.total_score} size="lg" />
+
         <div className="min-w-0 flex-1 space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-balance">{candidate.title}</h1>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Przestrzeń redakcyjna · temat #{id}</p>
+          <h1 className="text-lg font-semibold tracking-tight text-balance sm:text-xl">{candidate.title}</h1>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{candidate.source_name}</span>
             <span>·</span>
             <span>{formatDate(candidate.original_published_at)}</span>
-            <StatusBadge status={candidate.status} />
+            <span className="text-xs">Stan tematu:</span><StatusBadge status={candidate.status} />
+            {candidate.is_demo && <span className="rounded-full bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">Demo · bez kosztów AI</span>}
             <CategoryBadge category={candidate.category} />
           </div>
         </div>
       </div>
 
+      <CandidateScreen>
+      <WorkflowSection number={1} title="Pobranie tematu" description="Materiał źródłowy pobrany z RSS." paid={false} status="Zakończono" initiallyCollapsed
+        headerDetails={<div data-topic-details className="space-y-4 rounded-xl border bg-card p-5">
+      <PipelineGuide demo={Boolean(candidate.is_demo)} />
       <div className="flex flex-wrap items-center gap-2">
         <span className="mr-2 text-xs font-medium text-muted-foreground">Decyzja redakcyjna · bez kosztu AI</span>
         <Button onClick={() => setStatus("approved")} disabled={busy !== null || candidate.status === "approved"}>
@@ -141,7 +146,7 @@ export default function CandidatePage() {
         )}
       </div>
 
-      <WorkflowSection number={1} title="Pobranie tematu" description="Materiał źródłowy pobrany z RSS." paid={false} status="Zakończono" initiallyCollapsed
+      </div>}
         actions={<a
           href={candidate.external_url}
           target="_blank"
@@ -168,10 +173,11 @@ export default function CandidatePage() {
           {busy === "classify" ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />}
           {classificationHasRun ? "Oceń ponownie" : "Oceń temat"} · {candidate.is_demo ? "demo · bezpłatne" : "płatne"}
         </Button>}
-        summary={<UsageSummary rows={[{label: "Ocena tematu", configured: "classifier", model: candidate.llm_model, input: candidate.llm_input_tokens, output: candidate.llm_output_tokens, cost: candidate.estimated_cost_usd}]} note={classified ? `Oceniono: ${formatDate(candidate.classified_at)}. Starsze oceny mogą nie mieć zapisanych danych o zużyciu.` : "Dane zużycia pojawią się po ocenie tematu."} />}>
-        <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} />
+        activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
+      summary={<UsageSummary rows={[{label: "Ocena tematu", configured: "classifier", model: candidate.llm_model, input: candidate.llm_input_tokens, output: candidate.llm_output_tokens, cost: candidate.estimated_cost_usd}]} note={classified ? `Oceniono: ${formatDate(candidate.classified_at)}. Starsze oceny mogą nie mieć zapisanych danych o zużyciu.` : "Dane zużycia pojawią się po ocenie tematu."} />}>
+
         {classificationError && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{classificationError}</p>}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="max-w-3xl">
           <div className="space-y-4">            {classified ? (
               <>
                 <ScoreBar label="Trafność (40%)" value={candidate.relevance_score} />
@@ -200,17 +206,14 @@ export default function CandidatePage() {
                 Temat nie został oceniony. Wybierz „Oceń temat · płatne”, aby uruchomić ocenę AI.
               </p>
             )}</div>
-          <div className="space-y-3 text-sm text-muted-foreground">
-            <h3 className="font-medium text-foreground">Co robi ten etap?</h3>
-            <p>AI ocenia temat pod kątem trafności, aktualności, wyszukiwań i potencjału komercyjnego. Research możesz uruchomić także bez oceny.</p>
-            <p>Ponowna ocena zastępuje aktualną punktację. {candidate.is_demo ? "Demo nie nalicza kosztów AI." : "Każde uruchomienie nalicza nowy koszt AI."}</p>
-          </div>
+
         </div>
       </WorkflowSection>
 
       <ResearchPanel candidateId={id} onResearchChange={setResearch} />
 
       <ArticlePanel candidateId={id} candidateCategory={candidate.category} research={research} />
+      </CandidateScreen>
     </div>
     </ModelPricingProvider>
     </DemoModeProvider>
@@ -221,7 +224,7 @@ function BackLink() {
   return (
     <Link href="/" className={buttonVariants({ variant: "ghost", size: "sm", className: "-ml-2" })}>
       <ArrowLeftIcon />
-      Candidates
+      Wróć do tematów
     </Link>
   );
 }

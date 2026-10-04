@@ -7,10 +7,12 @@ export const DemoModeProvider = DemoContext.Provider;
 export const useDemoMode = () => useContext(DemoContext);
 
 export function PipelineGuide({ demo }: { demo: boolean }) {
-  return <details className="rounded-xl border bg-card p-5 shadow-sm" open={demo || undefined}>
-    <summary className="cursor-pointer text-sm font-semibold">Jak działa pipeline i kiedy dostępny jest Auto Fix?</summary>
+  return <div className="space-y-3">
+    {demo && <p className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900"><strong>Tryb demo · 0 kosztów AI.</strong> Fikcyjne dane i symulowane odpowiedzi. Instrukcję wszystkich etapów znajdziesz poniżej.</p>}
+    <details className="rounded-xl border bg-card p-4 shadow-sm">
+    <summary className="cursor-pointer rounded-sm text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">Jak działa pipeline i kiedy dostępny jest Auto Fix?</summary>
     <div className="mt-4 space-y-4 text-sm leading-relaxed text-muted-foreground">
-      {demo && <p className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sky-900"><strong>Tryb demo · 0 kosztów AI.</strong> Dane Nexa są fikcyjne. Klikane akcje używają kolejki i workera z symulowanymi odpowiedziami, bez AI i internetu. Scenariusz 01 pozwala przejść cały flow. Scenariusze opisane jako „migawka” pokazują nieruchome stany queued/running.</p>}
+      {demo && <p className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sky-900">Dane Nexa są fikcyjne. Klikane akcje używają kolejki i workera z symulowanymi odpowiedziami, bez AI i internetu. Scenariusz 01 pozwala przejść cały flow. Scenariusze opisane jako „migawka” pokazują nieruchome stany queued/running.</p>}
       <ol className="list-decimal space-y-2 pl-5">
         <li><strong className="text-foreground">Discover:</strong> zapisuje temat z RSS. W demo temat dostarcza seeder. Nie tworzy artykułu.</li>
         <li><strong className="text-foreground">Classify:</strong> ocenia temat i przypisuje kategorię. Punktacja pomaga w wyborze; nie jest warunkiem uruchomienia Research. Zatwierdzenie tematu jest osobną decyzją od approval tekstu.</li>
@@ -24,5 +26,6 @@ export function PipelineGuide({ demo }: { demo: boolean }) {
       <p>Queued → running → succeeded oznacza wykonanie zadania, a nie zatwierdzenie artykułu. Failed pozwala na retry. Jeden Auto Fix wykonuje jedną iterację; kolejna wymaga kliknięcia. Po wyczerpaniu limitu i nieudanym QA potrzebna jest ręczna weryfikacja.</p>
       {demo && <p>Pełna instrukcja i katalog scenariuszy: <code>docs/demo/README.md</code>. Ponowne <code>make seed-demo</code> dopisuje brakujące przypadki; zachowuje dotychczasowe kliknięcia oraz prawdziwe dane.</p>}
     </div>
-  </details>;
+  </details>
+  </div>;
 }

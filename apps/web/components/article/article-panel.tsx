@@ -3,24 +3,19 @@
 import { useDemoMode } from "@/components/demo-mode";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangleIcon, PencilIcon, RefreshCwIcon, SparklesIcon } from "lucide-react";
+import { RefreshCwIcon, SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { useCandidateJobs } from "@/hooks/use-candidate-jobs";
 import { JobStatus, jobStatusLabel } from "@/components/job-status";
 import { WorkflowSection } from "@/components/workflow-section";
 import { UsageSummary } from "@/components/usage-summary";
-import { ARTICLE_STATUS_LABELS } from "@/lib/article-status";
 import { articleState } from "@/lib/workflow";
-import { articleFormatLabel, legacyArticleFormat } from "@/lib/article-options";
-import { FilterSelect } from "@/components/filter-select";
 import { Button } from "@/components/ui/button";
 import { api, errorText } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import type {
   Article,
-  ArticleStatus,
   ArticleSummary,
   ArticleUpdate,
   CandidateCategory,
@@ -29,21 +24,8 @@ import type {
 } from "@/types/api";
 
 import { QAPanel } from "./qa-panel";
-import { ArticleEditor } from "./article-editor";
-import { FactUsage } from "./fact-usage";
+import { ArticleWorkspace } from "./article-workspace";
 import { GenerateArticleDialog } from "./generate-article-dialog";
-import { Markdown } from "./markdown";
-
-const STATUS_STYLES: Record<ArticleStatus, string> = {
-  needs_changes: "bg-amber-50 text-amber-900 ring-amber-200",
-  ready_for_approval: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  manual_review_required: "bg-orange-50 text-orange-900 ring-orange-200",
-  superseded: "bg-zinc-100 text-zinc-700 ring-zinc-200",
-  draft: "bg-zinc-100 text-zinc-700 ring-zinc-200",
-  review: "bg-sky-50 text-sky-800 ring-sky-200",
-  approved: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  rejected: "bg-rose-50 text-rose-800 ring-rose-200",
-};
 
 interface ArticlePanelProps {
   candidateId: number;
@@ -82,7 +64,7 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
         return true;
       } catch (error) {
         setLoadError(errorText(error));
-        toast.error("Could not load articles", { description: errorText(error) });
+        toast.error("Nie udało się wczytać artykułów", { description: errorText(error) });
         return false;
       }
     },
@@ -120,7 +102,7 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
       setEditing(false);
     } catch (error) {
       setGenerationError(errorText(error));
-      toast.error("Generation failed", { description: errorText(error) });
+      toast.error("Nie udało się wygenerować tekstu", { description: errorText(error) });
     } finally {
       setGenerating(false);
     }
@@ -138,62 +120,53 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
       const updated = await api.updateArticle(editedId, data);
       setArticle(updated);
       setEditing(false);
-      toast.success("Draft saved");
+      toast.success("Zapisano nową wersję · QA wymagane");
       await loadVersions(updated.id);
     } catch (error) {
-      toast.error("Could not save", { description: errorText(error) });
+      toast.error("Nie udało się zapisać wersji", { description: errorText(error) });
     } finally {
       setSaving(false);
     }
   }
 
+  function editArticle() {
+    if (!article || selectingVersion || jobs.active) return;
+    setEditingArticle(article); setEditing(true);
+    requestAnimationFrame(() => {
+      window.location.hash = "article-workspace";
+      window.dispatchEvent(new Event("article-workspace-read"));
+      document.getElementById("article-workspace")?.scrollIntoView({block:"start"});
+      document.getElementById("article-editor-heading")?.focus({preventScroll:true});
+    });
+  }
+
   return (
     <>
+    {article ? <ArticleWorkspace article={article} versions={versions} selecting={selectingVersion}
+      editingArticle={editing ? editingArticle : null} saving={saving} editingBlocked={Boolean(jobs.active)} onSelect={selectVersion}
+      onEdit={editArticle} onSave={save} onCancel={() => setEditing(false)} /> :
+      <section tabIndex={-1} id="article-workspace" aria-labelledby="article-empty-title" aria-busy={!loaded && !loadError} className="scroll-mt-36 rounded-xl border bg-card p-5">
+        <h2 id="article-empty-title" className="font-semibold">Wybrany artykuł</h2>
+        <p role={loadError ? "alert" : undefined} className="mt-2 text-sm text-muted-foreground">{loadError ? loadError : !loaded ? "Wczytywanie artykułów…" : researchReady ? "Nie ma jeszcze tekstu. Wygeneruj pierwszą wersję na podstawie Research." : "Najpierw ukończ Research, a następnie wygeneruj artykuł. Tutaj zobaczysz wybraną wersję."}</p>
+      </section>}
     <WorkflowSection revealEvent={`article-${article?.id}-reveal`} number={4} title="Generowanie artykułu" description="Brief i treść opracowane na podstawie ukończonego researchu." paid
       initiallyCollapsed={loaded ? versions.length > 0 : undefined}
       status={jobs.latest ? jobStatusLabel[jobs.latest.status] : loadError ? "Błąd odczytu" : generationError ? "Ostatnie uruchomienie: błąd" : articleState(Boolean(article), generating, Boolean(researchReady), loaded)}
       actions={<Button variant={generationHasRun ? "outline" : "default"} size="sm" onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generationBusy}>
         {generationHasRun ? <RefreshCwIcon /> : <SparklesIcon />}{generationHasRun ? `Nowa wersja · ${demo ? "demo · bezpłatne" : "płatne"}` : `Generuj artykuł · ${demo ? "demo · bezpłatne" : "płatne"}`}
       </Button>}
+      activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
       summary={<UsageSummary rows={[
         {label: "Brief", configured: "brief", model: article?.brief_llm_model, input: article?.brief_llm_model ? article.brief_input_tokens : null, output: article?.brief_llm_model ? article.brief_output_tokens : null, cost: article?.brief_cost_usd},
         {label: "Pisanie artykułu", configured: "writer", model: article?.llm_model, input: article?.llm_model ? article.writer_input_tokens : null, output: article?.llm_model ? article.writer_output_tokens : null, cost: article?.writer_cost_usd}
       ]} total={article?.estimated_cost_usd} note="Każda generacja tworzy nową, płatną wersję. Poprzednie wersje pozostają dostępne. Edycja i zmiana statusu nie wywołują AI." />}>
       <div className="space-y-6">
-        <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} />
+
         <div className="space-y-1 text-sm text-muted-foreground">          {loadError && <p className="text-destructive">{loadError}</p>}
           {generationError && <p className="text-destructive">{generationError} — możesz ponowić generowanie; kolejne wywołanie może naliczyć koszt.</p>}
           {article && <p>Wersja {article.version} · {formatDate(article.created_at)} · {article.word_count} słów</p>}
           {article && <p className="mt-2">Kolejny krok: sprawdź treść i przekaż do weryfikacji.</p>}
 </div>
-        {article && <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 p-3">          {article && (
-            <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium ring-1", STATUS_STYLES[article.status])}>
-              {ARTICLE_STATUS_LABELS[article.status]}
-            </span>
-          )}
-          {versions.length > 1 && article && (
-            <FilterSelect
-              label="Version"
-              disabled={editing || selectingVersion}
-              allowAll={false}
-              value={String(article.id)}
-              options={versions.map((v) => ({
-                value: String(v.id),
-                label: `Version ${v.version}${v.is_current ? " (current)" : ""}${v.is_edited ? " · edited" : ""}`,
-              }))}
-              onChange={(value) => value && void selectVersion(Number(value))}
-            />
-          )}
-
-          {article && !editing && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => { setEditingArticle(article); setEditing(true); }}>
-                <PencilIcon />
-                Edytuj
-              </Button>
-            </>
-          )}
-</div>}
         {!researchReady && (
           <p className="text-sm text-muted-foreground">Najpierw ukończ research, aby odblokować generowanie artykułu.</p>
         )}
@@ -204,11 +177,6 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
           </p>
         )}
 
-        {editingArticle && editing && (
-          <ArticleEditor key={editingArticle.id} article={editingArticle} saving={saving} onSave={save} onCancel={() => setEditing(false)} />
-        )}
-
-        {article && !editing && <ArticleBody article={article} />}
       </div>
 
       <GenerateArticleDialog
@@ -221,101 +189,27 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
         onSubmit={generate}
       />
     </WorkflowSection>
-    {versions.length > 0 && <div className="overflow-x-auto rounded-xl border bg-card p-4 text-sm">
-      <h3 className="mb-3 font-semibold">Historia wersji</h3>
-      <table className="w-full text-left"><thead><tr className="text-xs text-muted-foreground"><th className="p-2">Wersja</th><th className="p-2">Pochodzenie</th><th className="p-2">QA</th><th className="p-2">Status</th></tr></thead>
-      <tbody>{versions.map((version) => <tr key={version.id} className="border-t"><td className="p-2"><button disabled={editing || selectingVersion} className="underline" onClick={() => void selectVersion(version.id)}>v{version.version}{version.is_current ? " · current" : ""}</button></td>
-        <td className="p-2">{version.created_by ?? "generated"}</td><td className="p-2">{version.qa_score != null ? `${version.qa_score}/100` : version.qa_status === "required" ? "Wymagane" : version.qa_status ?? "—"}</td><td className="p-2">{ARTICLE_STATUS_LABELS[version.status]}</td></tr>)}</tbody></table>
-    </div>}
+    {!article && <>
+      <WorkflowSection number={5} title="QA / Fact Checker" paid status="Najpierw wygeneruj artykuł"
+        description="Sprawdza konkretną wersję tekstu względem Research." initiallyCollapsed
+        actions={<Button size="sm" disabled>Run QA</Button>} summary={<UsageSummary note="QA będzie dostępne po wygenerowaniu artykułu." />}>
+        <p className="text-sm text-muted-foreground">Brak wersji do sprawdzenia. Ukończ Research i wygeneruj artykuł.</p>
+      </WorkflowSection>
+      <WorkflowSection number={6} title="Auto Fix + Approval" paid status="Najpierw wykonaj QA"
+        description="Poprawki i zatwierdzanie zawsze dotyczą wybranej wersji artykułu." initiallyCollapsed
+        actions={<Button size="sm" disabled>Auto Fix</Button>} summary={<UsageSummary note="Poprawki wymagają ukończonego QA; approval wymaga QA passed." />}>
+        <p className="text-sm text-muted-foreground">Po QA zobaczysz dostępne poprawki. Zatwierdzanie będzie dostępne po spełnieniu wymagań jakości.</p>
+      </WorkflowSection>
+    </>}
     {article && <QAPanel key={article.id} article={article} versions={versions} onSelectVersion={selectVersion}
       onVersionCreated={async (id, sourceId) => { if (!editing) await loadVersions(id, sourceId); }}
-      onEdit={() => { setEditingArticle(article); setEditing(true); window.dispatchEvent(new Event(`article-${article.id}-reveal`)); }}
+      onEdit={editArticle}
       selectingVersion={selectingVersion} candidateId={candidateId} editing={editing} onArticleChange={async () => {
       const refreshed = await api.getArticle(article.id);
       // A completed QA read must not select an older version after the user/Write selected another.
       setArticle((current) => current?.id === refreshed.id ? refreshed : current);
       setVersions((current) => current.map((version) => version.id === refreshed.id ? {...version, ...refreshed} : version));
     }} />}
-    </>
-  );
-}
-
-function ArticleBody({ article }: { article: Article }) {
-  return (
-    <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_22rem]">
-      <article className="min-w-0">
-        <h2 className="text-3xl font-semibold tracking-tight text-balance">{article.title}</h2>
-        <p className="mt-4 text-lg leading-8 font-medium text-foreground/90">{article.lead}</p>
-        <div className="mt-2 text-[15px]">
-          <Markdown anchorPrefix={`article-${article.id}`}>{article.content}</Markdown>
-        </div>
-      </article>
-
-      <aside className="space-y-6 text-sm">
-        {article.validation_warnings.length > 0 && (
-          <section className="space-y-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
-            <p className="flex items-center gap-1.5 font-medium text-amber-900">
-              <AlertTriangleIcon className="size-4" />
-              Review warnings
-            </p>
-            <ul className="list-disc space-y-1 pl-5 text-xs text-amber-900">
-              {article.validation_warnings.map((warning, index) => (
-                <li key={index}>{warning}</li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        <section className="space-y-2">
-          <h3 className="font-semibold">Stats</h3>
-          <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-            <Stat label="Words" value={article.word_count.toLocaleString("en")} />
-            <Stat label="Sections" value={article.sections_count} />
-            <Stat label="Research facts used" value={`${article.facts_used_count} / ${article.facts_available_count}`} />
-            <Stat label="Sources referenced" value={article.source_count} />
-            <Stat label="Format" value={articleFormatLabel(article.article_format ?? legacyArticleFormat(article.article_type))} />
-            <Stat label="Created" value={formatDate(article.created_at)} />
-            <Stat label="Edited manually" value={article.is_edited ? "yes" : "no"} />
-          </dl>
-        </section>
-
-        {article.angle && <section className="space-y-2">
-          <h3 className="font-semibold">Kąt artykułu</h3>
-          <p className="text-xs">{article.angle}</p>
-        </section>}
-
-        <section className="space-y-2">
-          <h3 className="font-semibold">SEO</h3>
-          <div className="space-y-2 text-xs">
-            <div>
-              <p className="text-muted-foreground">Meta title ({article.meta_title.length})</p>
-              <p className="font-medium">{article.meta_title}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Meta description ({article.meta_description.length})</p>
-              <p>{article.meta_description}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Slug</p>
-              <p className="font-mono">{article.slug}</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="space-y-2">
-          <h3 className="font-semibold">Facts & sources used</h3>
-          <FactUsage article={article} />
-        </section>
-      </aside>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right font-medium tabular-nums">{value}</dd>
     </>
   );
 }

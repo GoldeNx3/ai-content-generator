@@ -78,13 +78,13 @@ export default function SourcesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Sources</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Źródła RSS</h1>
         <p className="text-sm text-muted-foreground">Pobieranie RSS / Atom nie wywołuje AI. Ocena, research i generowanie są uruchamiane osobno.</p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Add RSS source</CardTitle>
+          <CardTitle>Dodaj źródło RSS</CardTitle>
         </CardHeader>
         <CardContent>
           <SourceForm onCreated={load} />
@@ -94,25 +94,25 @@ export default function SourcesPage() {
       {fetchSummary && <div className="rounded-lg border bg-card px-4 py-3 text-sm" role="status">Ostatnie pobieranie: {fetchSummary}</div>}
 
       {error && (
-        <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
+        <div role="alert" className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>
       )}
 
-      <div className="overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
-        <Table>
+      <div className="min-w-0 overflow-x-auto rounded-xl bg-card ring-1 ring-foreground/10">
+        <Table aria-label="Źródła RSS">
           <TableHeader>
             <TableRow>
-              <TableHead className="pl-4">Name</TableHead>
-              <TableHead>URL</TableHead>
-              <TableHead>Active</TableHead>
-              <TableHead>Last fetched</TableHead>
-              <TableHead className="pr-4 text-right">Actions</TableHead>
+              <TableHead scope="col" className="pl-4">Nazwa</TableHead>
+              <TableHead scope="col">URL</TableHead>
+              <TableHead scope="col">Aktywne</TableHead>
+              <TableHead scope="col">Ostatnie pobranie</TableHead>
+              <TableHead scope="col" className="pr-4 text-right">Akcje</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sources?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
-                  No sources yet. Add one above or run <code>make seed</code>.
+                  Brak źródeł. Dodaj adres RSS w formularzu powyżej.
                 </TableCell>
               </TableRow>
             )}
@@ -124,7 +124,7 @@ export default function SourcesPage() {
                     href={source.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="block truncate font-mono text-xs text-muted-foreground hover:underline"
+                    className="block truncate font-mono text-xs text-muted-foreground hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                   >
                     {source.url}
                   </a>
@@ -134,11 +134,11 @@ export default function SourcesPage() {
                     type="button"
                     role="switch"
                     aria-checked={source.active}
-                    aria-label={source.active ? "Disable source" : "Enable source"}
+                    aria-label={`${source.active ? "Wyłącz" : "Włącz"} źródło: ${source.name}`}
                     disabled={busy !== null}
                     onClick={() => run(source, "toggle")}
                     className={cn(
-                      "relative inline-flex h-5 w-9 items-center rounded-full transition-colors disabled:opacity-50",
+                      "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring disabled:opacity-50",
                       source.active ? "bg-emerald-600" : "bg-zinc-300",
                     )}
                   >
@@ -151,7 +151,7 @@ export default function SourcesPage() {
                   </button>
                 </TableCell>
                 <TableCell className="text-muted-foreground" title={formatDate(source.last_fetched_at)}>
-                  {source.last_fetched_at ? timeAgo(source.last_fetched_at) : "never"}
+                  {source.last_fetched_at ? timeAgo(source.last_fetched_at) : "Nigdy"}
                 </TableCell>
                 <TableCell className="pr-4">
                   <div className="flex justify-end gap-1">
@@ -170,20 +170,21 @@ export default function SourcesPage() {
                           size="sm"
                           variant="destructive"
                           disabled={busy !== null}
+                          aria-label={`Potwierdź usunięcie źródła ${source.name} i jego tematów`}
                           onClick={() => run(source, "delete")}
                         >
-                          Delete with candidates
+                          Usuń źródło i jego tematy
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>
-                          Cancel
+                          Anuluj
                         </Button>
                       </>
                     ) : (
                       <Button
                         size="icon-sm"
                         variant="ghost"
-                        aria-label="Delete source"
-                        title="Delete"
+                        aria-label={`Usuń źródło: ${source.name}`}
+                        title="Usuń źródło i jego tematy"
                         disabled={busy !== null}
                         onClick={() => setConfirmDelete(source.id)}
                       >

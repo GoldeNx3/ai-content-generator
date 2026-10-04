@@ -100,9 +100,10 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
             {busy ? "Research w toku…" : researchHasRun ? `Nowy research · ${demo ? "demo · bezpłatne" : "płatne"}` : `Uruchom research · ${demo ? "demo · bezpłatne" : "płatne"}`}
           </Button>
         </div>}
+      activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
       summary={<UsageSummary rows={[{label: "Wyszukiwanie i analiza źródeł", aggregated: true, configured: "research", model: research?.llm_model, input: research?.llm_model ? research.llm_input_tokens : null, output: research?.llm_model ? research.llm_output_tokens : null, cost: research?.estimated_cost_usd}]} note="Dane dotyczą aktualnego raportu. Nowy research zastępuje raport; ponowna analiza korzysta z zachowanych źródeł. Każde uruchomienie nalicza nowy koszt. Opłaty wyszukiwarki nie są ujęte." />}>
       <div className="space-y-8">
-        <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} />
+
         <div className="space-y-1 text-sm text-muted-foreground">          {startError && <p className="text-destructive">{startError} — możesz ponowić uruchomienie; kolejne wywołanie może naliczyć koszt.</p>}
           {loadError && <p className="text-destructive">{loadError}</p>}
           <p>{research?.started_at ? `Uruchomiono: ${formatDate(research.started_at)}` : "Research nie został jeszcze uruchomiony."}</p>

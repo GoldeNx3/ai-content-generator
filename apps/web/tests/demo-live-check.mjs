@@ -41,7 +41,7 @@ try {
  assert.equal(await page.locator('[data-cost="paid"]').count(),0);
  const panel=page.locator('[data-workflow-step="5"]');
  const expand=panel.getByRole('button',{name:'Rozwiń',exact:true});await expand.waitFor();await expand.click();
- await panel.getByText(/1 issues · 1 auto-fixable/).waitFor();
+ await panel.getByText(/Problemy: 1 · automatycznie: 1/).waitFor();
  const fixButton=page.locator('[data-workflow-step="6"]').getByRole('button',{name:'Auto Fix · demo · bezpłatne',exact:true});
  await fixButton.click();
  for(let i=0;i<120;i++){
@@ -54,7 +54,7 @@ try {
  await page.reload();
  const approval=page.locator('[data-workflow-step="6"]');
  const show=approval.getByRole('button',{name:/^(Rozwiń|Zwiń)$/});await show.waitFor();if((await show.innerText())==='Rozwiń')await show.click();
- await approval.getByRole('button',{name:'Approve',exact:true}).click();
+ await approval.getByRole('button',{name:'Zatwierdź wersję',exact:true}).click();
  await approval.getByText(/zatwierdzon/i).first().waitFor();
  const approved=await(await fetch(`${API}/articles/${child.id}`)).json();
  assert.equal(approved.status,'approved');assert.equal(approved.parent_version_id,original.id);

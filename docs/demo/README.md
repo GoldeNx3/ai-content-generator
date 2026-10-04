@@ -23,8 +23,8 @@ Uruchamiaj demo z aktualnym API i workerem. Po aktualizacji kodu uruchom `docker
 3. Kliknij **Generuj artykuł** i potwierdź opcje. Jedno zadanie wykonuje Brief, potem Write. Powstaje v1, bez QA i bez approval.
 4. W karcie QA sprawdź **wybraną wersję** i kliknij **Run QA**. Demo Writer celowo dodaje „Nexa zwiększa produktywność o 47%.”, którego nie ma w Research. QA zgłosi high unsupported_claim; wynik nie przekroczy 75.
 5. Teraz **Auto Fix** jest dostępny w nagłówku karty **Auto Fix + Approval**. Kliknij go: wynik zapisze poprawione/pominięte issue, powstanie v2 z parent=v1, a QA v2 zostanie automatycznie dodane do kolejki. Przycisk „Otwórz nową wersję” pozwala ją wybrać. v1 pozostaje bez zmian.
-6. Po nowym QA v2 dostanie ready_for_approval, jeśli spełnia wymagania. Kliknij **Approve**. Zatwierdzisz wyłącznie tę wersję; nic nie zostanie opublikowane.
-7. Wykonaj **Edit manually** i zapisz zmianę: powstanie kolejna wersja draft, która wymaga nowego QA. Stary raport pozostaje przy starej wersji.
+6. Po nowym QA v2 dostanie ready_for_approval, jeśli spełnia wymagania. Kliknij **Zatwierdź wersję**. Zatwierdzisz wyłącznie tę wersję; nic nie zostanie opublikowane.
+7. Wykonaj **Edytuj tekst** i zapisz zmianę: powstanie kolejna wersja draft, która wymaga nowego QA. Stary raport pozostaje przy starej wersji.
 
 ## Co robi każdy etap i jakie ma warunki
 

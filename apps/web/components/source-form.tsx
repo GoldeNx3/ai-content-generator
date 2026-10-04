@@ -19,12 +19,12 @@ export function SourceForm({ onCreated }: { onCreated: () => void }) {
     setSaving(true);
     try {
       const source = await api.createSource({ name: name.trim(), url: url.trim() });
-      toast.success(`Added ${source.name}`);
+      toast.success(`Dodano źródło: ${source.name}`);
       setName("");
       setUrl("");
       onCreated();
     } catch (error) {
-      toast.error("Could not add source", { description: errorText(error) });
+      toast.error("Nie udało się dodać źródła", { description: errorText(error) });
     } finally {
       setSaving(false);
     }
@@ -32,19 +32,19 @@ export function SourceForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-      <div className="grid gap-1.5">
-        <Label htmlFor="source-name">Name</Label>
+      <div className="grid w-full gap-1.5 sm:w-auto">
+        <Label htmlFor="source-name">Nazwa źródła</Label>
         <Input
           id="source-name"
           required
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="OpenAI"
-          className="w-48"
+          className="w-full sm:w-48"
         />
       </div>
-      <div className="grid min-w-64 flex-1 gap-1.5">
-        <Label htmlFor="source-url">RSS URL</Label>
+      <div className="grid min-w-0 basis-full gap-1.5 sm:min-w-64 sm:flex-1 sm:basis-auto">
+        <Label htmlFor="source-url">Adres RSS</Label>
         <Input
           id="source-url"
           type="url"
@@ -56,7 +56,7 @@ export function SourceForm({ onCreated }: { onCreated: () => void }) {
       </div>
       <Button type="submit" disabled={saving}>
         <PlusIcon />
-        Add source
+        {saving ? "Dodawanie…" : "Dodaj źródło"}
       </Button>
     </form>
   );

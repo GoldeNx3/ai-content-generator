@@ -42,8 +42,8 @@ function headingText(node: unknown): string {
 
 export function Markdown({ children, anchorPrefix }: { children: string; anchorPrefix?: string }) {
   const headings: Components = anchorPrefix ? {
-    h2: ({children, node}) => <h2 id={sectionAnchor(anchorPrefix, headingText(node))} className="mt-8 mb-3 scroll-mt-6 text-xl font-semibold tracking-tight">{children}</h2>,
-    h3: ({children, node}) => <h3 id={sectionAnchor(anchorPrefix, headingText(node))} className="mt-6 mb-2 scroll-mt-6 text-lg font-semibold">{children}</h3>,
+    h2: ({children, node}) => <h2 id={sectionAnchor(anchorPrefix, headingText(node))} className="mt-8 mb-3 scroll-mt-36 text-xl font-semibold tracking-tight">{children}</h2>,
+    h3: ({children, node}) => <h3 id={sectionAnchor(anchorPrefix, headingText(node))} className="mt-6 mb-2 scroll-mt-36 text-lg font-semibold">{children}</h3>,
   } : {};
   return <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeHighlight, { detect: false, ignoreMissing: true }]]} components={{...COMPONENTS, ...headings}}>{children}</ReactMarkdown>;
 }

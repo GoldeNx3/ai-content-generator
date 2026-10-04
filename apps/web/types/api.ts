@@ -248,6 +248,7 @@ export interface Article extends ArticleSummary {
   angle: string | null;
   brief: {
     article_format?: ArticleFormat;
+    section_plan?: { heading: string; purpose: string; fact_ids: number[]; target_words: number; presentation?: string }[];
     primary_angle: string;
     target_audience: string;
     key_points: string[];
