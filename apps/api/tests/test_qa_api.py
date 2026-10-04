@@ -64,6 +64,7 @@ async def test_qa_queue_completed_persistent_report(client, session, execute_job
     assert job['status'] == 'succeeded' and job['result_type'] == 'article_qa'
     assert job['result_id'] == report['id'] and provider.calls == 1
     assert (await client.get(f'/api/articles/{article.id}')).json()['qa_passed']
+    assert not (await session.scalars(select(Job).where(Job.kind == 'auto_fix_article'))).all()
     again = await client.post(f'/api/articles/{article.id}/qa', headers={'Idempotency-Key': key})
     assert again.json()['id'] == response.json()['id']
     edited = (await client.patch(f'/api/articles/{article.id}', json={'meta_title': 'Inny tytuł'})).json()

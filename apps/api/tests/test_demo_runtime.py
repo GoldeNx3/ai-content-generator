@@ -54,8 +54,9 @@ async def test_demo_full_queue_flow_never_constructs_network_client(session, ses
     assert fix.issues_fixed == 1
     fixed = await session.get(Article, fix.result_article_version_id)
     assert '47%' not in fixed.content
-    # Auto Fix enqueues QA for its new version through the same service.
-    assert await worker.run_once()
+    # The corrected version waits for the editor to explicitly start QA.
+    assert not await worker.run_once()
+    await run('qa_article', {'article_id': fixed.id})
     clean = await session.scalar(select(ArticleQA).where(ArticleQA.article_id == fixed.id))
     assert clean.qa_passed
     assert clean.issues == []

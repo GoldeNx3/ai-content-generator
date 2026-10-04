@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AgentProgress } from "@/components/agent-progress";
 import { useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api";
 import { formatDate } from "@/lib/format";
@@ -47,6 +48,7 @@ export function JobDetails({ initial, onRetried }: { initial: Job; onRetried: (j
   }
 
   return <div className="space-y-5">
+    <AgentProgress key={job.id} job={job} />
     <div className="space-y-1 text-sm">
       <p className="font-medium">{KIND_LABELS[job.kind]} · {STATUS_LABELS[job.status]}</p>
       <p>{stageLabel(job.stage)} · próba {job.attempt_count}/{job.max_attempts}</p>

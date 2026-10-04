@@ -42,14 +42,17 @@ try {
  const panel=page.locator('[data-workflow-step="5"]');
  await page.getByRole('navigation',{name:'Nawigacja po temacie i artykule'}).getByRole('link',{name:'QA / jakość',exact:true}).click();
  await panel.getByText(/Problemy: 1 · automatycznie: 1/).waitFor();
- const fixButton=panel.getByRole('button',{name:'Napraw automatycznie 1 problem',exact:true});
+ await panel.getByRole('button',{name:'Przejdź do poprawek i zatwierdzenia',exact:true}).click();
+ const fixButton=page.locator('[data-workflow-step="6"]').getByRole('button',{name:'Popraw automatycznie · demo · bezpłatne',exact:true});
  await fixButton.click();
  for(let i=0;i<120;i++){
   versions=await(await fetch(`${API}/candidates/${candidate.id}/articles`)).json();
-  if(versions[0].id!==original.id && versions[0].status==='ready_for_approval')break;
+  if(versions[0].id!==original.id)break;
   await new Promise(r=>setTimeout(r,500));
  }
- const child=versions[0];assert.notEqual(child.id,original.id);assert.equal(child.status,'ready_for_approval');
+ const child=versions[0];assert.notEqual(child.id,original.id);assert.equal(child.status,'draft');
+ await finish(await call(`/articles/${child.id}/qa`));
+ const checked=await(await fetch(`${API}/articles/${child.id}`)).json();assert.equal(checked.status,'ready_for_approval');
  // Load the current version and approve through the real UI.
  await page.reload();
  const approval=page.locator('[data-workflow-step="6"]');

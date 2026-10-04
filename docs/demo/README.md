@@ -22,7 +22,7 @@ Uruchamiaj demo z aktualnym API i workerem. Po aktualizacji kodu uruchom `docker
 2. Kliknij **Uruchom research**. Po workerze zobaczysz źródła, fakty, ich powiązania, niepewności i konflikty.
 3. Kliknij **Generuj artykuł** i potwierdź opcje. Jedno zadanie wykonuje Brief, potem Write. Powstaje v1, bez QA i bez approval.
 4. W karcie QA sprawdź **wybraną wersję** i kliknij **Run QA**. Demo Writer celowo dodaje „Nexa zwiększa produktywność o 47%.”, którego nie ma w Research. QA zgłosi high unsupported_claim; wynik nie przekroczy 75.
-5. W panelu QA pojawi się **Napraw automatycznie 1 problem**. Kliknij go; ekran przejdzie do **Poprawek i zatwierdzenia**: wynik zapisze poprawione/pominięte issue, powstanie v2 z parent=v1, a QA v2 zostanie automatycznie dodane do kolejki. Przycisk „Otwórz nową wersję” pozwala ją wybrać. v1 pozostaje bez zmian.
+5. W panelu QA pojawi się **Napraw automatycznie 1 problem**. Kliknij go; ekran przejdzie do **Poprawek i zatwierdzenia**: wynik zapisze poprawione/pominięte issue, powstanie v2 z parent=v1, a QA v2 uruchamiasz osobnym kliknięciem w etapie QA. Przycisk „Otwórz nową wersję” pozwala ją wybrać. v1 pozostaje bez zmian.
 6. Po nowym QA v2 dostanie ready_for_approval, jeśli spełnia wymagania. Kliknij **Zatwierdź wersję**. Zatwierdzisz wyłącznie tę wersję; nic nie zostanie opublikowane.
 7. Wykonaj **Edytuj tekst** i zapisz zmianę: powstanie kolejna wersja draft, która wymaga nowego QA. Stary raport pozostaje przy starej wersji.
 
@@ -36,7 +36,7 @@ Uruchamiaj demo z aktualnym API i workerem. Po aktualizacji kodu uruchom `docker
 | 4. Brief | Plan: kąt, odbiorca, wymagane i opcjonalne fakty, sekcje, długość, braki dowodów. | Ukończony Research i fakty. W UI jest częścią wspólnej karty generowania, a w workerze osobnym krokiem zadania write. |
 | 5. Write | Pisze artykuł zgodnie z briefem i tworzy nową wersję z referencjami oraz snapshotem dowodów. | Ukończony Research, wolna kolejka, poprawne opcje. Nowa wersja draft nie ma ważnego QA ani approval. Regenerowanie zachowuje poprzedni tekst. |
 | 6. QA | Porównuje konkretną wersję ze snapshotem Research i briefem. Kontroluje twierdzenia, liczby, daty, cytaty, referencje, niepewności, konflikty, styl, strukturę, title/meta/slug. | Snapshot z faktami i źródłami, wolna kolejka. Bez internetu i nowego researchu. Report musi być completed i jego hash musi pasować do wersji. Backend liczy wynik i readiness. |
-| 7. Auto Fix | Minimalne poprawki wybranych problemów; bez nowych faktów, własnej wiedzy i researchu. | Najnowsze ukończone i aktualne QA, issue auto-fixable, pozostała iteracja, wolna kolejka. Nowa wersja + wyniki fixed/skipped zapisują się spójnie, po czym automatycznie kolejkuje się jej QA. |
+| 7. Auto Fix | Minimalne poprawki wybranych problemów; bez nowych faktów, własnej wiedzy i researchu. | Najnowsze ukończone i aktualne QA, issue auto-fixable, pozostała iteracja, wolna kolejka. Nowa wersja + wyniki fixed/skipped zapisują się spójnie, QA tej wersji wymaga osobnego kliknięcia. |
 | 7. Human Approval | Człowiek zatwierdza lub odrzuca konkretny ArticleVersion. | Approve wymaga aktualnego QA passed i gotowości wersji. Warnings nie muszą blokować. Nowe approval zastępuje poprzednie approved przez superseded. Reject zapisuje opcjonalny powód. Brak publikacji. |
 
 UI łączy Brief + Write w jedną kartę, dlatego numeracja kart może różnić się od siedmiu logicznych etapów. W karcie QA jest wybór wersji i informacja, której wersji dotyczy raport.
@@ -55,7 +55,7 @@ To odblokowuje **ready_for_approval**, a nie publikację. Sam wynik 90 przy niep
 
 Auto Fix nie jest uruchamiany automatycznie po niskim wyniku. Dostępność wynika z **issue**, nie z liczby punktów. Obsługiwane typy: unsupported_claim, title_mismatch, repetition, style_issue, structure_issue, seo_issue, overclaim. incorrect_number i incorrect_date tylko z jednoznacznym poprawnym faktem w Research. Flaga `auto_fixable` jest konieczna, ale backend dodatkowo sprawdza typ, dowody, ID, fragment poprawki i zakres zmian. Cytaty, sprzeczności i niebezpieczne konflikty wymagają weryfikacji ręcznej. Issue może być skipped, jeśli poprawka nie jest bezpieczna.
 
-Po Auto Fix obowiązkowo powstaje nowe QA. Gdy wszystkie poprawki są skipped i tekst się nie zmienił, nie powstaje zbędna nowa wersja ani QA. `AUTO_FIX_MAX_ITERATIONS` domyślnie 2 ogranicza zakończone próby w historii tej gałęzi; techniczne retry zadania nie jest osobną zakończoną iteracją. Po nieudanym QA i wyczerpaniu limitu: manual_review_required. Kolejny Auto Fix wymaga kliknięcia, nie ma nieskończonej pętli. Zmiana ponad `AUTO_FIX_MAX_CHANGE_RATIO` (domyślnie 0.35) może zapisać warning; poważne poprawki struktury nie są przez to automatycznie blokowane.
+Po Auto Fix nowa wersja wymaga QA; uruchom je ręcznie. Gdy wszystkie poprawki są skipped i tekst się nie zmienił, nie powstaje zbędna nowa wersja ani QA. `AUTO_FIX_MAX_ITERATIONS` domyślnie 2 ogranicza zakończone próby w historii tej gałęzi; techniczne retry zadania nie jest osobną zakończoną iteracją. Po nieudanym QA i wyczerpaniu limitu: manual_review_required. Kolejny Auto Fix wymaga kliknięcia, nie ma nieskończonej pętli. Zmiana ponad `AUTO_FIX_MAX_CHANGE_RATIO` (domyślnie 0.35) może zapisać warning; poważne poprawki struktury nie są przez to automatycznie blokowane.
 
 ## Kolejka i wersje
 
@@ -100,7 +100,7 @@ Numery odpowiadają prefiksom `[DEMO NN]` na liście tematów. Źródło i nazwy
 | 27 | `fix-running` — Auto Fix poprawia tekst | Migawka running. Aktywne zadanie blokuje drugi Auto Fix dla tego tematu. |
 | 28 | `fix-failed` — Auto Fix nieudany — retry | Zadanie failed i wyniki failed dla issue; nie utworzono częściowej wersji. Możesz ponowić zadanie. |
 | 29 | `fix-skipped` — Wszystkie poprawki pominięte | Brak bezpiecznej poprawki: skipped, bez nowej wersji i bez zbędnego QA. Wymagana ręczna weryfikacja. |
-| 30 | `fix-qa` — Nowa wersja — QA w kolejce | Auto Fix zakończony, v2 istnieje, ale jest draft. QA v1 nie przechodzi na v2. Automatycznie dodane QA v2 jest jeszcze pending. |
+| 30 | `fix-qa` — Nowa wersja — QA w kolejce | Auto Fix zakończony, v2 istnieje, ale jest draft. QA v1 nie przechodzi na v2. Ręcznie uruchomione QA v2 jest jeszcze pending. |
 | 31 | `fix-ready` — Auto Fix zakończony — Approval | v1 QA 75 → usunięcie 47% → v2 QA 95. Sprawdź Before/After i koszt 0.00; możesz zatwierdzić konkretnie v2. |
 | 32 | `fix-needs-changes` — Po poprawce nadal needs_changes | Nowe QA nadal wykrywa niepoparte twierdzenie. Pozostała jedna iteracja Auto Fix; następna nie uruchamia się samoczynnie. |
 | 33 | `fix-limit` — Limit dwóch iteracji | v1 → v2 → v3, dwa zakończone Auto Fix. QA nadal nie przechodzi, status manual_review_required i zero pozostałych prób. |

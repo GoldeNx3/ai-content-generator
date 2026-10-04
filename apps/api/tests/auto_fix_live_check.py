@@ -26,7 +26,8 @@ async def main(base_id):
         print('FIX HTTP',response.status_code,'seconds',round(time.monotonic()-started,3),flush=True);job=await wait_job(client,response.json()['id'])
         fix=(await client.get(f"/api/article-fixes/{job['result_id']}")).json();print('FIX',json.dumps(fix,ensure_ascii=False),flush=True)
         result_id=fix['result_article_version_id'];assert result_id is not None
-        qa=(await client.get(f'/api/articles/{result_id}/qa')).json();await wait_job(client,qa['job_id'])
+        response=await client.post(f'/api/articles/{result_id}/qa');response.raise_for_status()
+        await wait_job(client,response.json()['id'])
         qa=(await client.get(f'/api/articles/{result_id}/qa')).json();print('RESULT_QA',json.dumps(qa,ensure_ascii=False),flush=True);assert qa['qa_passed']
         result=(await client.get(f'/api/articles/{result_id}')).json();old=(await client.get(f"/api/articles/{source['id']}")).json()
         assert old['content']==source['content'] and old['content_hash']==source['content_hash']

@@ -3,13 +3,15 @@
 import { useDemoMode } from "@/components/demo-mode";
 import { useState } from "react";
 import { toast } from "sonner";
+import { navigateStage } from "@/components/pipeline-state";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { FilterSelect } from "@/components/filter-select";
 import { ArticlePreview } from "./article-preview";
 import { ScoreBar } from "@/components/score-badge";
 import { WorkflowSection } from "@/components/workflow-section";
 import { UsageSummary } from "@/components/usage-summary";
-import { JobStatus } from "@/components/job-status";
+import { JobStatus, jobStatusLabel } from "@/components/job-status";
 import { api, errorText } from "@/lib/api";
 import { ARTICLE_STATUS_LABELS } from "@/lib/article-status";
 import type { Article, ArticleSummary, ArticleFix, ArticleQA, Job } from "@/types/api";
@@ -28,7 +30,9 @@ export function FixApprovalPanel({article, versions, qa, fixes, jobs, error, edi
   const [reason, setReason] = useState("");
   const fix = fixes[0];
   const qaCurrent = qa?.status === "completed" && !qa.is_stale;
-  const busy = actionsLoading || selectingVersion || editing || approving || Boolean(jobs.active);
+  const busy = actionsLoading || selectingVersion || editing || approving || fixSubmitting || Boolean(jobs.active);
+  const approvalReason = article.status === "approved" ? "Ta wersja jest już zatwierdzona." :
+    article.status !== "ready_for_approval" || !qaCurrent || !qa?.qa_passed ? "Zatwierdzenie wymaga aktualnego, zaliczonego QA dla tej wersji." : null;
   async function decide(reject = false) {
     setApproving(true);
     try {
@@ -39,33 +43,41 @@ export function FixApprovalPanel({article, versions, qa, fixes, jobs, error, edi
     } catch (failure) { toast.error("Nie udało się zapisać decyzji", {description: errorText(failure)}); }
     finally { setApproving(false); }
   }
-  return <WorkflowSection number={6} title="Poprawki i zatwierdzenie" paid
-    tone={jobs.active ? "running" : undefined}
-    status={ARTICLE_STATUS_LABELS[article.status] ?? "Szkic"}
+  return <WorkflowSection progressJob={jobs.ownActive} number={6} title="Poprawki i zatwierdzenie" paid
+    tone={jobs.ownActive ? "running" : undefined}
+    status={jobs.ownActive ? jobStatusLabel[jobs.ownActive.status] : ARTICLE_STATUS_LABELS[article.status] ?? "Szkic"}
     description={`Poprawki i decyzja redakcyjna dotyczą wersji ${article.version}.`}
-    actionTitle="Decyzja redakcyjna" actionDescription={article.status === "approved" ? "Ta wersja została zatwierdzona. Decyzja jest zapisana w historii." : "Zatwierdź konkretną wersję po zaliczonym QA lub popraw pozostałe problemy."}
+    actionTitle="Poprawki i decyzja" actionDescription={article.status === "approved" ? "Ta wersja została zatwierdzona. Poprawka utworzy nową wersję wymagającą osobnego QA i zatwierdzenia." : "Najpierw zastosuj potrzebne poprawki albo zatwierdź tekst w obecnej postaci. Poprawki nie wymagają wcześniejszego zatwierdzenia."}
     actionDetails={<p className="text-sm text-slate-600">Wersja {article.version} · {ARTICLE_STATUS_LABELS[article.status]}</p>}
     actions={<>
-      <Button variant={article.status === "ready_for_approval" ? "outline" : "default"} disabled={busy || autoFixDisabledReason !== null} title={autoFixDisabledReason ?? "Auto Fix tworzy nową wersję i uruchamia jej QA."} onClick={() => void onAutoFix()}>{fixSubmitting || jobs.active?.kind === "auto_fix_article" ? "Fixing…" : `Auto Fix · ${demo ? "demo · bezpłatne" : "płatne"}`}</Button>
-      {article.status === "ready_for_approval" && <>
-        <Button disabled={busy || !qaCurrent || !qa.qa_passed} onClick={() => void decide()}>Zatwierdź wersję</Button>
-        <Button variant="outline" disabled={busy} onClick={() => setRejecting(true)}>Odrzuć wersję</Button>
-      </>}
-      <Button variant="outline" disabled={busy} onClick={onEdit}>Edytuj tekst</Button>
-      {rejecting && <div className="space-y-2"><label className="block text-sm">Powód odrzucenia (opcjonalny)<textarea className="mt-1 block w-full rounded-lg border p-2" value={reason} maxLength={2000} onChange={(event) => setReason(event.target.value)} /></label>
+      <Button variant="outline" disabled={selectingVersion || editing || fixSubmitting || Boolean(jobs.ownActive)} onClick={() => navigateStage(5)}>Przejdź do QA wybranej wersji</Button>
+      <Button variant={article.status === "approved" ? "default" : "outline"} disabled={busy || article.status !== "approved"} onClick={() => navigateStage(8)}>Przejdź do publikacji</Button>
+      <div className="action-group">
+        <p className="text-sm font-semibold">Poprawki tekstu</p>
+        <Button variant={autoFixDisabledReason === null ? "default" : "outline"} disabled={busy || autoFixDisabledReason !== null} onClick={() => void onAutoFix()}>{fixSubmitting || Boolean(jobs.ownActive) ? "Poprawianie…" : `Popraw automatycznie · ${demo ? "demo · bezpłatne" : "płatne"}`}</Button>
+        <p className="action-hint">{autoFixDisabledReason ?? `${fixableCount} sugestii do poprawy. Dostępne przed zatwierdzeniem. Tworzy nową wersję; jej QA uruchamiasz osobno.`}</p>
+        <Button variant="outline" disabled={busy} onClick={onEdit}>Edytuj tekst</Button>
+      </div>
+      <div className="action-group">
+      <p className="text-sm font-semibold">Decyzja dla wersji {article.version}</p>
+      <Button variant={article.status === "approved" || autoFixDisabledReason === null ? "outline" : "default"} disabled={busy || approvalReason !== null} onClick={() => void decide()}>{article.status === "approved" ? "Wersja zatwierdzona" : "Zatwierdź wersję"}</Button>
+      <p className="action-hint">{approvalReason ?? "Zatwierdza obecny tekst bez wykonywania poprawek. Nie uruchamia agenta ani publikacji."}</p>
+      <Button variant="outline" disabled={busy || article.status !== "ready_for_approval"} onClick={() => setRejecting(true)}>Odrzuć wersję</Button>
+      </div>
+      {rejecting && <div className="space-y-2"><label className="block text-sm">Powód odrzucenia (opcjonalny)<Textarea className="mt-2" value={reason} maxLength={2000} onChange={(event) => setReason(event.target.value)} /></label>
       <div className="flex gap-2"><Button variant="destructive" disabled={busy} onClick={() => void decide(true)}>Potwierdź odrzucenie</Button><Button variant="ghost" onClick={() => setRejecting(false)}>Anuluj</Button></div></div>}
     </>}
     headerDetails={<div className="space-y-2"><FilterSelect label="Wersja do zatwierdzenia" allowAll={false} value={String(article.id)} disabled={busy} options={versions.map(v=>({value:String(v.id),label:`Wersja ${v.version}${v.is_current ? " · najnowsza" : ""}`}))} onChange={value=>value&&void onSelectVersion(Number(value))} /><p className="font-medium">{article.title}</p><p className="text-sm text-muted-foreground">
-      {autoFixDisabledReason ?? `Problemy do poprawy: ${fixableCount}. Auto Fix utworzy nową wersję na podstawie v${article.version} i uruchomi jej QA.`}
+      {autoFixDisabledReason ?? `Problemy do poprawy: ${fixableCount}. Auto Fix utworzy nową wersję na podstawie v${article.version} — uruchom jej QA osobno.`}
     </p><a href="#article-workspace" onClick={() => window.dispatchEvent(new Event(`article-${article.id}-reveal`))} className="inline-flex min-h-9 items-center rounded px-2 text-sm font-medium underline underline-offset-4 focus-visible:outline-2">Czytaj wybrany tekst</a></div>}
     activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job: Job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
       summary={<UsageSummary rows={[{label:"Auto Fix",configured:"auto_fix",model:fix?.llm_model,
       input:fix?.llm_input_tokens,output:fix?.llm_output_tokens,cost:fix?.estimated_cost_usd}]}
-      note={`Jedno kliknięcie wykonuje jedną poprawkę oraz ${demo ? "bezpłatne demo" : "płatne"} QA nowej wersji. Zatwierdzenie nie publikuje artykułu.`} />}>
+      note="Jedno kliknięcie wykonuje jedną poprawkę. QA nowej wersji uruchamiasz osobno. Zatwierdzenie nie publikuje artykułu." />}>
 
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {fixes.map((item) => <section key={item.id} data-fix-report={item.id} className="space-y-3 rounded-lg border p-4 text-sm">
-      <p className="font-semibold">Auto Fix · próba {item.iteration} · {item.status === "completed" ? "Zakończono" : item.status === "failed" ? "Błąd" : "Fixing…"}</p>
+      <p className="font-semibold">Auto Fix · próba {item.iteration} · {item.status === "completed" ? "Zakończono" : item.status === "failed" ? "Błąd" : "Poprawianie…"}</p>
       {item.result_article_version_id && <div className="flex flex-wrap items-center gap-3">
         <p>Nowa wersja utworzona: v{versions.find((version) => version.id === item.result_article_version_id)?.version ?? "—"}</p>
         <Button disabled={busy} variant="outline" size="sm" onClick={() => void onSelectVersion(item.result_article_version_id!)}>Otwórz nową wersję</Button>

@@ -23,3 +23,17 @@ export const STATUS_STYLES: Record<JobStatus, string> = {
   succeeded: "bg-emerald-50 text-emerald-800 ring-emerald-200",
   failed: "bg-rose-50 text-rose-800 ring-rose-200",
 };
+
+export const isActiveJob = (job: Job) => ["queued", "running", "retrying"].includes(job.status);
+
+// Candidate-wide activity guards mutations; stage activity describes only this agent/version.
+export function selectStageJobs(jobs: Job[], kind: Job["kind"], articleId?: number) {
+  const history = jobs.filter(job => job.kind === kind && (articleId === undefined || job.article_id === articleId));
+  return { history, latest: history[0], active: jobs.find(isActiveJob), ownActive: history.find(isActiveJob) };
+}
+
+export function jobElapsedSeconds(job: Pick<Job, "status" | "created_at" | "started_at">, now: number): number | null {
+  const since = job.status === "queued" ? job.created_at : job.started_at ?? job.created_at;
+  const started = Date.parse(since);
+  return Number.isFinite(started) ? Math.max(0, Math.floor((now - started) / 1000)) : null;
+}

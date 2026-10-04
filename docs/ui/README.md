@@ -16,7 +16,7 @@ Stepper odbiera statusy od zamontowanych paneli przez `PipelineStateProvider`. N
 | Ocena | Rzeczywista punktacja i cztery kryteria backendu, uzasadnienie | Uruchom ocenę lub przejdź do Research |
 | Research | Wszystkie źródła, fragmenty pobranych treści, fakty z referencjami, niepewności i konflikty | Uruchom / ponów analizę lub przejdź do generowania |
 | Generowanie | Pełny tekst, wersja, podgląd, Markdown, SEO, historia | Generuj nową wersję lub przejdź do QA |
-| QA | Wynik, pięć punktacji, liczniki, karty problemów | QA, dostępny Auto Fix, ręczna poprawka lub zatwierdzenie |
+| QA | Wynik, pięć punktacji, liczniki, karty problemów | Uruchomienie QA lub przejście do etapu poprawek i zatwierdzenia |
 | Poprawki | Wyniki każdego fixa, rozwinięty diff, końcowe QA i finalny tekst | Zatwierdzenie konkretnej wersji, odrzucenie lub edycja |
 
 Nie dodano publikowania, keyword API, dodatkowych kryteriów ocen ani prognoz kosztów nieobecnych w danych. Model jest wyświetlany z konfiguracji, zużycie i koszt ze zapisanych danych. Nieznane wartości są oznaczone jako brak danych. Szczegółowe stawki i historia wywołań pozostają dostępne po rozwinięciu.
@@ -25,7 +25,7 @@ Nie dodano publikowania, keyword API, dodatkowych kryteriów ocen ani prognoz ko
 
 Wybór wersji jest wspólny dla podglądu, QA, Auto Fix i approval. Zapis ręczny tworzy nową wersję i wymaga nowego QA. Formularz pozostaje przypięty do wersji źródłowej także podczas pracy zadań w tle. Przełączanie widoków nie odmontowuje paneli ani nie resetuje edycji.
 
-Auto Fix w QA pojawia się zgodnie z istniejącymi warunkami: ukończone aktualne QA, wspierane problemy auto-fixable, wolna kolejka i pozostała iteracja. Kliknięcie używa istniejącego endpointu i otwiera śledzenie poprawek. Worker tworzy wersję i automatycznie zleca jej QA; ostatni ekran pokazuje wynik bez konieczności ręcznego przechodzenia do QA. Approval nadal wymaga aktualnego QA passed i dotyczy konkretnej wersji. Zatwierdzenie tematu to osobna decyzja.
+Auto Fix jest dostępny wyłącznie w etapie „Poprawki i zatwierdzenie”, zgodnie z warunkami: ukończone aktualne QA, wspierane problemy auto-fixable, wolna kolejka i pozostała iteracja. Przejście z QA do poprawek tylko zmienia widok. Dopiero kliknięcie Auto Fix używa istniejącego endpointu i uruchamia zadanie. Worker tworzy wersję; jej QA uruchamiasz osobno; ostatni ekran pokazuje wynik bez konieczności ręcznego przechodzenia do QA. Approval nadal wymaga aktualnego QA passed i dotyczy konkretnej wersji. Zatwierdzenie tematu to osobna decyzja.
 
 ## Statusy i dostępność
 

@@ -1,6 +1,5 @@
 import logging,time
 from copy import deepcopy
-from uuid import uuid4
 from sqlalchemy import select
 from app.models import Article,ArticleFix,ArticleFixIssue,Candidate
 from app.schemas.auto_fix import FixOutput
@@ -52,7 +51,6 @@ class ArticleAutoFixService:
         report.summary=output.summary;report.change_ratio=applied.change_ratio
         report.changes=applied.changes;report.warnings=applied.warnings;report.status='completed'
         changed=any(applied.article[k]!=payload['article'][k] for k in applied.article)
-        successor = None
         if changed:
             from app.services.article.versions import rebuild_sections
             sections=rebuild_sections(applied.article['content'],article.sections,article.research_snapshot,output.patches)
@@ -61,12 +59,8 @@ class ArticleAutoFixService:
             changes.update(sections=sections,lead_fact_ids=lead_ids)
             child=await child_version(self.session,article,changes,'auto_fix',report.iteration)
             report.result_article_version_id=child.id
-            from app.services.jobs.service import JobService
-            async def successor():
-                await JobService(self.session,self.settings).enqueue('qa_article',child.candidate_id,
-                    {'article_id':child.id},uuid4(),commit=False)
         else:
             article.status='manual_review_required'
-        await save(self.session,self.execution,result=report,successor=successor)
+        await save(self.session,self.execution,result=report)
         logger.info('Auto Fix completed article_id=%s article_version=%s fix_id=%s job_id=%s result_article_id=%s model=%s duration=%.2f fixed=%s skipped=%s change_ratio=%s tokens=%s/%s cost=%s',article.id,article.version,report.id,report.job_id,report.result_article_version_id,report.llm_model,time.perf_counter()-started,report.issues_fixed,report.issues_skipped,report.change_ratio,report.llm_input_tokens,report.llm_output_tokens,report.estimated_cost_usd)
         return report

@@ -73,17 +73,16 @@ export default function CandidatePage() {
     try {
       setCandidate(await fn());
       toast.success(message);
-      if (kind === "approved") navigateStage(2);
     } catch (actionError) {
       if (kind === "classify") setClassificationError(errorText(actionError));
-      toast.error("Action failed", { description: errorText(actionError) });
+      toast.error("Nie udało się zapisać decyzji", { description: errorText(actionError) });
     } finally {
       setBusy(null);
     }
   }
 
   const setStatus = (status: CandidateStatus) =>
-    run(status, () => api.updateCandidateStatus(id, status), `Marked as ${status}`);
+    run(status, () => api.updateCandidateStatus(id, status), ({ approved: "Temat zatwierdzony", ignored: "Temat pominięty", pending: "Temat przywrócony do oczekujących", classified: "Temat oceniony" }[status] ?? "Status tematu zapisany"));
 
   if (error) {
     return (
@@ -125,11 +124,10 @@ export default function CandidatePage() {
       <CandidateScreen>
       <WorkflowSection number={1} title="Pobranie tematu" description="Materiał źródłowy pobrany z RSS." paid={false} status="Zakończono" timestamp={candidate.created_at}
         actionTitle="Decyzja redakcyjna" actionDescription="Na podstawie wybranego materiału zdecyduj, czy chcesz kontynuować dalsze etapy."
-        actions={      <div className="flex flex-wrap items-center gap-2">
-        <span className="mr-2 text-xs font-medium text-muted-foreground">Decyzja redakcyjna · bez kosztu AI</span>
-        <Button onClick={() => setStatus("approved")} disabled={busy !== null || candidate.status === "approved"}>
+        actions={<div className="flex flex-wrap items-center gap-2">
+        <Button variant={candidate.status === "approved" ? "outline" : "default"} onClick={() => setStatus("approved")} disabled={busy !== null || candidate.status === "approved"}>
           {busy === "approved" ? <Loader2Icon className="animate-spin" /> : <CheckIcon />}
-          Zatwierdź temat
+          {candidate.status === "approved" ? "Temat zatwierdzony" : "Zatwierdź temat"}
         </Button>
         <Button
           variant="outline"
@@ -139,12 +137,12 @@ export default function CandidatePage() {
           {busy === "ignored" ? <Loader2Icon className="animate-spin" /> : <XIcon />}
           Pomiń temat
         </Button>
-        {candidate.status !== "pending" && (
-          <Button variant="ghost" onClick={() => setStatus("pending")} disabled={busy !== null}>
+        <Button variant="outline" onClick={() => navigateStage(2)}>Przejdź do oceny tematu</Button>
+        <Button variant={candidate.status === "approved" ? "default" : "outline"} onClick={() => navigateStage(3)}>Przejdź do researchu</Button>
+          <Button variant="ghost" onClick={() => setStatus("pending")} disabled={busy !== null || candidate.status === "pending"}>
             <RotateCcwIcon />
             Przywróć do oczekujących
           </Button>
-        )}
       </div>}
         resultTitle="Wybrany materiał"
         summary={<UsageSummary free note={`Pobrano: ${formatDate(candidate.created_at)} · źródło: ${candidate.source_name}`} />}>
@@ -157,11 +155,11 @@ export default function CandidatePage() {
         <PipelineGuide demo={Boolean(candidate.is_demo)} />
       </WorkflowSection>
 
-      <WorkflowSection number={2} title="Ocena tematu przez AI" description="Punktacja i uzasadnienie pomagające wybrać temat do opracowania." paid
+      <WorkflowSection progressJob={jobs.ownActive} number={2} title="Ocena tematu przez AI" description="Punktacja i uzasadnienie pomagające wybrać temat do opracowania." paid
         initiallyCollapsed={classified}
         status={jobs.latest ? jobStatusLabel[jobs.latest.status] : busy === "classify" ? "W toku" : classificationError ? "Ostatnie uruchomienie: błąd" : classified ? "Zakończono" : "Do uruchomienia"}
-        actionTitle="Decyzja" actionDescription={classified ? "Ocena jest gotowa. Przejdź do Research lub pomiń temat. Ponowna ocena używa AI." : "Uruchom ocenę tematu. Wynik pomoże zdecydować, czy warto wykonać Research."}
-        actions={<>{classified && <Button onClick={() => navigateStage(3)}>Kontynuuj do Research</Button>}<Button
+        actionTitle="Decyzja" actionDescription={classified ? "Ocena jest gotowa. Przejdź do researchu. Ponowna ocena zastąpi punktację i użyje AI." : "Uruchom ocenę tematu. Wynik pomoże zdecydować, czy warto wykonać Research."}
+        actions={<><Button variant={classified ? "default" : "outline"} onClick={() => navigateStage(3)}>Przejdź do researchu</Button><p className="action-hint">Ocena AI jest opcjonalna. Research możesz uruchomić bez punktacji.</p><Button
           size="sm"
           variant={classificationHasRun ? "outline" : "default"}
           onClick={() => void classify()}
@@ -169,7 +167,7 @@ export default function CandidatePage() {
         >
           {busy === "classify" ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />}
           {classificationHasRun ? "Oceń ponownie" : "Oceń temat"} · {candidate.is_demo ? "demo · bezpłatne" : "płatne"}
-        </Button><Button variant="outline" onClick={() => setStatus("ignored")} disabled={busy !== null || candidate.status === "ignored"}>Pomiń temat</Button></>}
+        </Button></>}
         activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
       summary={<UsageSummary rows={[{label: "Ocena tematu", configured: "classifier", model: candidate.llm_model, input: candidate.llm_input_tokens, output: candidate.llm_output_tokens, cost: candidate.estimated_cost_usd}]} note={classified ? `Oceniono: ${formatDate(candidate.classified_at)}. Starsze oceny mogą nie mieć zapisanych danych o zużyciu.` : "Dane zużycia pojawią się po ocenie tematu."} />}>
 

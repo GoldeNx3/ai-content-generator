@@ -175,3 +175,36 @@
   [data-workflow-step] header { flex-wrap: wrap; }
   [data-workflow-step] header > span { margin-left: 64px; }
 }
+
+/* Candidate workspace: predictable actions and clearly bounded form controls. */
+.candidate-screen .stage-action-buttons { display: grid; gap: 12px; }
+.candidate-screen .stage-action-buttons > div { gap: 12px; }
+.candidate-screen .action-group { border-top: 1px solid var(--border); padding-top: 16px; }
+.candidate-screen .action-hint { font-size: .8125rem; line-height: 1.5; color: var(--muted-foreground); margin: 0; }
+.candidate-screen [data-stage-actions] [data-slot="button"] {
+  width: 100%; min-height: 44px; height: auto; padding: 11px 14px; white-space: normal;
+}
+.candidate-screen button:not(:disabled), .candidate-form button:not(:disabled) { cursor: pointer; }
+.candidate-screen .research-mode {
+  display: flex; align-items: flex-start; gap: 10px; padding: 12px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--background);
+  cursor: pointer; font-size: .875rem; transition: border-color 150ms, background-color 150ms;
+}
+.candidate-screen .research-mode[data-selected="true"] { border-color: #059669; background: #ecfdf5; }
+.candidate-screen .research-mode:has(input:disabled) { cursor: not-allowed; opacity: .65; }
+.candidate-screen .research-mode input { margin-top: 3px; accent-color: #047857; flex-shrink: 0; }
+.candidate-screen .research-mode:focus-within { outline: 2px solid var(--ring); outline-offset: 2px; }
+:is(.candidate-screen, .candidate-form) :is([data-slot="input"], [data-slot="textarea"], [data-slot="select-trigger"], input:not([type="radio"]):not([type="checkbox"]), textarea, select) {
+  min-height: 44px; border: 1px solid #94a3b8; background: var(--background);
+  box-shadow: 0 1px 2px rgb(15 23 42 / .04); border-radius: 8px; padding: 10px 12px;
+  transition: border-color 150ms, box-shadow 150ms;
+}
+:is(.candidate-screen, .candidate-form) [data-slot="select-trigger"] { width: 100%; }
+:is(.candidate-screen, .candidate-form) :is(textarea, [data-slot="textarea"]) { min-height: 104px; }
+:is(.candidate-screen, .candidate-form) :is(input, textarea, select, [data-slot="select-trigger"]):focus-visible {
+  outline: 2px solid #059669; outline-offset: 2px; border-color: #059669;
+}
+:is(.candidate-screen, .candidate-form) :is(input, textarea, select, [data-slot="select-trigger"]):disabled {
+  background: var(--muted); opacity: .75; cursor: not-allowed;
+}
+.dark .candidate-screen .research-mode[data-selected="true"] { background: #022c22; border-color: #34d399; }

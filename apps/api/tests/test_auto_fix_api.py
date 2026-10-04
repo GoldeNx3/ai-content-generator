@@ -38,7 +38,7 @@ async def fix_fixture(client,session):
     return version,report
 
 
-async def test_fix_creates_version_and_enqueues_qa(client,session,execute_job):
+async def test_fix_creates_version_and_waits_for_manual_qa(client,session,execute_job):
     source,report=await fix_fixture(client,session); old=source.content
     key=str(uuid4()); url=f'/api/article-versions/{source.id}/auto-fix'
     queued=await client.post(url,headers={'Idempotency-Key':key})
@@ -54,7 +54,10 @@ async def test_fix_creates_version_and_enqueues_qa(client,session,execute_job):
     assert result['created_by']=='auto_fix' and result['auto_fix_iteration']==1
     assert result['content_hash']!=source.content_hash and not result['qa_passed']
     assert (await client.get(f'/api/articles/{source.id}')).json()['content']==old
-    assert (await client.get(f"/api/articles/{result['id']}/qa")).json()['status']=='pending'
+    assert (await client.get(f"/api/articles/{result['id']}/qa")).status_code==404
+    assert not (await session.scalars(select(Job).where(Job.kind=='qa_article'))).all()
+    assert (await client.post(f"/api/article-versions/{result['id']}/approve")).status_code==409
+    assert (await client.post(f"/api/articles/{result['id']}/qa")).status_code==202
     await execute_job({'qa_article':FakeQA()})
     result=(await client.get('/api/articles/'+str(result['id']))).json()
     assert result['status']=='ready_for_approval'
@@ -113,15 +116,16 @@ async def test_wrong_issue_id(client,session):
     source,_=await fix_fixture(client,session)
     assert (await client.post(f'/api/article-versions/{source.id}/auto-fix',json={'issue_ids':[99999]})).status_code==422
 
-async def test_transaction_rolls_back_child_if_qa_enqueue_fails(client,session,execute_job,monkeypatch):
+async def test_transaction_rolls_back_child_if_final_save_fails(client,session,execute_job,monkeypatch):
     source,_=await fix_fixture(client,session)
     queued=await client.post(f'/api/article-versions/{source.id}/auto-fix')
-    from app.services.jobs.service import JobService
-    original=JobService.enqueue
-    async def broken(self,kind,*args,**kwargs):
-        if kind=='qa_article': raise RuntimeError('Simulated transaction failure')
-        return await original(self,kind,*args,**kwargs)
-    monkeypatch.setattr(JobService,'enqueue',broken)
+    from app.services.jobs.execution import JobExecution
+    from app.models import ArticleFix
+    original=JobExecution.commit
+    async def broken(self,db_session,result=None,checkpoint=None,successor=None):
+        if isinstance(result,ArticleFix): raise RuntimeError('Simulated transaction failure')
+        return await original(self,db_session,result=result,checkpoint=checkpoint,successor=successor)
+    monkeypatch.setattr(JobExecution,'commit',broken)
     await execute_job({'auto_fix_article':FakeFix()})
     history=(await client.get(f'/api/article-versions/{source.id}/fixes')).json()
     assert history[0]['status']=='failed' and history[0]['result_article_version_id'] is None
@@ -197,19 +201,20 @@ async def test_negative_reqa_revokes_approval(client,session,execute_job):
     assert (await client.post(f'/api/article-versions/{article.id}/approve')).status_code==409
 
 async def test_checkpoint_retry_does_not_pay_or_create_duplicate_child(client,session,execute_job,monkeypatch):
-    from app.services.jobs.service import JobService
+    from app.services.jobs.execution import JobExecution
+    from app.models import ArticleFix
     from sqlalchemy import update
     from datetime import datetime,timezone
     source,_=await fix_fixture(client,session)
     response=await client.post(f'/api/article-versions/{source.id}/auto-fix')
-    enqueue=JobService.enqueue
+    commit=JobExecution.commit
     fail_once=True
-    async def retryable_successor(self,kind,*args,**kwargs):
+    async def retryable_save(self,db_session,result=None,checkpoint=None,successor=None):
         nonlocal fail_once
-        if kind=='qa_article' and fail_once:
-            fail_once=False;raise TimeoutError('Transient successor failure')
-        return await enqueue(self,kind,*args,**kwargs)
-    monkeypatch.setattr(JobService,'enqueue',retryable_successor)
+        if isinstance(result,ArticleFix) and fail_once:
+            fail_once=False;raise TimeoutError('Transient final save failure')
+        return await commit(self,db_session,result=result,checkpoint=checkpoint,successor=successor)
+    monkeypatch.setattr(JobExecution,'commit',retryable_save)
     provider=FakeFix();await execute_job({'auto_fix_article':provider})
     job=(await client.get('/api/jobs/'+response.json()['id'])).json()
     assert job['status']=='retrying' and provider.calls==1

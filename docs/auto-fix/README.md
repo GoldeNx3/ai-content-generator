@@ -7,7 +7,7 @@ iteration lineage; manual edits retain the consumed fix budget.
 ## Flow
 
 Choose a version in QA (same selection as Write). Run QA. For eligible findings,
-click **Auto Fix · płatne**. One click pays for one editing request plus successor QA.
+click **Auto Fix · płatne**. One click runs one editing request. Run QA of the new version separately.
 The queue runs independently of the browser. The fix report includes fixed/skipped/
 failed per issue, costs, change ratio and literal Before/After changes. A changed
 result creates a new current version and queues QA atomically. All-skipped/no-change
@@ -72,7 +72,7 @@ traffic): ui-check.mjs, queue-ui-check.mjs, auto-fix-ui-check.mjs.
 Paid live check is opt-in:
 `docker compose exec -T api python -u -m tests.auto_fix_live_check 7`
 It appends a clearly fabricated claim to a test child of the public SvelteKit
-article, then runs QA -> Auto Fix -> successor QA -> internal approval. It does
+article, then explicitly starts QA -> Auto Fix -> QA of the new version -> internal approval. It does
 create durable versions and incur LLM costs; it never publishes.
 
 Verified 2026-10-04: source article8/v4 got75 with one unsupported claim. Fix1

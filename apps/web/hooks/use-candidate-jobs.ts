@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, errorText } from "@/lib/api";
+import { isActiveJob, selectStageJobs } from "@/lib/jobs";
 import type { Job } from "@/types/api";
 
-export const isActiveJob = (job: Job) => ["queued", "running", "retrying"].includes(job.status);
+export { isActiveJob } from "@/lib/jobs";
 
 // Przeglądarka jedynie odczytuje stan. Worker działa niezależnie od tego hooka.
 // Powrót do zakładki natychmiast odświeża historię zapisaną w PostgreSQL.
@@ -58,6 +59,5 @@ export function useCandidateJobs(candidateId: number, kind: Job["kind"], onChang
     }
   }
 
-  const history = jobs.filter((job) => job.kind === kind && (articleId === undefined || job.article_id === articleId));
-  return { history, latest: history[0], active: jobs.find(isActiveJob), loaded, error, refresh, enqueue };
+  return { ...selectStageJobs(jobs, kind, articleId), loaded, error, refresh, enqueue };
 }

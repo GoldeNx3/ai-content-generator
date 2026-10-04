@@ -75,7 +75,7 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
       if (latest?.status === "completed" && activeFixSeen.current) {
         activeFixSeen.current = false;
         if (latest.result_article_version_id) {
-          toast.success("Nowa wersja utworzona. QA wykona się w tle.");
+          toast.success("Nowa wersja utworzona. Uruchom jej QA, gdy zechcesz ją sprawdzić.");
           await onVersionCreated(latest.result_article_version_id, article.id);
         }
       }
@@ -102,7 +102,7 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
     !fixable ? "QA nie wskazuje problemów możliwych do automatycznej poprawy." : null;
   const targetStatus = !loaded ? "Sprawdzanie historii QA…" : error ? "Nie udało się odczytać historii QA" :
     !report ? "QA jeszcze nie uruchomiono" : report.is_stale ? "QA nieaktualne · tekst zmieniony" :
-    report.status === "completed" ? `QA wykonane · ${report.overall_score}/100${report.qa_passed ? " · QA passed" : " · Wymaga weryfikacji"}` :
+    report.status === "completed" ? `QA wykonane · ${report.overall_score}/100${report.qa_passed ? " · QA zaliczone" : " · Wymaga weryfikacji"}` :
     report.status === "pending" ? "QA w kolejce" : report.status === "running" ? "QA w toku" : "QA nieudane";
   const status = error ? "Błąd odczytu" : report?.is_stale ? "Wymaga ponownej oceny" :
     jobs.latest && jobs.latest.status !== "succeeded" ? jobStatusLabel[jobs.latest.status] : qaState(report, loaded);
@@ -114,31 +114,31 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
     } catch (failure) { toast.error("Nie udało się uruchomić QA", {description: errorText(failure)}); }
     finally { setSubmitting(false); }
   }
-  return <><WorkflowSection number={5} title="QA / Fact Checker" paid status={status}
+  return <><WorkflowSection progressJob={jobs.ownActive} number={5} title="Kontrola jakości (QA)" paid status={status}
     tone={(status === "Zakończony" || status === "Zakończono") && report?.status === "completed" && !report.is_stale ? report.qa_passed ? "success" : "attention" : undefined}
     description="Kontrola faktów i jakości wybranej wersji na podstawie zapisanych dowodów."
     headerDetails={<div data-qa-target={article.id} className="space-y-2">
       <FilterSelect label="Wersja artykułu do QA" allowAll={false} value={String(article.id)}
         disabled={editing || selectingVersion || submitting}
         options={versions.map((version) => ({value: String(version.id),
-          label: `Wersja ${version.version}${version.is_current ? " · aktualna" : ""}${version.qa_passed ? " · QA passed" : ""}`}))}
+          label: `Wersja ${version.version}${version.is_current ? " · aktualna" : ""}${version.qa_passed ? " · QA zaliczone" : ""}`}))}
         onChange={(value) => value && void onSelectVersion(Number(value))} />
       <p className="text-xs font-medium text-muted-foreground">Artykuł wybrany do QA · Wersja {article.version}</p>
       <p className="break-words text-sm font-semibold">{article.title}</p>
       <p data-qa-target-status className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${report?.status === "completed" && !report.is_stale ? "bg-emerald-50 text-emerald-800" : "bg-muted text-muted-foreground"}`}>{targetStatus}</p>
-      <p className="text-xs text-muted-foreground">Run QA sprawdzi wybraną wersję. Wybór jest wspólny z podglądem artykułu.</p>
+      <p className="text-xs text-muted-foreground">QA sprawdzi wybraną wersję. Wybór jest wspólny z podglądem artykułu.</p>
       <a href="#article-workspace" onClick={() => window.dispatchEvent(new Event(`article-${article.id}-reveal`))} className="inline-flex min-h-9 items-center rounded px-2 text-sm font-medium underline underline-offset-4 focus-visible:outline-2">Czytaj wybrany tekst</a>
     </div>}
     initiallyCollapsed={loaded ? report?.status === "completed" && !report.is_stale : undefined}
-    actionTitle="Wynik QA" actionDescription={report?.qa_passed && !report.is_stale ? "Kontrola została zaliczona. Przejdź do decyzji redakcyjnej dla tej wersji." : "Przejrzyj problemy. Auto Fix poprawia tylko wskazane przez QA, bezpieczne do zmiany fragmenty."}
+    actionTitle="Wynik QA" actionDescription="QA ocenia tekst i wskazuje problemy. Poprawki oraz decyzja redakcyjna są w etapie „Poprawki i zatwierdzenie”."
     actionDetails={report?.status === "completed" && <p className="text-sm text-slate-600">{report.issues.length} problemów · {fixable} automatycznych · {report.issues.length - fixable} do ręcznej oceny</p>}
     actions={<>
-      {report?.qa_passed && !report.is_stale && <Button onClick={() => navigateStage(6)}>Przejdź do zatwierdzenia</Button>}
-      {report?.status === "completed" && !report.qa_passed && autoFixDisabledReason === null && <Button title="Auto Fix tworzy nową wersję i uruchamia jej QA, bez dodawania nowych faktów." onClick={() => void runFix()}>Napraw automatycznie {fixable} {fixable === 1 ? "problem" : "problemy"}</Button>}
-      {report?.status === "completed" && !report.qa_passed && <Button variant={autoFixDisabledReason === null ? "outline" : "default"} disabled={editing || selectingVersion} onClick={onEdit}>Popraw ręcznie</Button>}
-      <Button size="sm" variant={report ? "outline" : "default"} disabled={busy} onClick={() => void run()}>
-        {report ? <RefreshCwIcon /> : <ShieldCheckIcon />}{report ? `Run QA ponownie · ${demo ? "demo · bezpłatne" : "płatne"}` : `Run QA · ${demo ? "demo · bezpłatne" : "płatne"}`}
+      <Button variant={report?.status === "completed" && !report.is_stale ? "outline" : "default"} disabled={busy} onClick={() => void run()}>
+        {report ? <RefreshCwIcon /> : <ShieldCheckIcon />}{report ? `Uruchom QA ponownie · ${demo ? "demo · bezpłatne" : "płatne"}` : `Uruchom QA · ${demo ? "demo · bezpłatne" : "płatne"}`}
       </Button>
+      {editing && <p className="action-hint">Zapisz lub anuluj edycję przed uruchomieniem QA.</p>}
+      <Button variant={report?.status === "completed" && !report.is_stale ? "default" : "outline"} disabled={editing || selectingVersion} onClick={() => navigateStage(6)}>Przejdź do poprawek i zatwierdzenia</Button>
+      <p className="action-hint">Otwiera etap 6. Nie uruchamia poprawek ani nie zatwierdza tekstu.</p>
     </>}
 
     activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active}
@@ -172,7 +172,7 @@ function QualityReport({report, article}: {report: ArticleQA; article: Article})
       <div><h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Raport jakości</h3>
         <p className="mt-2 text-5xl font-semibold tabular-nums">{report.overall_score}<span className="text-base text-muted-foreground"> / 100</span></p></div>
       <span className={`rounded-full px-3 py-1 text-sm font-medium ${report.qa_passed ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
-        {report.is_stale ? "Ocena nieaktualna" : report.qa_passed ? "QA passed" : "Wymaga weryfikacji"}</span>
+        {report.is_stale ? "Ocena nieaktualna" : report.qa_passed ? "QA zaliczone" : "Wymaga weryfikacji"}</span>
     </div>
     <div className="grid gap-4 sm:grid-cols-2">{scores.map(([label, value]) => <ScoreBar key={label} label={label} value={value} />)}</div>
     <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -181,7 +181,7 @@ function QualityReport({report, article}: {report: ArticleQA; article: Article})
         <div key={label} className={`rounded-lg border p-3 ${Number(value) > 0 && label === "Krytyczne problemy" ? "border-rose-200 bg-rose-50 text-rose-900" : Number(value) > 0 && (label === "Niepoparte twierdzenia" || label === "Ostrzeżenia") ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-700"}`}><dt className="text-xs">{label}</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{value}</dd></div>)}
     </dl>
     <p className="text-sm leading-relaxed">{report.summary}</p>
-    <p className="text-xs text-muted-foreground">Próg QA passed: {report.pass_score}/100, bez krytycznych problemów i niepopartych twierdzeń.</p>
+    <p className="text-xs text-muted-foreground">Próg QA zaliczone: {report.pass_score}/100, bez krytycznych problemów i niepopartych twierdzeń.</p>
     <div className="space-y-3">{report.issues.map((issue) => <IssueCard key={issue.id} issue={issue} article={article} stale={report.is_stale} />)}</div>
     {report.issues.length === 0 && <p className="text-sm text-emerald-800">Nie wykryto problemów.</p>}
   </div>;

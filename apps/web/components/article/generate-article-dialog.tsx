@@ -52,7 +52,7 @@ export function GenerateArticleDialog(props: GenerateArticleDialogProps) {
   );
 }
 
-function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit }: GenerateArticleDialogProps) {
+function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit, onOpenChange }: GenerateArticleDialogProps) {
   const demo = useDemoMode();
   const initial = generationDefaults(defaults);
   const [articleFormat, setArticleFormat] = useState<ArticleFormat | "auto">(initial.article_format ?? "auto");
@@ -72,7 +72,7 @@ function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit }: Gener
   }
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-4">
+    <form onSubmit={handleSubmit} className="candidate-form grid gap-5">
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>
@@ -80,9 +80,9 @@ function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit }: Gener
         </DialogDescription>
       </DialogHeader>
 
-      <PaidNotice>Uruchomisz AI do przygotowania briefu i artykułu. Powstanie nowa wersja; poprzednie pozostaną dostępne.</PaidNotice>
+      {demo ? <p className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">Demo: brief i nowa wersja artykułu powstaną bez kosztów AI.</p> : <PaidNotice>Uruchomisz AI do przygotowania briefu i artykułu. Powstanie nowa wersja; poprzednie pozostaną dostępne.</PaidNotice>}
 
-      <div className="grid gap-3">
+      <div className="grid gap-4 rounded-xl border bg-muted/20 p-4">
         <FilterSelect
           label="Format artykułu"
           allowAll={false}
@@ -119,16 +119,15 @@ function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit }: Gener
             {suggestedAngle && <span className="mt-0.5 block text-xs text-muted-foreground">{suggestedAngle}</span>}
           </span>
         </label>
-        {!useSuggestedAngle && (
-          <Textarea
-            id="article-angle"
-            value={angle}
-            onChange={(event) => setAngle(event.target.value)}
-            placeholder="Np. Dlaczego przeniesienie komponentów nie wystarczyło, by zakończyć migrację?"
-            maxLength={1000}
-            required
-          />
-        )}
+        <Textarea
+          id="article-angle"
+          value={useSuggestedAngle ? suggestedAngle ?? "Perspektywa zostanie dobrana na podstawie researchu." : angle}
+          disabled={useSuggestedAngle || busy}
+          onChange={(event) => setAngle(event.target.value)}
+          placeholder="Jakie pytanie ma wyjaśnić artykuł?"
+          maxLength={1000}
+          required={!useSuggestedAngle}
+        />
       </div>
 
       <div className="grid gap-2">
@@ -146,6 +145,7 @@ function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit }: Gener
       </div>
 
       <DialogFooter>
+        <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Anuluj</Button>
         <Button type="submit" disabled={busy}>
           {busy ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />}
           {busy ? "Zapisywanie w kolejce…" : demo ? "Generuj · bezpłatne demo" : "Generuj · płatne wywołanie AI"}

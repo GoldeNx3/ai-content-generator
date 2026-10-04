@@ -180,3 +180,37 @@ def test_labeled_excerpt_never_accepts_invented_or_factual_composites(kind,excer
     from app.services.llm.base import LLMError
     data=payload();data['article']['meta_title']='Claude w Barclays'
     with pytest.raises(LLMError):validate_output(output(issues=[issue(kind,'warning',excerpt)]),data,[])
+
+
+EDITORIAL_EXCERPT = ('Każdy zakończony epizod przez interfejs OpenEnv zwraca binarny wynik pass/fail. '
+    'Adapter zapisuje błędy operacyjne osobno, aby umożliwić ponowienie prób. '
+    'Wynik kanoniczny musi je rozwiązać lub jawnie uwzględnić; '
+    'w opublikowanych wynikach autorzy zaliczyli błędy systemowe do nieudanych prób.')
+
+
+def test_editorial_excerpt_recovers_unique_minor_inflection_errors():
+    data = payload()
+    data['article']['content'] = EDITORIAL_EXCERPT
+    quoted = EDITORIAL_EXCERPT.replace('Każdy zakończony', 'Każde zakończone')
+    checked = validate_output(output(issues=[issue('style_issue', 'info', quoted)]), data, [])
+    assert checked.issues[0].excerpt == EDITORIAL_EXCERPT
+
+
+@pytest.mark.parametrize('kind,severity,change', [
+    ('unsupported_claim', 'info', 'inflection'),
+    ('style_issue', 'high', 'inflection'),
+    ('style_issue', 'info', 'number'),
+    ('style_issue', 'info', 'paraphrase'),
+    ('style_issue', 'info', 'ambiguous'),
+])
+def test_editorial_excerpt_recovery_never_accepts_factual_changes_or_ambiguous_anchors(kind, severity, change):
+    from app.services.llm.base import LLMError
+    data = payload()
+    actual = EDITORIAL_EXCERPT + ' Zapisano 20 prób.'
+    data['article']['content'] = actual
+    quoted = actual.replace('Każdy zakończony', 'Każde zakończone')
+    if change == 'number': quoted = actual.replace('20', '21')
+    if change == 'paraphrase': quoted = actual.replace('binarny wynik', 'odpowiedni rezultat')
+    if change == 'ambiguous': data['article']['content'] += '\n\n' + actual
+    with pytest.raises(LLMError, match='fragment'):
+        validate_output(output(issues=[issue(kind, severity, quoted)]), data, [])

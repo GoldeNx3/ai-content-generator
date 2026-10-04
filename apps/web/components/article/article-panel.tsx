@@ -89,7 +89,7 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
   const jobs = useCandidateJobs(candidateId, "write", loadVersions);
   const generationBusy = generating || Boolean(jobs.active) || !jobs.loaded;
 
-  const researchReady = research?.status === "completed";
+  const researchReady = research?.status === "completed" && research.facts.length > 0;
   const generationHasRun = versions.length > 0 || jobs.history.length > 0;
 
   async function generate(options: GenerateArticleRequest) {
@@ -144,13 +144,13 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
 
   return (
     <>
-    <WorkflowSection revealEvent={`article-${article?.id}-reveal`} number={4} title="Generowanie artykułu" description="Brief i treść opracowane na podstawie ukończonego researchu." paid
+    <WorkflowSection progressJob={jobs.ownActive} revealEvent={`article-${article?.id}-reveal`} number={4} title="Generowanie artykułu" description="Brief i treść opracowane na podstawie ukończonego researchu." paid
       initiallyCollapsed={loaded ? versions.length > 0 : undefined}
       status={jobs.latest ? jobStatusLabel[jobs.latest.status] : loadError ? "Błąd odczytu" : generationError ? "Ostatnie uruchomienie: błąd" : articleState(Boolean(article), generating, Boolean(researchReady), loaded)}
       actionTitle="Generowanie" actionDescription={article ? "Tekst jest gotowy. Sprawdź wybraną wersję i przejdź do kontroli jakości. Ponowna generacja utworzy nową wersję i naliczy koszt AI." : "Wybierz format, długość i perspektywę tekstu. Brief i artykuł powstaną w jednym zadaniu."}
-      actions={<>{article && <Button onClick={() => navigateStage(5)}>Przejdź do QA</Button>}<Button variant={generationHasRun ? "outline" : "default"} size="sm" onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generationBusy}>
+      actions={<><Button variant={article ? "default" : "outline"} disabled={!article || generationBusy || editing || selectingVersion} onClick={() => navigateStage(5)}>Przejdź do QA</Button>{!article && <p className="action-hint">Wymaga wygenerowanego artykułu.</p>}<Button variant={generationHasRun ? "outline" : "default"} size="sm" onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generationBusy || editing || selectingVersion}>
         {generationHasRun ? <RefreshCwIcon /> : <SparklesIcon />}{generationHasRun ? `Nowa wersja · ${demo ? "demo · bezpłatne" : "płatne"}` : `Generuj artykuł · ${demo ? "demo · bezpłatne" : "płatne"}`}
-      </Button></>}
+      </Button>{editing && <p className="action-hint">Zapisz lub anuluj edycję przed generowaniem nowej wersji.</p>}{!researchReady && <p className="action-hint">Ukończ research ze zweryfikowanymi faktami, aby odblokować generowanie.</p>}</>}
       activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
       summary={<UsageSummary rows={[
         {label: "Brief", configured: "brief", model: article?.brief_llm_model, input: article?.brief_llm_model ? article.brief_input_tokens : null, output: article?.brief_llm_model ? article.brief_output_tokens : null, cost: article?.brief_cost_usd},
@@ -194,15 +194,22 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
       />
     </WorkflowSection>
     {!article && <>
-      <WorkflowSection number={5} title="QA / Fact Checker" paid status="Najpierw wygeneruj artykuł"
+      <WorkflowSection number={5} title="Kontrola jakości (QA)" paid status="Najpierw wygeneruj artykuł"
         description="Sprawdza konkretną wersję tekstu względem Research." initiallyCollapsed
-        actions={<Button size="sm" disabled>Run QA</Button>} summary={<UsageSummary note="QA będzie dostępne po wygenerowaniu artykułu." />}>
+        actions={<Button disabled>Uruchom QA</Button>} summary={<UsageSummary note="QA będzie dostępne po wygenerowaniu artykułu." />}>
         <p className="text-sm text-muted-foreground">Brak wersji do sprawdzenia. Ukończ Research i wygeneruj artykuł.</p>
       </WorkflowSection>
-      <WorkflowSection number={6} title="Auto Fix + Approval" paid status="Najpierw wykonaj QA"
+      <WorkflowSection number={6} title="Poprawki i zatwierdzenie" paid status="Najpierw wykonaj QA"
         description="Poprawki i zatwierdzanie zawsze dotyczą wybranej wersji artykułu." initiallyCollapsed
-        actions={<Button size="sm" variant="outline" onClick={() => navigateStage(5)}>Przejdź do QA</Button>} summary={<UsageSummary note="Poprawki wymagają ukończonego QA; approval wymaga QA passed." />}>
+        actions={<><Button disabled>Zatwierdź wersję</Button><p className="action-hint">Wymaga artykułu i aktualnego, zaliczonego QA.</p><Button variant="outline" disabled>Popraw automatycznie</Button><Button variant="outline" disabled>Edytuj tekst</Button><Button variant="outline" onClick={() => navigateStage(4)}>Przejdź do generowania</Button></>} summary={<UsageSummary note="Poprawki wymagają ukończonego QA; zatwierdzenie wymaga aktualnego, zaliczonego QA." />}>
         <p className="text-sm text-muted-foreground">Po QA zobaczysz dostępne poprawki. Zatwierdzanie będzie dostępne po spełnieniu wymagań jakości.</p>
+      </WorkflowSection>
+      <WorkflowSection number={8} title="Publikacja w WordPressie" paid={false} status="Najpierw przygotuj artykuł"
+        description="Ustawienia publikacji i wysyłka zatwierdzonej wersji do WordPressa."
+        actionTitle="Publikacja" actionDescription="Przygotuj artykuł, zalicz QA i zatwierdź wybraną wersję."
+        actions={<><Button disabled>Utwórz szkic w WordPressie</Button><Button variant="outline" disabled>Opublikuj teraz</Button><Button variant="outline" disabled>Zaplanuj publikację</Button><p className="action-hint">Wymaga zatwierdzonej wersji z aktualnym, zaliczonym QA.</p></>}
+        summary={<UsageSummary free note="Wysyłka artykułu nie wywołuje AI." />}>
+        <p className="text-sm text-muted-foreground">Ustawienia publikacji pojawią się po wygenerowaniu artykułu. Najpierw przygotuj tekst.</p>
       </WorkflowSection>
     </>}
     {article && <QAPanel key={`qa-${article.id}`} article={article} versions={versions} onSelectVersion={selectVersion}

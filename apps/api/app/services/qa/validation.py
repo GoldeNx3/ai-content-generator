@@ -103,6 +103,45 @@ def literal_seo_excerpt(item, article):
     return item.model_copy(update={'excerpt':article[field],'section_heading':heading})
 
 
+def literal_editorial_excerpt(item, article):
+    """Recover a unique long quote with at most two single-letter ending errors.
+
+    Only low-severity editorial observations qualify. Facts, numbers, short
+    quotes, paraphrases and ambiguous matches retain strict literal validation.
+    Always return the actual stored text, never a corrected model paraphrase.
+    """
+    if item.type not in {'style_issue', 'structure_issue', 'repetition'} or item.severity not in {'info', 'warning'} or item.fact_ids:
+        return item
+    quoted = normalize(item.excerpt).split()
+    if len(quoted) < 20:
+        return item
+    matches = []
+    for field in ('title', 'lead', 'content', 'meta_title', 'meta_description', 'slug'):
+        text = article.get(field) or ''
+        tokens = list(re.finditer(r'\S+', text))
+        words = [token.group().casefold() for token in tokens]
+        for start in range(len(words) - len(quoted) + 1):
+            errors = 0
+            for expected, actual in zip(quoted, words[start:start + len(quoted)]):
+                if expected == actual:
+                    continue
+                if (len(expected) < 4 or len(expected) != len(actual) or
+                        not expected.isalpha() or not actual.isalpha() or
+                        expected[:-1] != actual[:-1]):
+                    break
+                errors += 1
+                if errors > 2:
+                    break
+            else:
+                matches.append(text[tokens[start].start():tokens[start + len(quoted) - 1].end()])
+                if len(matches) > 1:
+                    return item
+    if len(matches) == 1:
+        logger.warning('QA recovered minor editorial quote ending errors type=%s', item.type)
+        return item.model_copy(update={'excerpt': matches[0]})
+    return item
+
+
 def validate_output(output, payload, reference_issues):
     output = QAOutput.model_validate(output)
     facts, sources = reference_sets(payload)
@@ -110,6 +149,10 @@ def validate_output(output, payload, reference_issues):
                             for name in ('title', 'lead', 'content', 'meta_title', 'meta_description', 'slug'))
     normalized_text = normalize(article_text)
     output=output.model_copy(update={'issues':[literal_seo_excerpt(item,payload['article']) for item in output.issues]})
+    output = output.model_copy(update={'issues': [
+        literal_editorial_excerpt(item, payload['article'])
+        if item.excerpt and normalize(item.excerpt) not in normalized_text else item
+        for item in output.issues]})
     for item in output.issues:
         if item.excerpt and normalize(item.excerpt) not in normalized_text:
             raise LLMError('Odpowiedź QA zawiera fragment spoza aktualnego artykułu.', code='invalid_output')

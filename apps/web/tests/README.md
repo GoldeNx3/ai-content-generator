@@ -17,7 +17,7 @@ QA checks cover queue/running/completed states, reload, five scores and counters
 issues, costs, retry, stale reports after editing, jumping to a collapsed section,
 and mobile width. The queue fixture includes a `qa_article` job.
 
-`auto-fix-ui-check.mjs` sprawdza kolejkę Auto Fix, nową wersję z automatycznym QA,
+`auto-fix-ui-check.mjs` sprawdza kolejkę Auto Fix, nową wersję z ręcznie uruchamianym QA,
 raport fixed/skipped i Before/After, approval konkretnej wersji, blokadę decyzji
 podczas zmiany wersji, immutable manual edit oraz mobile. Wszystkie API są mockowane.
 
@@ -33,4 +33,20 @@ Testy UI obejmują stale widoczny obszar „Wybrany artykuł”, wspólny wybór
 
 `candidate-navigation-live-check.mjs` sprawdza rzeczywistą stronę istniejącego tematu bez zmian danych: siedem widoków, aktywną nawigację, izolację paneli, Wstecz/Dalej, historię wersji, czytanie, brak przewijania poziomego na komputerze/tablecie/telefonie oraz link pomijający nawigację. Ustaw `UI_TEST_CANDIDATE` na temat z wygenerowanym artykułem (domyślnie demo 259), `UI_TEST_PORT` i opcjonalnie `PLAYWRIGHT_MODULE`. Test wymaga gotowej aplikacji; nie uruchamia AI ani jobów.
 
-Widok pipeline ma sześć etapów i wspólny sidebar. `candidate-navigation-live-check.mjs` sprawdza wszystkie etapy w trzech szerokościach, stepper i mobilny wybór etapu, główny wynik, sidebar, pomoc, podgląd/SEO/historię oraz Wstecz/Dalej. `auto-fix-ui-check.mjs` zaczyna naprawę w QA i sprawdza automatyczne przejście do śledzenia poprawek i nowego QA. Testy nie wymagają nowych endpointów.
+Widok pipeline ma sześć etapów i wspólny sidebar. `candidate-navigation-live-check.mjs` sprawdza wszystkie etapy w trzech szerokościach, stepper i mobilny wybór etapu, główny wynik, sidebar, pomoc, podgląd/SEO/historię oraz Wstecz/Dalej. `auto-fix-ui-check.mjs` sprawdza przejście z QA do poprawek bez uruchomienia zadania, ręczny start Auto Fix w etapie 6 i osobne uruchomienie nowego QA. Testy nie wymagają nowych endpointów.
+
+
+`candidate-actions-ui-check.mjs` sprawdza jeden przycisk researchu i wybór trybu
+(analiza zachowanych źródeł / nowe wyszukiwanie), właściwe endpointy, stale
+widoczne akcje z wymaganiami, czytelne pola oraz siedem etapów w szerokościach
+375, 768, 1024 i 1440 px. Wszystkie API są mockowane; test nie uruchamia AI.
+Przykład: `UI_TEST_PORT=3001 PLAYWRIGHT_MODULE=/ścieżka/do/playwright node tests/candidate-actions-ui-check.mjs`.
+Zrzuty: `/tmp/candidate-actions-*.png`. Test Auto Fix obejmuje również przejście
+zatwierdzonej wersji do WordPressa i układ formularza publikacji na telefonie.
+
+
+Wspólny `AgentProgress` pokazuje fazę i czas pracy oceny, researchu, pisania,
+QA i Auto Fix. Test Auto Fix sprawdza też izolację aktywności (QA nie oznacza
+poprawek jako uruchomionych), przyrost sekund i zachowanie licznika po reloadzie.
+Nowa wersja po naprawie czeka na ręczne uruchomienie QA; zatwierdzenie również
+wymaga osobnego kliknięcia.

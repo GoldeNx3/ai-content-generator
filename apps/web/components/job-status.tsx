@@ -5,7 +5,7 @@ import { useDemoMode } from "@/components/demo-mode";
 import { CheckCircle2Icon, CircleIcon, AlertCircleIcon, Loader2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api";
-import { isActiveJob } from "@/hooks/use-candidate-jobs";
+import { isActiveJob, STAGE_LABELS as stages } from "@/lib/jobs";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import type { Job, JobAttempt } from "@/types/api";
@@ -13,15 +13,6 @@ import type { Job, JobAttempt } from "@/types/api";
 export const jobStatusLabel: Record<Job["status"], string> = {
   queued: "W kolejce", running: "W toku", retrying: "Oczekuje na ponowienie", succeeded: "Zakończono", failed: "Błąd",
 };
-const stages: Record<string, string> = {
-  fact_checking: "Weryfikacja faktów", validating_references: "Sprawdzanie referencji", validating_qa: "Walidacja raportu QA",
-  fixing_article: "Poprawianie artykułu", validating_fix: "Walidacja poprawek",
-  classifying: "Ocena tematu", fetching_original: "Pobieranie oryginału",
-  discovering_sources: "Szukanie źródeł", fetching_sources: "Pobieranie źródeł",
-  analysing: "Analiza faktów", building_brief: "Przygotowanie briefu",
-  writing: "Pisanie artykułu", validating: "Sprawdzenie artykułu", saving: "Zapis wyniku",
-};
-
 export function JobStatus({ jobs, active, error, onRetry }: {
   jobs: Job[]; active?: Job; error: string | null; onRetry: (job: Job) => Promise<unknown>;
 }) {
@@ -58,7 +49,6 @@ export function JobStatus({ jobs, active, error, onRetry }: {
     {active && active.kind !== job?.kind && <p>Dla tego tematu trwa inne zadanie · {jobStatusLabel[active.status]}.</p>}
     {job && <>
       <ol className="space-y-5 border-l border-slate-200 pl-5"><li className="relative"><Icon className={`absolute -left-[30px] top-0.5 size-5 bg-white ${color} ${job.status === "running" ? "animate-spin" : ""}`} /><p className={`font-medium ${color}`}>{jobStatusLabel[job.status]}{job.stage && stages[job.stage] && ` · ${stages[job.stage]}`}</p><p className="mt-1 text-xs text-muted-foreground">{formatDate(job.finished_at ?? job.started_at ?? job.created_at)}</p></li></ol>
-      {isActiveJob(job) && <p className="text-muted-foreground">Możesz opuścić ten ekran. Wynik pojawi się po zakończeniu zadania.</p>}
       {job.status === "retrying" && <p>Ponowienie najwcześniej: {formatDate(job.available_at)}</p>}
       {job.error_message && job.status !== "succeeded" && <p className="text-destructive">{job.error_message}</p>}
       {job.status === "failed" && <Button size="sm" variant="outline" disabled={retrying || Boolean(active)} onClick={() => void retry()}>Ponów zadanie · {demo ? "demo · bezpłatne" : "płatne"}</Button>}
