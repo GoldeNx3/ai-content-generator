@@ -1,5 +1,7 @@
 "use client";
 
+import { useDemoMode } from "@/components/demo-mode";
+
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangleIcon, FlaskConicalIcon, Loader2Icon, RefreshCwIcon, SplitIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +29,7 @@ interface ResearchPanelProps {
 }
 
 export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelProps) {
+  const demo = useDemoMode();
   const [research, setResearch] = useState<Research | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -89,12 +92,12 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
           {research && research.sources.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => trigger("retry")} disabled={busy || !loaded}>
               <RefreshCwIcon />
-              Ponów analizę · płatne
+              Ponów analizę · {demo ? "demo · bezpłatne" : "płatne"}
             </Button>
           )}
           <Button variant={researchHasRun ? "outline" : "default"} size="sm" onClick={() => trigger("start")} disabled={busy || !loaded}>
             {busy ? <Loader2Icon className="animate-spin" /> : <FlaskConicalIcon />}
-            {busy ? "Research w toku…" : researchHasRun ? "Nowy research · płatne" : "Uruchom research · płatne"}
+            {busy ? "Research w toku…" : researchHasRun ? `Nowy research · ${demo ? "demo · bezpłatne" : "płatne"}` : `Uruchom research · ${demo ? "demo · bezpłatne" : "płatne"}`}
           </Button>
         </div>}
       summary={<UsageSummary rows={[{label: "Wyszukiwanie i analiza źródeł", aggregated: true, configured: "research", model: research?.llm_model, input: research?.llm_model ? research.llm_input_tokens : null, output: research?.llm_model ? research.llm_output_tokens : null, cost: research?.estimated_cost_usd}]} note="Dane dotyczą aktualnego raportu. Nowy research zastępuje raport; ponowna analiza korzysta z zachowanych źródeł. Każde uruchomienie nalicza nowy koszt. Opłaty wyszukiwarki nie są ujęte." />}>

@@ -15,6 +15,7 @@ const jobs = Array.from({length:27},(_,index)=>({
  result_type:index%5===4?'article':null,result_id:index%5===4?index+1:null,
  error_code:index%5===0?'llm_http_503':null,error_message:index%5===0?'Dostawca nie odpowiedział.':null,
 }));
+jobs[3].kind='qa_article';
 const attempts = () => [{number:1,started_at:stamp,finished_at:stamp,outcome:'failed',error_message:'Dostawca nie odpowiedział.',llm_calls:[
  {stage:'building_brief',finished:true,estimated_cost_usd:'0.001200',usage:{model:'test-model',input_tokens:120,output_tokens:30}},
  {stage:'writing',finished:false,estimated_cost_usd:null,usage:null},
@@ -27,7 +28,7 @@ try {
  const page=await browser.newPage({viewport:{width:1440,height:1000}});
  await page.route('**/*', async route=>{
   const url=new URL(route.request().url());
-  if (url.hostname==='127.0.0.1' && url.port===port) return route.continue();
+  if (['127.0.0.1','localhost'].includes(url.hostname) && url.port===port) return route.continue();
   if (!url.pathname.startsWith('/api/')) return route.abort();
   let body; let status=200;
   if (url.pathname==='/api/jobs/stats') {
@@ -57,7 +58,7 @@ try {
   else throw new Error(`Unexpected request ${url.pathname}`);
   await route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify(body)});
  });
- await page.goto(`http://127.0.0.1:${port}/queue`);
+ await page.goto(`http://localhost:${port}/queue`);
  await page.getByRole('heading',{name:'Kolejka zadań',exact:true}).waitFor();
  await page.getByText('27 zadań · strona 1/2',{exact:true}).waitFor();
  assert.equal(await page.getByRole('link',{name:'Kolejka',exact:true}).count(),1);

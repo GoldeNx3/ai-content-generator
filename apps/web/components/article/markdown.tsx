@@ -30,6 +30,20 @@ const COMPONENTS: Components = {
   code: ({ children, className }) => <code className={`${className || ""} rounded bg-zinc-100 px-1 py-0.5 text-[0.9em]`}>{children}</code>,
 };
 
-export function Markdown({ children }: { children: string }) {
-  return <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeHighlight, { detect: false, ignoreMissing: true }]]} components={COMPONENTS}>{children}</ReactMarkdown>;
+export function sectionAnchor(prefix: string, heading: string): string {
+  return `${prefix}-${heading.toLowerCase().normalize("NFKD").replace(/ł/g, "l").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+}
+
+function headingText(node: unknown): string {
+  if (!node || typeof node !== "object") return "";
+  const item = node as {value?: string; children?: unknown[]};
+  return item.value ?? (item.children ?? []).map(headingText).join("");
+}
+
+export function Markdown({ children, anchorPrefix }: { children: string; anchorPrefix?: string }) {
+  const headings: Components = anchorPrefix ? {
+    h2: ({children, node}) => <h2 id={sectionAnchor(anchorPrefix, headingText(node))} className="mt-8 mb-3 scroll-mt-6 text-xl font-semibold tracking-tight">{children}</h2>,
+    h3: ({children, node}) => <h3 id={sectionAnchor(anchorPrefix, headingText(node))} className="mt-6 mb-2 scroll-mt-6 text-lg font-semibold">{children}</h3>,
+  } : {};
+  return <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[[rehypeHighlight, { detect: false, ignoreMissing: true }]]} components={{...COMPONENTS, ...headings}}>{children}</ReactMarkdown>;
 }

@@ -12,3 +12,19 @@ status counts, filters, pagination, attempts/costs, safe manual retry, automatic
 updates, temporary read failures, reload and mobile width. Use the same
 `PLAYWRIGHT_MODULE`, `CHROME_PATH` and `UI_TEST_PORT` settings as `test:ui`.
 Queue screenshots: `/tmp/content-queue.png`, `/tmp/content-queue-mobile.png`.
+
+QA checks cover queue/running/completed states, reload, five scores and counters,
+issues, costs, retry, stale reports after editing, jumping to a collapsed section,
+and mobile width. The queue fixture includes a `qa_article` job.
+
+`auto-fix-ui-check.mjs` sprawdza kolejkę Auto Fix, nową wersję z automatycznym QA,
+raport fixed/skipped i Before/After, approval konkretnej wersji, blokadę decyzji
+podczas zmiany wersji, immutable manual edit oraz mobile. Wszystkie API są mockowane.
+
+`demo-live-check.mjs` jest testem integracyjnym lokalnego, działającego API (nie mockuje requestów).
+Wymaga uruchomionego workera, `make seed-demo` i osobnego Candidate z URL w namespace
+`https://demo.content-engine.invalid/checks/`. Nie modyfikuje scenariuszy seedera;
+wykonuje classify → research → write → QA oraz klika Auto Fix i Approval w UI.
+Koszty są równe 0 dzięki dostawcom demo. Ustaw `PLAYWRIGHT_MODULE` jak w testach powyżej.
+Pełny test kolejki bez przeglądarki i bez zewnętrznych klientów:
+`docker compose exec -T api pytest -q tests/test_demo_runtime.py tests/test_demo_seed.py`.

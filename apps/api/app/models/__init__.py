@@ -39,3 +39,7 @@ __all__ = [
 
 # Import rejestruje nowe tabele w metadanych ORM i Alembic.
 from app.models.job import Job, JobAttempt, JobBatch
+
+from app.models.qa import ArticleQA, ArticleQAIssue
+
+from app.models.auto_fix import ArticleFix, ArticleFixIssue

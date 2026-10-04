@@ -23,6 +23,7 @@ from app.services.article.write import (
     CandidateNotFoundError,
     ResearchNotReadyError,
 )
+from app.services.jobs.errors import JobInputError
 from app.services.llm.base import LLMError, LLMNotConfiguredError
 
 router = APIRouter(tags=["articles"])
@@ -44,6 +45,8 @@ _ERROR_STATUS: dict[type[Exception], int] = {
 async def _call(fn: Callable[[], Awaitable[T]]) -> T:
     try:
         return await fn()
+    except JobInputError as exc:
+        raise HTTPException(exc.status_code, detail=str(exc)) from exc
     except (ArticleError, LLMError) as exc:
         code = _ERROR_STATUS.get(type(exc), status.HTTP_400_BAD_REQUEST)
         raise HTTPException(code, detail=str(exc)) from exc

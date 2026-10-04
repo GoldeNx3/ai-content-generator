@@ -1,4 +1,6 @@
 import type {
+  ArticleFix,
+  ArticleQA,
   QueueQuery,
   JobStats,
   Job,
@@ -171,6 +173,17 @@ export const api = {
   generateArticle: (candidateId: number, options: GenerateArticleRequest) =>
     enqueue<Job>(`/candidates/${candidateId}/article`, options),
   listArticles: (candidateId: number) => request<ArticleSummary[]>(`/candidates/${candidateId}/articles`),
+  autoFix: (id: number, issueIds?: number[]) => enqueue<Job>(`/article-versions/${id}/auto-fix`, issueIds ? {issue_ids: issueIds} : {}),
+  getFix: (id: number) => request<ArticleFix>(`/article-fixes/${id}`),
+  listFixes: (id: number) => request<ArticleFix[]>(`/article-versions/${id}/fixes`),
+  approveVersion: (id: number) => request<Article>(`/article-versions/${id}/approve`, {method: "POST"}),
+  rejectVersion: (id: number, reason?: string) => request<Article>(`/article-versions/${id}/reject`, {method: "POST", body: JSON.stringify({reason})}),
+  runQA: (id: number) => enqueue<Job>(`/articles/${id}/qa`),
+  retryQA: (id: number) => enqueue<Job>(`/articles/${id}/qa/retry`),
+  getQA: async (id: number): Promise<ArticleQA | null> => {
+    try { return await request<ArticleQA>(`/articles/${id}/qa`); }
+    catch (error) { if (error instanceof ApiError && error.status === 404) return null; throw error; }
+  },
   getArticle: (id: number) => request<Article>(`/articles/${id}`),
   regenerateArticle: (id: number, options: GenerateArticleRequest) =>
     enqueue<Job>(`/articles/${id}/regenerate`, options),

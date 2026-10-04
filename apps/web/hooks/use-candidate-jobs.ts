@@ -8,7 +8,7 @@ export const isActiveJob = (job: Job) => ["queued", "running", "retrying"].inclu
 
 // Przeglądarka jedynie odczytuje stan. Worker działa niezależnie od tego hooka.
 // Powrót do zakładki natychmiast odświeża historię zapisaną w PostgreSQL.
-export function useCandidateJobs(candidateId: number, kind: Job["kind"], onChange: () => Promise<unknown>) {
+export function useCandidateJobs(candidateId: number, kind: Job["kind"], onChange: () => Promise<unknown>, articleId?: number) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -22,7 +22,7 @@ export function useCandidateJobs(candidateId: number, kind: Job["kind"], onChang
       setJobs(page.items);
       setLoaded(true);
       setError(null);
-      const next = JSON.stringify(page.items.filter((job) => job.kind === kind)
+      const next = JSON.stringify(page.items.filter((job) => job.kind === kind && (articleId === undefined || job.article_id === articleId))
         .map((job) => [job.id, job.status, job.stage, job.attempt_count]));
       if (signature.current !== next) {
         if (await callback.current() !== false) signature.current = next;
@@ -32,7 +32,7 @@ export function useCandidateJobs(candidateId: number, kind: Job["kind"], onChang
       setError(errorText(failure));
       return null;
     }
-  }, [candidateId, kind]);
+  }, [candidateId, kind, articleId]);
 
   useEffect(() => {
     let disposed = false;
@@ -58,6 +58,6 @@ export function useCandidateJobs(candidateId: number, kind: Job["kind"], onChang
     }
   }
 
-  const history = jobs.filter((job) => job.kind === kind);
+  const history = jobs.filter((job) => job.kind === kind && (articleId === undefined || job.article_id === articleId));
   return { history, latest: history[0], active: jobs.find(isActiveJob), loaded, error, refresh, enqueue };
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useDemoMode } from "@/components/demo-mode";
+
 import { useState, type FormEvent } from "react";
 import { Loader2Icon, SparklesIcon } from "lucide-react";
 
@@ -51,6 +53,7 @@ export function GenerateArticleDialog(props: GenerateArticleDialogProps) {
 }
 
 function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit }: GenerateArticleDialogProps) {
+  const demo = useDemoMode();
   const initial = generationDefaults(defaults);
   const [articleFormat, setArticleFormat] = useState<ArticleFormat | "auto">(initial.article_format ?? "auto");
   const [length, setLength] = useState<ArticleLength>(initial.length ?? "auto");
@@ -145,7 +148,7 @@ function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit }: Gener
       <DialogFooter>
         <Button type="submit" disabled={busy}>
           {busy ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />}
-          {busy ? "Zapisywanie w kolejce…" : "Generuj · płatne wywołanie AI"}
+          {busy ? "Zapisywanie w kolejce…" : demo ? "Generuj · bezpłatne demo" : "Generuj · płatne wywołanie AI"}
         </Button>
       </DialogFooter>
     </form>

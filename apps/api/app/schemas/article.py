@@ -111,6 +111,18 @@ class ArticleSummary(BaseModel):
     article_type: CandidateCategory
     article_format: ArticleFormat
     word_count: int
+    parent_version_id: int | None
+    created_by: str
+    creation_reason: str | None
+    content_hash: str
+    auto_fix_iterations_remaining: int = 0
+    auto_fix_iteration: int
+    approved_at: datetime | None
+    approved_by: str | None
+    rejection_reason: str | None
+    qa_score: int | None = None
+    qa_status: str | None = None
+    qa_passed: bool
     is_edited: bool
     estimated_cost_usd: Decimal | None
     llm_model: str | None

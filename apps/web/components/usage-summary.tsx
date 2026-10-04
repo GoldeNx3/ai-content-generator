@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { useDemoMode } from "@/components/demo-mode";
 import { api } from "@/lib/api";
 import { costLabel } from "@/lib/workflow";
 import type { ModelPricing } from "@/types/api";
@@ -14,6 +15,8 @@ export function ModelPricingProvider({ children }: { children: React.ReactNode }
 
 type UsageRow = { aggregated?: boolean; label: string; model?: string | null; configured?: keyof ModelPricing["models"]; input?: number | null; output?: number | null; cost?: string | null };
 export function UsageSummary({ rows = [], free = false, note, total }: { rows?: UsageRow[]; free?: boolean; note?: string; total?: string | null }) {
+  const demo = useDemoMode();
+  free = free || demo;
   const pricing = useContext(PricingContext);
   return <div className="space-y-3 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-2">

@@ -11,6 +11,7 @@ from sqlalchemy import text, select
 from app.core.config import get_settings
 from app.core.db import SessionLocal, engine
 from app.models import Candidate
+from app.demo import DEMO_PREFIX
 from app.models.job import Job
 from app.services.ingestion_service import IngestionService
 from app.services.jobs.errors import JobConflict
@@ -40,7 +41,7 @@ async def run_pipeline_once():
                 # zadania ponawia użytkownik; nie blokują następnych tematów.
                 prior = select(Job.id).where(Job.candidate_id == Candidate.id, Job.kind == 'classify').exists()
                 ids = (await session.scalars(select(Candidate.id).where(
-                    Candidate.total_score.is_(None), ~prior)
+                    Candidate.total_score.is_(None), ~Candidate.external_url.startswith(DEMO_PREFIX), ~prior)
                     .order_by(Candidate.id.desc()).limit(settings.classify_batch_limit))).all()
                 service = JobService(session, settings)
                 for candidate_id in ids:

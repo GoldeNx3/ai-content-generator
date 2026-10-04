@@ -78,12 +78,45 @@ class ArticleService:
     async def list_versions(self, candidate_id: int) -> Sequence[Article]:
         await self._get_candidate(candidate_id)
         query = select(Article).where(Article.candidate_id == candidate_id).order_by(Article.version.desc())
-        return (await self.session.scalars(query)).all()
+        articles = (await self.session.scalars(query)).all()
+        from app.models import ArticleQA
+        reports = (await self.session.scalars(select(ArticleQA).where(ArticleQA.article_id.in_([a.id for a in articles]))
+            .order_by(ArticleQA.article_id, ArticleQA.created_at.desc(), ArticleQA.id.desc()).distinct(ArticleQA.article_id))).all()
+        by_id = {q.article_id: q for q in reports}
+        from app.services.qa.context import matches_article
+        for article in articles:
+            qa = by_id.get(article.id)
+            article.qa_score = qa.overall_score if qa and qa.status == 'completed' and matches_article(qa, article) else None
+            article.qa_status = ('stale' if not matches_article(qa, article) else qa.status) if qa else 'required'
+        from app.models import ArticleFix
+        from app.core.config import get_settings
+        fixes = (await self.session.execute(select(ArticleFix.source_article_version_id, ArticleFix.iteration)
+            .join(Article, Article.id == ArticleFix.source_article_version_id)
+            .where(Article.candidate_id == candidate_id, ArticleFix.status == 'completed'))).all()
+        by_article = {a.id: a for a in articles}
+        for article in articles:
+            ancestor = article
+            ancestors = set()
+            while ancestor and ancestor.id not in ancestors:
+                ancestors.add(ancestor.id)
+                if ancestor.created_by in ('generated','regenerated','legacy'): break
+                ancestor = by_article.get(ancestor.parent_version_id)
+            used = max([article.auto_fix_iteration or 0] + [iteration for source_id, iteration in fixes if source_id in ancestors])
+            article.auto_fix_iterations_remaining = max(0, get_settings().auto_fix_max_iterations - used)
+        return articles
 
     async def get(self, article_id: int) -> Article:
         article = await self.session.get(Article, article_id)
         if article is None:
             raise ArticleNotFoundError("Article not found")
+        from app.services.auto_fix.context import iterations_used
+        from app.services.article.versions import latest_qa
+        from app.services.qa.context import matches_article
+        qa = await latest_qa(self.session, article)
+        article.qa_score = qa.overall_score if qa and qa.status == 'completed' and matches_article(qa, article) else None
+        article.qa_status = ('stale' if not matches_article(qa, article) else qa.status) if qa else 'required'
+        from app.core.config import get_settings
+        article.auto_fix_iterations_remaining = max(0, get_settings().auto_fix_max_iterations - await iterations_used(self.session, article))
         return article
 
     # ---------- generation ----------
@@ -182,7 +215,9 @@ class ArticleService:
             sections=_section_records(validated.sections, output, validated.conclusion_fact_ids),
             lead_fact_ids=validated.lead_fact_ids,
             generation_options=request.model_dump(mode="json"),
-            research_snapshot=self._snapshot(context),
+            research_snapshot={**self._snapshot(context), "candidate_id": candidate.id,
+                "research_id": research.id, "summary": context.research_summary,
+                "why_it_matters": context.why_it_matters, "suggested_angle": context.suggested_angle},
             validation_warnings=warnings,
             word_count=word_count,
             sections_count=len(output.sections),
@@ -211,6 +246,13 @@ class ArticleService:
             .where(Article.candidate_id == candidate.id, Article.is_current.is_(True))
             .values(is_current=False)
         )
+        from app.services.article.versions import content_hash
+        article.content_hash = content_hash(article)
+        if self.execution and self.execution.job_id:
+            from app.models.job import Job
+            generation_job = await self.session.get(Job, self.execution.job_id)
+            article.parent_version_id = generation_job.payload['options'].get('parent_version_id')
+            article.created_by = 'regenerated' if article.parent_version_id else 'generated'
         self.session.add(article)
         # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
         # trwałego zapisu.
@@ -237,23 +279,31 @@ class ArticleService:
     # ---------- editing ----------
 
     async def update(self, article_id: int, payload: ArticleUpdate) -> Article:
-        article = await self.get(article_id)
+        # Candidate first: matches all version allocation and approval operations.
+        original = await self.get(article_id)
+        await self.session.scalar(select(Candidate.id).where(Candidate.id == original.candidate_id).with_for_update())
+        article = await self.session.scalar(select(Article).where(Article.id == article_id)
+            .with_for_update().execution_options(populate_existing=True))
         changes = payload.model_dump(exclude_unset=True, exclude_none=True)
-        for field, value in changes.items():
-            setattr(article, field, value.strip() if field != "content" else value)
-        if changes.keys() & {"title", "lead", "content"}:
-            article.is_edited = True
-            article.word_count = count_words(article.lead, article.content)
+        changes = {field: value if field == 'content' else value.strip() for field, value in changes.items()}
+        if not any(getattr(article, field) != value for field, value in changes.items()):
+            await self.session.commit()
+            return article
+        from app.services.article.versions import child_version
+        child = await child_version(self.session, article, changes, 'manual_edit')
         await self.session.commit()
-        await self.session.refresh(article)
-        return article
+        await self.session.refresh(child)
+        return child
 
     async def set_status(self, article_id: int, status: ArticleStatus) -> Article:
-        article = await self.get(article_id)
-        article.status = status
-        await self.session.commit()
-        await self.session.refresh(article)
-        return article
+        from app.services.article.versions import approve_version, reject_version
+        from app.services.jobs.errors import JobInputError
+        if status == ArticleStatus.APPROVED:
+            from app.core.config import get_settings
+            return await approve_version(self.session, article_id, get_settings())
+        if status == ArticleStatus.REJECTED:
+            return await reject_version(self.session, article_id, None)
+        raise JobInputError('Użyj QA i zatwierdzenia konkretnej wersji; ręczna zmiana tego statusu jest niedozwolona.')
 
     # ---------- helpers ----------
 

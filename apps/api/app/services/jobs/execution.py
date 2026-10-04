@@ -3,7 +3,7 @@
 
 from sqlalchemy import func, select, text
 
-from app.models import Article, Candidate, Research
+from app.models import ArticleFix, ArticleQA, Article, Candidate, Research
 from app.models.job import Job, JobAttempt
 from app.services.jobs.errors import LeaseLostError
 
@@ -31,13 +31,19 @@ class JobExecution:
         job.locked_until = state.locked_until
         return job
 
-    async def commit(self, session, result=None, checkpoint: dict | None = None) -> None:
+    async def commit(self, session, result=None, checkpoint: dict | None = None, successor=None) -> None:
         job = await self.lock(session)
         if checkpoint:
             self.checkpoints.update(checkpoint)
         job.checkpoints = dict(self.checkpoints)
         if result is not None:
-            if isinstance(result, Article):
+            if isinstance(result, ArticleFix):
+                result.job_id = job.id
+                job.result_type = 'article_fix'
+            elif isinstance(result, ArticleQA):
+                result.job_id = job.id
+                job.result_type = 'article_qa'
+            elif isinstance(result, Article):
                 result.generation_job_id = job.id
                 job.result_type = 'article'
             elif isinstance(result, Research):
@@ -59,6 +65,8 @@ class JobExecution:
             attempt.finished_at = job.finished_at
             attempt.last_stage = job.stage
         await session.flush()
+        if successor is not None:
+            await successor()
         now = await session.scalar(select(func.clock_timestamp()))
         if job.locked_until <= now:
             await session.rollback()

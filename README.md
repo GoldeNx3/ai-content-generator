@@ -783,3 +783,21 @@ Kod widoku: `apps/web/app/queue/page.tsx`; odczyt prób i retry:
 `apps/web/components/queue/job-details.tsx`. Wspólne nazwy statusów i etapów są
 w `apps/web/lib/jobs.ts`. SQL oraz walidację filtrów opisują komentarze w
 `apps/api/app/api/jobs.py`.
+
+## 18. QA / Fact Checker
+
+Po wygenerowaniu artykułu wybierz **Run QA · płatne**. Kontrola działa przez
+trwałą kolejkę, ocenia snapshot researchu danej wersji i zapisuje raport z ocenami,
+issues i kosztem. Edycja unieważnia QA passed. Szczegóły konfiguracji i API:
+[Article QA](docs/qa/README.md).
+
+### Auto Fix + Approval
+
+Etap7 działa przez `auto_fix_article`: literalne poprawki QA tworzą nową wersję,
+worker automatycznie kolejkuje jej QA, a człowiek zatwierdza konkretną wersję.
+Ręczna edycja także tworzy nowy szkic; poprzednia treść i QA pozostają w historii.
+Konfiguracja, API, ograniczenia i test E2E: [docs/auto-fix/README.md](docs/auto-fix/README.md).
+
+## Bezpłatne demo pipeline
+
+`make seed-demo` dodaje syntetyczne scenariusze i interaktywny flow przez kolejkę, bez wywołań AI. W filtrze Źródło wybierz `[DEMO] Scenariusze pipeline — 0 kosztów AI`. [Instrukcja etapów i katalog scenariuszy](docs/demo/README.md).

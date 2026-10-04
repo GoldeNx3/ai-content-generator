@@ -29,7 +29,7 @@ async def enqueue_call(response: Response, action):
 @router.get('/jobs', response_model=JobPage)
 async def queue_jobs(session: SessionDep,
                      status: str = 'active',
-                     kind: Literal['classify', 'research', 'write'] | None = None,
+                     kind: Literal['classify', 'research', 'write', 'qa_article', 'auto_fix_article'] | None = None,
                      candidate_id: Annotated[int | None, Query(ge=1)] = None,
                      page: Annotated[int, Query(ge=1)] = 1,
                      page_size: Annotated[int, Query(ge=1, le=100)] = 25):

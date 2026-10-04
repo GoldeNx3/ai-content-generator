@@ -32,3 +32,8 @@ fetch:
 
 classify:
 	curl -s -X POST http://localhost:8000/api/candidates/classify-pending; echo
+
+# Syntetyczne scenariusze + interaktywny pipeline bez wywołań AI.
+.PHONY: seed-demo
+seed-demo:
+	docker compose exec -T api python -m app.jobs.seed_demo

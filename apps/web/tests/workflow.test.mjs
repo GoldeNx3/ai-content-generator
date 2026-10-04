@@ -26,3 +26,11 @@ test('an existing draft remains completed when new research is unfinished', () =
   assert.equal(articleState(true, true, true, true), 'W toku');
   assert.equal(articleState(false, false, true, false), 'Ładowanie…');
 });
+
+test('QA distinguishes stale reports and queue status', () => {
+  assert.equal(output.qaState(null, false), 'Ładowanie…');
+  assert.equal(output.qaState(null, true), 'Do uruchomienia');
+  assert.equal(output.qaState({status: 'completed', is_stale: true}, true), 'Wymaga ponownej oceny');
+  assert.equal(output.qaState({status: 'completed', is_stale: false}, true), 'Zakończony');
+  assert.equal(output.qaState({status: 'pending'}, true), 'W kolejce');
+});

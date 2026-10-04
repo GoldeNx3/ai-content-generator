@@ -53,6 +53,10 @@ class FetchStatus(StrEnum):
 
 
 class ArticleStatus(StrEnum):
+    NEEDS_CHANGES = "needs_changes"
+    READY_FOR_APPROVAL = "ready_for_approval"
+    MANUAL_REVIEW_REQUIRED = "manual_review_required"
+    SUPERSEDED = "superseded"
     DRAFT = "draft"
     REVIEW = "review"
     APPROVED = "approved"

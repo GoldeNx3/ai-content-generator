@@ -37,8 +37,10 @@ async def test_article_endpoints(client: httpx.AsyncClient, session: AsyncSessio
     assert (await client.patch(f"/api/articles/{article['id']}", json={"title": ""})).status_code == 422
 
     status = await client.patch(f"/api/articles/{article['id']}/status", json={"status": "review"})
-    assert status.json()["status"] == "review"
-    assert (await client.get(f"/api/articles/{article['id']}")).json()["title"] == "Nowy tytuł"
+    assert status.status_code == 409
+    assert (await client.patch(f"/api/articles/{article['id']}/status", json={"status":"approved"})).status_code == 409
+    assert patched.json()["id"] != article["id"]
+    assert (await client.get(f"/api/articles/{article['id']}")).json()["title"] == article["title"]
     assert (await client.get("/api/articles/99999")).status_code == 404
 
 

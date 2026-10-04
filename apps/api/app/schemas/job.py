@@ -9,7 +9,8 @@ from pydantic import BaseModel, ConfigDict, computed_field
 class JobRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
-    kind: Literal['classify', 'research', 'write']
+    kind: Literal['classify', 'research', 'write', 'qa_article', 'auto_fix_article']
+    article_id: int | None = None
     candidate_id: int
     candidate_title: str | None = None
     status: Literal['queued', 'running', 'retrying', 'succeeded', 'failed']

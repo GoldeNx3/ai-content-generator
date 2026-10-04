@@ -41,6 +41,7 @@ class CandidateRead(BaseModel):
     id: int
     source_id: int
     source_name: str
+    is_demo: bool = False
     external_url: str
     title: str
     summary: str | None

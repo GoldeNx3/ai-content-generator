@@ -13,7 +13,9 @@ from uuid import uuid4
 from sqlalchemy import func, select
 
 from app.core.config import get_settings
-from app.models import Research, ResearchStatus
+from app.models import ArticleFix, ArticleQA, Candidate, Research, ResearchStatus
+from app.demo import is_demo_candidate, demo_settings
+from app.core.config import Settings
 from app.models.job import Job
 from app.repositories.job_repository import JobRepository
 from app.services.jobs.errors import LeaseLostError
@@ -21,11 +23,11 @@ from app.services.jobs.execution import JobExecution
 from app.services.jobs.retry import failure
 from app.services.research.errors import NoSourceContentError
 from app.workers.calls import CallRecorder
-from app.workers.handlers import classify, research, write
+from app.workers.handlers import classify, research, write, qa, auto_fix
 from app.workers.providers import providers_for, settings_for
 
 logger = logging.getLogger(__name__)
-HANDLERS = {'classify': classify.handle, 'research': research.handle, 'write': write.handle}
+HANDLERS = {'classify': classify.handle, 'research': research.handle, 'write': write.handle, 'qa_article': qa.handle, 'auto_fix_article': auto_fix.AutoFixArticleHandler().handle}
 HEALTH_FILE = Path('/tmp/worker-health.json')
 
 
@@ -59,7 +61,15 @@ class Worker:
         heartbeat = asyncio.create_task(self._heartbeat(job))
         try:
             settings = settings_for(job)
-            providers = providers or providers_for(settings)
+            async with self.sessions() as identity_session:
+                candidate = await identity_session.get(Candidate, job.candidate_id)
+                demo = is_demo_candidate(candidate)
+            if demo:
+                settings = Settings(**demo_settings(settings.model_dump()))
+                from app.workers.demo_providers import demo_providers
+                providers = demo_providers()
+            else:
+                providers = providers or providers_for(settings)
             timeout = getattr(settings, f'job_{job.kind}_timeout_seconds')
             async with self.sessions() as session:
                 async with asyncio.timeout(timeout):
@@ -117,6 +127,15 @@ class Worker:
                 attempt.error_code = current.error_code
                 attempt.error_message = current.error_message
                 attempt.last_stage = current.stage
+                if current.kind == 'auto_fix_article':
+                    fix = await session.scalar(select(ArticleFix).where(ArticleFix.job_id == current.id))
+                    if fix:
+                        from app.services.auto_fix.failure import update_failure
+                        update_failure(fix, 'failed' if current.status == 'failed' else 'pending', current.error_message)
+                if current.kind == 'qa_article':
+                    report = await session.scalar(select(ArticleQA).where(ArticleQA.job_id == current.id))
+                    if report:
+                        report.status = 'failed' if current.status == 'failed' else 'pending'
                 if current.kind == 'research' and current.status == 'failed':
                     report = await session.scalar(select(Research).where(Research.job_id == current.id))
                     if report:

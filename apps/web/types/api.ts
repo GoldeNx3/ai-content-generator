@@ -33,6 +33,7 @@ export interface Source {
 }
 
 export interface Candidate {
+  is_demo?: boolean;
   id: number;
   source_id: number;
   source_name: string;
@@ -170,7 +171,7 @@ export interface Research {
   facts: ResearchFact[];
 }
 
-export type ArticleStatus = "draft" | "review" | "approved" | "rejected";
+export type ArticleStatus = "draft" | "review" | "approved" | "rejected" | "needs_changes" | "ready_for_approval" | "manual_review_required" | "superseded";
 export type ArticleLength = "auto" | "short" | "standard" | "long";
 export type ArticleFormat = "news" | "explainer" | "case_study" | "guide" | "comparison";
 
@@ -217,6 +218,18 @@ export interface ArticleSummary {
   article_type: CandidateCategory;
   article_format: ArticleFormat;
   word_count: number;
+  parent_version_id: number | null;
+  created_by: "generated" | "regenerated" | "auto_fix" | "manual_edit" | "legacy";
+  creation_reason: string | null;
+  content_hash: string;
+  auto_fix_iterations_remaining: number;
+  auto_fix_iteration: number;
+  approved_at: string | null;
+  approved_by: string | null;
+  rejection_reason: string | null;
+  qa_score: number | null;
+  qa_status: string | null;
+  qa_passed: boolean;
   is_edited: boolean;
   estimated_cost_usd: string | null;
   llm_model: string | null;
@@ -267,7 +280,7 @@ export interface Article extends ArticleSummary {
 export type ArticleUpdate = Partial<Pick<Article, "title" | "lead" | "content" | "meta_title" | "meta_description">>;
 
 export interface ModelPricing {
-  models: { classifier: string; research: string; brief: string; writer: string };
+  models: { classifier: string; research: string; brief: string; writer: string; qa: string; auto_fix: string };
   rates: Record<string, { input: number; output: number; cached_input?: number; long_context_threshold?: number; long_input?: number; long_output?: number; long_cached_input?: number }>;
   source_url: string;
   verified_at: string;
@@ -279,7 +292,8 @@ export interface Job {
   id: string;
   candidate_id: number;
   candidate_title?: string | null;
-  kind: "classify" | "research" | "write";
+  kind: "classify" | "research" | "write" | "qa_article" | "auto_fix_article";
+  article_id?: number | null;
   status: JobStatus;
   stage: string | null;
   attempt_count: number;
@@ -312,3 +326,39 @@ export interface QueueQuery {
   page_size?: number;
 }
 export type JobStats = Record<JobStatus | "total", number>;
+
+
+export type QAIssueType = "unsupported_claim" | "contradiction" | "incorrect_number" | "incorrect_date" |
+  "unsupported_quote" | "unsupported_name" | "source_mismatch" | "missing_uncertainty" |
+  "ignored_conflict" | "title_mismatch" | "repetition" | "style_issue" | "structure_issue" |
+  "seo_issue" | "overclaim" | "other";
+export interface ArticleQAIssue {
+  id: number; article_qa_id: number; type: QAIssueType;
+  severity: "info" | "warning" | "high" | "critical";
+  excerpt: string; reason: string; suggestion: string; section_heading: string | null;
+  fact_ids: number[]; source_ids: number[]; auto_fixable: boolean;
+  created_at: string; updated_at: string;
+}
+export interface ArticleQA {
+  id: number; article_id: number; article_version: number; job_id: string | null;
+  status: "pending" | "running" | "completed" | "failed";
+  overall_score: number | null; factual_score: number | null; source_score: number | null;
+  style_score: number | null; structure_score: number | null; seo_score: number | null;
+  supported_claims_count: number; unsupported_claims_count: number;
+  critical_issue_count: number; warning_count: number;
+  summary: string | null; llm_model: string | null; llm_input_tokens: number | null;
+  llm_output_tokens: number | null; estimated_cost_usd: string | null;
+  qa_passed: boolean; pass_score: number; is_stale: boolean;
+  issues: ArticleQAIssue[]; created_at: string; updated_at: string;
+}
+
+export interface ArticleFix {
+  id: number; source_article_version_id: number; result_article_version_id: number | null;
+  qa_id: number; job_id: string | null; status: "pending" | "running" | "completed" | "failed";
+  iteration: number; issues_requested: number; issues_fixed: number; issues_skipped: number;
+  summary: string | null; change_ratio: string | null; warnings: string[];
+  changes: {field: string; before: string; after: string; qa_issue_ids: number[]; fact_ids: number[]; source_ids: number[]}[];
+  llm_model: string | null; llm_input_tokens: number | null; llm_output_tokens: number | null;
+  estimated_cost_usd: string | null; created_at: string; updated_at: string;
+  issues: {id: number; qa_issue_id: number; status: "fixed" | "skipped" | "failed"; reason: string; created_at: string}[];
+}

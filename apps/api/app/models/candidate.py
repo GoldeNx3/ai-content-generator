@@ -64,5 +64,10 @@ class Candidate(TimestampMixin, Base):
 
     # property pozwala odczytywać wynik metody jak pole: obj.nazwa zamiast obj.nazwa().
     @property
+    def is_demo(self) -> bool:
+        from app.demo import is_demo_candidate
+        return is_demo_candidate(self)
+
+    @property
     def source_name(self) -> str:
         return self.source.name

@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
+from app.demo import is_demo_candidate, demo_settings
 from app.models import Article, Candidate, CandidateCategory, Research, ResearchStatus
 from app.models.job import ACTIVE_STATUSES, Job
 from app.schemas.article import GenerateArticleRequest
@@ -26,13 +27,52 @@ class JobService:
         self.session = session
         self.settings = settings or get_settings()
 
+    async def qa(self, article_id, key=None, retry_of=None):
+        article = await self.session.get(Article, article_id)
+        if article is None:
+            raise JobInputError('Article not found', 404)
+        return await self.enqueue('qa_article', article.candidate_id, {'article_id': article_id}, key, retry_of)
+
+    async def auto_fix(self, article_id, issue_ids=None, key=None):
+        article = await self.session.get(Article, article_id)
+        if article is None: raise JobInputError('Article version not found', 404)
+        return await self.enqueue('auto_fix_article', article.candidate_id,
+            {'article_id': article_id, 'issue_ids': sorted(issue_ids) if issue_ids is not None else None}, key)
+
+    async def _qa_retry_replay(self, article_id, key):
+        if not key:
+            return None
+        replay = await self.session.scalar(select(Job).where(Job.idempotency_key == key))
+        if replay:
+            if replay.kind != 'qa_article' or replay.article_id != article_id or not replay.retry_of_job_id:
+                raise JobConflict('idempotency_conflict', replay.id)
+        return replay
+
+    async def retry_qa(self, article_id, key=None):
+        from app.models import ArticleQA
+        replay = await self._qa_retry_replay(article_id, key)
+        if replay:
+            return replay
+        report = await self.session.scalar(select(ArticleQA).where(ArticleQA.article_id == article_id)
+            .order_by(ArticleQA.created_at.desc(), ArticleQA.id.desc()).limit(1))
+        # A concurrent same-key request may have committed a new pending report
+        # between the first replay lookup and the latest-report read.
+        replay = await self._qa_retry_replay(article_id, key)
+        if replay:
+            return replay
+        if report is None or report.job_id is None:
+            raise JobInputError('QA report not found', 404)
+        return await self.retry(report.job_id, key)
+
     async def enqueue(self, kind: str, candidate_id: int, options: dict | None = None,
-                      key: UUID | None = None, retry_of=None) -> Job:
-        if kind not in ('classify', 'research', 'write'):
+                      key: UUID | None = None, retry_of=None, commit=True) -> Job:
+        if kind not in ('classify', 'research', 'write', 'qa_article', 'auto_fix_article'):
             raise JobInputError('Nieznany etap.', 422)
         options = options or {}
         if kind == 'write':
+            parent = options.get('parent_version_id')
             options = GenerateArticleRequest.model_validate(options).model_dump(mode='json')
+            if parent: options['parent_version_id'] = parent
         key = key or uuid4()
         encoded = json.dumps([kind, candidate_id, options], sort_keys=True, separators=(',', ':'))
         request_hash = hashlib.sha256(encoded.encode()).hexdigest()
@@ -51,21 +91,45 @@ class JobService:
         if active:
             code = 'job_already_active' if active.request_hash == request_hash else 'candidate_busy'
             raise JobConflict(code, active.id)
-        if not self.settings.openai_api_key:
+        if not self.settings.openai_api_key and not is_demo_candidate(candidate):
             raise JobInputError('OPENAI_API_KEY is not set', 503)
         payload = await self._payload(kind, candidate, options)
-        job = Job(kind=kind, candidate_id=candidate_id, payload=payload,
+        job = Job(id=uuid4(), kind=kind, candidate_id=candidate_id, payload=payload,
                   idempotency_key=key, request_hash=request_hash,
                   max_attempts=self.settings.job_max_attempts, retry_of_job_id=retry_of)
         self.session.add(job)
         try:
+            await self.session.flush([job])
+            if kind == 'qa_article':
+                from app.models import ArticleQA
+                from app.services.qa.context import input_hash
+                article = await self.session.scalar(select(Article).where(Article.id == options['article_id'])
+                    .with_for_update().execution_options(populate_existing=True))
+                job.article_id = article.id
+                article.qa_passed = False
+                self.session.add(ArticleQA(article_id=article.id, article_version=article.version,
+                    job_id=job.id, input_snapshot=payload['qa_context'], input_hash=input_hash(payload['qa_context']),
+                    status='pending', pass_score=self.settings.qa_pass_score, issues=[]))
+            if kind == 'auto_fix_article':
+                from app.models import ArticleFix
+                from app.services.qa.context import input_hash
+                context = payload['fix_context']
+                job.article_id = options['article_id']
+                self.session.add(ArticleFix(source_article_version_id=job.article_id, qa_id=context['qa_id'],
+                    job_id=job.id, input_snapshot=context, input_hash=input_hash(context), iteration=context['iteration'],
+                    issues_requested=len(context['issues']), status='pending', issues=[]))
+            if not commit:
+                await self.session.flush()
+                return job
             await self.session.commit()
-        except IntegrityError:
+        except IntegrityError as exc:
             # Inny kandydat może użyć globalnie tego samego klucza w tym czasie.
             await self.session.rollback()
             previous = await self._by_key(key, request_hash)
             if previous:
                 return previous
+            if 'uq_jobs_active_candidate' not in str(exc.orig):
+                raise
             raise JobConflict('candidate_busy')
         await self.session.refresh(job)
         return job
@@ -81,13 +145,35 @@ class JobService:
         settings = self.settings.model_dump(exclude={
             'openai_api_key', 'tavily_api_key', 'database_url', 'test_database_url', 'cors_origins',
         })
+        if is_demo_candidate(candidate):
+            settings = demo_settings(settings)
         payload = {'payload_version': 1, 'options': options, 'settings': settings,
                    'candidate_input': jsonable_encoder(asdict(CandidateInput(
                        candidate.title, candidate.summary, candidate.source.name,
                        candidate.original_published_at))), 'original_url': candidate.external_url}
+        if is_demo_candidate(candidate):
+            payload['demo'] = True
         research = await self.session.scalar(select(Research).where(Research.candidate_id == candidate.id))
         if kind == 'research' and not options.get('discover', True) and research is None:
             raise JobInputError('Research not found - start a research first', 404)
+        if kind == 'qa_article':
+            from app.services.qa.context import build_qa_payload
+            article = await self.session.scalar(select(Article).where(Article.id == options.get('article_id'))
+                .with_for_update().execution_options(populate_existing=True))
+            if article is None:
+                raise JobInputError('Article not found', 404)
+            if article.candidate_id != candidate.id:
+                raise JobInputError('Article belongs to another candidate', 409)
+            if research is not None and article.research_id is not None and research.id != article.research_id:
+                raise JobInputError('Article research does not belong to candidate', 409)
+            payload['qa_context'] = build_qa_payload(article)
+        if kind == 'auto_fix_article':
+            from app.services.auto_fix.context import prepare_fix
+            article = await self.session.scalar(select(Article).where(Article.id == options['article_id'])
+                .with_for_update().execution_options(populate_existing=True))
+            if article is None or article.candidate_id != candidate.id:
+                raise JobInputError('Article version not found', 404)
+            _, payload['fix_context'] = await prepare_fix(self.session, article, options.get('issue_ids'), self.settings)
         if kind == 'write':
             if research is None or research.status != ResearchStatus.COMPLETED or not research.facts:
                 raise JobInputError('Complete research before generating an article.')
@@ -117,7 +203,7 @@ class JobService:
             options = GenerateArticleRequest.model_validate({
                 **options.model_dump(), **request.model_dump(exclude_unset=True),
             })
-        return await self.enqueue('write', article.candidate_id, options.model_dump(mode='json'), key)
+        return await self.enqueue('write', article.candidate_id, {**options.model_dump(mode='json'), 'parent_version_id': article.id}, key)
 
     async def batch(self, limit: int, key: UUID | None = None) -> dict:
         from app.services.jobs.batch import enqueue_batch

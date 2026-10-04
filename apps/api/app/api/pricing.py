@@ -8,7 +8,7 @@ def pricing() -> dict:
     settings = get_settings()
     return {
         "models": {"classifier": settings.openai_classifier_model, "research": settings.research_model,
-                   "brief": settings.brief_model, "writer": settings.writer_model},
+                   "brief": settings.brief_model, "writer": settings.writer_model, "qa": settings.qa_model, "auto_fix": settings.auto_fix_model},
         "rates": settings.llm_pricing,
         "source_url": "https://developers.openai.com/api/docs/pricing",
         "verified_at": "2026-10-03",

@@ -7,6 +7,8 @@ from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings, get_settings
+from app.demo import is_demo_candidate
+from app.models import Candidate
 from app.core.db import get_session, get_session_factory
 from app.services.ingestion_service import IngestionService
 from app.services.article.write import ArticleService
@@ -56,15 +58,24 @@ ProviderDep = Annotated[LLMProvider, Depends(get_provider)]
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 
 
-def get_content_extractor(settings: SettingsDep) -> ContentExtractor:
+async def get_content_extractor(settings: SettingsDep, session: SessionDep, candidate_id: int) -> ContentExtractor:
+    if is_demo_candidate(await session.get(Candidate, candidate_id)):
+        from app.workers.demo_providers import DemoExtractor
+        return DemoExtractor()
     return build_content_extractor(settings)
 
 
-def get_search(settings: SettingsDep) -> SearchProvider:
+async def get_search(settings: SettingsDep, session: SessionDep, candidate_id: int) -> SearchProvider:
+    if is_demo_candidate(await session.get(Candidate, candidate_id)):
+        from app.workers.demo_providers import DemoSearch
+        return DemoSearch()
     return get_search_provider(settings)
 
 
-def get_research_llm() -> ResearchLLMProvider:
+async def get_research_llm(session: SessionDep, candidate_id: int) -> ResearchLLMProvider:
+    if is_demo_candidate(await session.get(Candidate, candidate_id)):
+        from app.workers.demo_providers import DemoResearcher
+        return DemoResearcher()
     return research_llm_or_placeholder()
 
 

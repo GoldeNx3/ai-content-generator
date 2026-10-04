@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     # Article writer: brief can use a cheaper model than the writer. Empty = research model.
     openai_brief_model: str = ""
     openai_writer_model: str = ""
+    openai_auto_fix_model: str = ""
+    auto_fix_max_change_ratio: float = Field(default=0.35, ge=0, le=1)
+    auto_fix_max_iterations: int = Field(default=2, ge=1, le=10)
+    auto_fix_timeout_seconds: float = Field(default=300, gt=0)
+    job_auto_fix_article_timeout_seconds: float = Field(default=900, gt=0)
+    openai_qa_model: str = ""
+    qa_pass_score: int = Field(default=85, ge=0, le=100)
+    qa_timeout_seconds: float = Field(default=300, gt=0)
+    job_qa_article_timeout_seconds: float = Field(default=900, gt=0)
     writer_timeout_seconds: float = 300.0
     llm_pricing: dict[str, dict[str, float]] = DEFAULT_LLM_PRICING
     llm_timeout_seconds: float = 60.0
@@ -95,6 +104,14 @@ class Settings(BaseSettings):
     @property
     def writer_model(self) -> str:
         return self.openai_writer_model.strip() or self.research_model
+
+    @property
+    def auto_fix_model(self) -> str:
+        return self.openai_auto_fix_model.strip() or self.writer_model
+
+    @property
+    def qa_model(self) -> str:
+        return self.openai_qa_model.strip() or self.research_model
 
     @property
     def cors_origin_list(self) -> list[str]:

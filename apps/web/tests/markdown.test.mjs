@@ -40,3 +40,8 @@ test('inline code and source HTML are handled safely', () => {
   assert.doesNotMatch(html, /<script/);
   assert.doesNotMatch(html, /<pre/);
 });
+
+test('headings have stable anchors scoped to the article instance', () => {
+  const html = renderToStaticMarkup(createElement(Markdown, { anchorPrefix: 'article-6' }, '## Wpływ na zespoły\n\nTekst.'));
+  assert.match(html, /id="article-6-wplyw-na-zespoly"/);
+});

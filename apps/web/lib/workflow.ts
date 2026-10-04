@@ -16,3 +16,11 @@ export function articleState(hasArticle: boolean, generating: boolean, researchR
   if (hasArticle) return "Zakończony";
   return researchReady ? "Do uruchomienia" : "Najpierw ukończ research";
 }
+
+
+export function qaState(report: {status: "pending" | "running" | "completed" | "failed"; is_stale?: boolean} | null, loaded: boolean): string {
+  if (!loaded) return "Ładowanie…";
+  if (!report) return "Do uruchomienia";
+  if (report.is_stale) return "Wymaga ponownej oceny";
+  return {pending: "W kolejce", running: "W toku", completed: "Zakończony", failed: "Błąd"}[report.status];
+}

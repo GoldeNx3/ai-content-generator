@@ -17,7 +17,7 @@ ACTIVE_STATUSES = ('queued', 'running', 'retrying')
 class Job(Base):
     __tablename__ = 'jobs'
     __table_args__ = (
-        CheckConstraint("kind IN ('classify','research','write')", name='ck_jobs_kind'),
+        CheckConstraint("kind IN ('classify','research','write','qa_article','auto_fix_article')", name='ck_jobs_kind'),
         CheckConstraint("status IN ('queued','running','retrying','succeeded','failed')", name='ck_jobs_status'),
         Index('uq_jobs_active_candidate', 'candidate_id', unique=True,
               postgresql_where=text("status IN ('queued','running','retrying')")),
@@ -29,6 +29,7 @@ class Job(Base):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     kind: Mapped[str] = mapped_column(String(20))
     candidate_id: Mapped[int] = mapped_column(ForeignKey('candidates.id', ondelete='RESTRICT'))
+    article_id: Mapped[int | None] = mapped_column(ForeignKey('articles.id', name='fk_jobs_article', use_alter=True, ondelete='RESTRICT'))
     status: Mapped[str] = mapped_column(String(20), default='queued')
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
     idempotency_key: Mapped[UUID] = mapped_column(unique=True, default=uuid4)

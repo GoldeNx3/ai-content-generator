@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { DemoModeProvider, PipelineGuide } from "@/components/demo-mode";
 import { WorkflowSection } from "@/components/workflow-section";
 import { ModelPricingProvider, UsageSummary } from "@/components/usage-summary";
 import { ArticlePanel } from "@/components/article/article-panel";
@@ -97,9 +98,12 @@ export default function CandidatePage() {
   const classificationHasRun = classified || jobs.history.length > 0;
 
   return (
+    <DemoModeProvider value={Boolean(candidate.is_demo)}>
     <ModelPricingProvider>
     <div className="space-y-6">
       <BackLink />
+
+      <PipelineGuide demo={Boolean(candidate.is_demo)} />
 
       <div className="flex flex-wrap items-start gap-5">
         <ScoreBadge score={candidate.total_score} size="lg" />
@@ -162,7 +166,7 @@ export default function CandidatePage() {
           disabled={busy !== null || !jobs.loaded || Boolean(jobs.active)}
         >
           {busy === "classify" ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />}
-          {classificationHasRun ? "Oceń ponownie · płatne" : "Oceń temat · płatne"}
+          {classificationHasRun ? "Oceń ponownie" : "Oceń temat"} · {candidate.is_demo ? "demo · bezpłatne" : "płatne"}
         </Button>}
         summary={<UsageSummary rows={[{label: "Ocena tematu", configured: "classifier", model: candidate.llm_model, input: candidate.llm_input_tokens, output: candidate.llm_output_tokens, cost: candidate.estimated_cost_usd}]} note={classified ? `Oceniono: ${formatDate(candidate.classified_at)}. Starsze oceny mogą nie mieć zapisanych danych o zużyciu.` : "Dane zużycia pojawią się po ocenie tematu."} />}>
         <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} />
@@ -199,7 +203,7 @@ export default function CandidatePage() {
           <div className="space-y-3 text-sm text-muted-foreground">
             <h3 className="font-medium text-foreground">Co robi ten etap?</h3>
             <p>AI ocenia temat pod kątem trafności, aktualności, wyszukiwań i potencjału komercyjnego. Research możesz uruchomić także bez oceny.</p>
-            <p>Ponowna ocena zastępuje aktualną punktację i nalicza nowy koszt AI.</p>
+            <p>Ponowna ocena zastępuje aktualną punktację. {candidate.is_demo ? "Demo nie nalicza kosztów AI." : "Każde uruchomienie nalicza nowy koszt AI."}</p>
           </div>
         </div>
       </WorkflowSection>
@@ -209,6 +213,7 @@ export default function CandidatePage() {
       <ArticlePanel candidateId={id} candidateCategory={candidate.category} research={research} />
     </div>
     </ModelPricingProvider>
+    </DemoModeProvider>
   );
 }
 

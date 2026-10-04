@@ -66,7 +66,7 @@ class ResearchService:
         if research is None:
             if not discover:
                 raise ResearchNotFoundError("Research not found - start a research first")
-            research = Research(candidate_id=candidate_id, search_queries=[], uncertainties=[], conflicts=[])
+            research = Research(candidate_id=candidate_id, search_queries=[], uncertainties=[], conflicts=[], sources=[], facts=[])
             self.session.add(research)
         elif research.status == ResearchStatus.RUNNING:
             raise ResearchInProgressError("Research is already running")
@@ -136,7 +136,7 @@ class ResearchService:
         candidate = await self._get_candidate(candidate_id)
         research = await self.get_for_candidate(candidate_id)
         if research is None:
-            research = Research(candidate_id=candidate_id, search_queries=[], uncertainties=[], conflicts=[])
+            research = Research(candidate_id=candidate_id, search_queries=[], uncertainties=[], conflicts=[], sources=[], facts=[])
             self.session.add(research)
             # flush wysyła zmiany do bazy (np. nadaje ID), ale nie zatwierdza jeszcze transakcji jak commit.
             await self.session.flush()

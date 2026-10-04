@@ -8,7 +8,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.job import Job, JobAttempt
-from app.models import Research, ResearchStatus
+from app.models import ArticleFix, ArticleQA, Research, ResearchStatus
 
 
 class JobRepository:
@@ -17,7 +17,8 @@ class JobRepository:
 
     async def claim(self, worker_id: str, lease_seconds: float = 60) -> Job | None:
         query = (select(Job).where(Job.status.in_(('queued', 'retrying')),
-                                  Job.available_at <= func.clock_timestamp())
+                                  Job.available_at <= func.clock_timestamp(),
+                                  func.coalesce(Job.payload['demo_snapshot'].as_boolean(), False).is_(False))
                  .order_by(Job.available_at, Job.created_at, Job.id)
                  .with_for_update(skip_locked=True).limit(1))
         job = await self.session.scalar(query.execution_options(populate_existing=True))
@@ -51,7 +52,8 @@ class JobRepository:
 
     async def recover_expired(self) -> int:
         jobs = (await self.session.scalars(
-            select(Job).where(Job.status == 'running', Job.locked_until <= func.clock_timestamp())
+            select(Job).where(Job.status == 'running', Job.locked_until <= func.clock_timestamp(),
+                              func.coalesce(Job.payload['demo_snapshot'].as_boolean(), False).is_(False))
             .with_for_update(skip_locked=True).execution_options(populate_existing=True)
         )).all()
         now = await self.session.scalar(select(func.clock_timestamp()))
@@ -71,6 +73,15 @@ class JobRepository:
             job.lease_token = None
             job.worker_id = None
             job.locked_until = None
+            if job.kind == 'auto_fix_article':
+                fix = await self.session.scalar(select(ArticleFix).where(ArticleFix.job_id == job.id))
+                if fix:
+                    from app.services.auto_fix.failure import update_failure
+                    update_failure(fix, 'failed' if job.status == 'failed' else 'pending', job.error_message)
+            if job.kind == 'qa_article':
+                report = await self.session.scalar(select(ArticleQA).where(ArticleQA.job_id == job.id))
+                if report:
+                    report.status = 'failed' if job.status == 'failed' else 'pending'
             if job.kind == 'research' and job.status == 'failed':
                 report = await self.session.scalar(select(Research).where(Research.job_id == job.id))
                 if report:

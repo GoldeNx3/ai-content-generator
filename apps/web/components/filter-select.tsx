@@ -21,13 +21,15 @@ interface FilterSelectProps {
   options: FilterOption[];
   onChange: (value: string | undefined) => void;
   allowAll?: boolean;
+  disabled?: boolean;
 }
 
-export function FilterSelect({ label, value, options, onChange, allowAll = true }: FilterSelectProps) {
+export function FilterSelect({ label, value, options, onChange, allowAll = true, disabled = false }: FilterSelectProps) {
   const items = allowAll ? [{ value: ALL, label: `All ${label.toLowerCase()}` }, ...options] : options;
 
   return (
     <Select
+      disabled={disabled}
       items={items}
       value={value ?? ALL}
       onValueChange={(next) => onChange(next === ALL || next === null ? undefined : String(next))}

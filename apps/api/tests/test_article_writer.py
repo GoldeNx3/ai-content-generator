@@ -173,8 +173,11 @@ async def test_manual_edit_and_status(session: AsyncSession) -> None:
     assert edited.generated_content != edited.content
     assert edited.word_count == count_words(edited.lead, edited.content)
 
-    reviewed = await svc.set_status(article.id, ArticleStatus.REVIEW)
-    assert reviewed.status == ArticleStatus.REVIEW
+    from app.services.jobs.errors import JobInputError
+    with pytest.raises(JobInputError):
+        await svc.set_status(article.id, ArticleStatus.APPROVED)
+    assert edited.id != article.id and edited.parent_version_id == article.id
+    assert article.content != edited.content
 
 
 def test_brief_structured_output_validation() -> None:

@@ -5,9 +5,11 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
   queued: "Oczekujące", running: "W toku", retrying: "Ponawiane", succeeded: "Sukcesy", failed: "Błędy",
 };
 export const KIND_LABELS: Record<Job["kind"], string> = {
-  classify: "Ocena tematu", research: "Research", write: "Pisanie artykułu",
+  classify: "Ocena tematu", research: "Research", write: "Pisanie artykułu", qa_article: "QA / Fact Checker", auto_fix_article: "Auto Fix",
 };
 export const STAGE_LABELS: Record<string, string> = {
+  fact_checking: "Weryfikacja faktów", validating_references: "Sprawdzanie referencji", validating_qa: "Walidacja raportu QA",
+  fixing_article: "Poprawianie artykułu", validating_fix: "Walidacja poprawek",
   classifying: "Ocena tematu", fetching_original: "Pobieranie oryginału",
   discovering_sources: "Szukanie źródeł", fetching_sources: "Pobieranie źródeł",
   analysing: "Analiza faktów", building_brief: "Przygotowanie briefu",

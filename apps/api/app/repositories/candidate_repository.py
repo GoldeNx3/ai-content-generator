@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Candidate, CandidateStatus
+from app.demo import DEMO_PREFIX
 from app.schemas.candidate import CandidateFilters, SortOrder
 
 INSERT_CHUNK_SIZE = 500
@@ -69,7 +70,7 @@ class CandidateRepository:
     async def list_unclassified_ids(self, limit: int | None = None) -> list[int]:
         query = (
             select(Candidate.id)
-            .where(Candidate.total_score.is_(None))
+            .where(Candidate.total_score.is_(None), ~Candidate.external_url.startswith(DEMO_PREFIX))
             .order_by(Candidate.original_published_at.desc().nulls_last(), Candidate.id.desc())
             .limit(limit)
         )

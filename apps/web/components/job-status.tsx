@@ -1,5 +1,7 @@
 "use client";
 
+import { useDemoMode } from "@/components/demo-mode";
+
 import { useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api";
 import { isActiveJob } from "@/hooks/use-candidate-jobs";
@@ -11,6 +13,8 @@ export const jobStatusLabel: Record<Job["status"], string> = {
   queued: "W kolejce", running: "W toku", retrying: "Oczekuje na ponowienie", succeeded: "Zakończono", failed: "Błąd",
 };
 const stages: Record<string, string> = {
+  fact_checking: "Weryfikacja faktów", validating_references: "Sprawdzanie referencji", validating_qa: "Walidacja raportu QA",
+  fixing_article: "Poprawianie artykułu", validating_fix: "Walidacja poprawek",
   classifying: "Ocena tematu", fetching_original: "Pobieranie oryginału",
   discovering_sources: "Szukanie źródeł", fetching_sources: "Pobieranie źródeł",
   analysing: "Analiza faktów", building_brief: "Przygotowanie briefu",
@@ -20,6 +24,7 @@ const stages: Record<string, string> = {
 export function JobStatus({ jobs, active, error, onRetry }: {
   jobs: Job[]; active?: Job; error: string | null; onRetry: (job: Job) => Promise<unknown>;
 }) {
+  const demo = useDemoMode();
   const [expanded, setExpanded] = useState(false);
   const [attempts, setAttempts] = useState<JobAttempt[]>([]);
   const [readError, setReadError] = useState<string | null>(null);
@@ -53,7 +58,7 @@ export function JobStatus({ jobs, active, error, onRetry }: {
       {isActiveJob(job) && <p className="text-muted-foreground">Możesz zamknąć przeglądarkę. Zadanie wykona worker.</p>}
       {job.status === "retrying" && <p>Ponowienie najwcześniej: {formatDate(job.available_at)}</p>}
       {job.error_message && job.status !== "succeeded" && <p className="text-destructive">{job.error_message}</p>}
-      {job.status === "failed" && <Button size="sm" variant="outline" disabled={retrying || Boolean(active)} onClick={() => void retry()}>Ponów zadanie · płatne</Button>}
+      {job.status === "failed" && <Button size="sm" variant="outline" disabled={retrying || Boolean(active)} onClick={() => void retry()}>Ponów zadanie · {demo ? "demo · bezpłatne" : "płatne"}</Button>}
       <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)}>{expanded ? "Ukryj" : "Historia zadań i wywołań"}</Button>
       {expanded && <div className="space-y-3 text-xs">
         {jobs.map((item) => <p key={item.id}>{formatDate(item.created_at)} · {jobStatusLabel[item.status]} · {item.id}</p>)}

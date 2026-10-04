@@ -1,10 +1,11 @@
 # Rola pliku: Modele tabel article: mapują rekordy SQL na obiekty Pythona i definiują pola oraz powiązania.
 
 from decimal import Decimal
+from datetime import datetime
 from uuid import UUID
 from typing import Any
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, text
+from sqlalchemy import DateTime, Boolean, Enum, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,12 +28,23 @@ class Article(TimestampMixin, Base):
             "guide": "guide", "comparison": "comparison", "news": "news",
         }.get(self.article_type, "explainer")
 
+    parent_version_id: Mapped[int | None] = mapped_column(ForeignKey("articles.id", ondelete="RESTRICT"))
+    created_by: Mapped[str] = mapped_column(String(30), default="generated", server_default="legacy")
+    creation_reason: Mapped[str | None] = mapped_column(Text)
+    content_hash: Mapped[str] = mapped_column(String(64), default="", server_default="")
+    auto_fix_iteration: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_by: Mapped[str | None] = mapped_column(String(100))
+    rejection_reason: Mapped[str | None] = mapped_column(Text)
+
     # Powiązanie wyniku z zadaniem; stare dane mogą nie mieć tego pola.
     generation_job_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("jobs.id", name="fk_article_generation_job_id", use_alter=True, ondelete="SET NULL"),
         unique=True, nullable=True,
     )
     __table_args__ = (
+        Index("uq_articles_one_approved_per_candidate", "candidate_id", unique=True,
+              postgresql_where=text("status = 'approved'")),
         UniqueConstraint("candidate_id", "version", name="uq_articles_candidate_version"),
         Index(
             "uq_articles_one_current_per_candidate",
@@ -71,6 +83,7 @@ class Article(TimestampMixin, Base):
         nullable=False,
     )
     angle: Mapped[str | None] = mapped_column(Text)
+    qa_passed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     is_edited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Generation details (structured, as returned by the LLM after backend validation).
