@@ -94,6 +94,7 @@ export default function CandidatePage() {
   }
 
   const classified = candidate.total_score !== null;
+  const classificationHasRun = classified || jobs.history.length > 0;
 
   return (
     <ModelPricingProvider>
@@ -136,7 +137,7 @@ export default function CandidatePage() {
         )}
       </div>
 
-      <WorkflowSection number={1} title="Pobranie tematu" description="Materiał źródłowy pobrany z RSS." paid={false} status="Zakończono"
+      <WorkflowSection number={1} title="Pobranie tematu" description="Materiał źródłowy pobrany z RSS." paid={false} status="Zakończono" initiallyCollapsed
         actions={<a
           href={candidate.external_url}
           target="_blank"
@@ -152,15 +153,16 @@ export default function CandidatePage() {
       </WorkflowSection>
 
       <WorkflowSection number={2} title="Ocena tematu przez AI" description="Punktacja i uzasadnienie pomagające wybrać temat do opracowania." paid
+        initiallyCollapsed={classified}
         status={jobs.latest ? jobStatusLabel[jobs.latest.status] : busy === "classify" ? "W toku" : classificationError ? "Ostatnie uruchomienie: błąd" : classified ? "Zakończono" : "Do uruchomienia"}
         actions={<Button
           size="sm"
-          variant="outline"
+          variant={classificationHasRun ? "outline" : "default"}
           onClick={() => void classify()}
           disabled={busy !== null || !jobs.loaded || Boolean(jobs.active)}
         >
           {busy === "classify" ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />}
-          {classified ? "Oceń ponownie · płatne" : "Oceń temat · płatne"}
+          {classificationHasRun ? "Oceń ponownie · płatne" : "Oceń temat · płatne"}
         </Button>}
         summary={<UsageSummary rows={[{label: "Ocena tematu", configured: "classifier", model: candidate.llm_model, input: candidate.llm_input_tokens, output: candidate.llm_output_tokens, cost: candidate.estimated_cost_usd}]} note={classified ? `Oceniono: ${formatDate(candidate.classified_at)}. Starsze oceny mogą nie mieć zapisanych danych o zużyciu.` : "Dane zużycia pojawią się po ocenie tematu."} />}>
         <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} />

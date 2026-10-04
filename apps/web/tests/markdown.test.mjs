@@ -10,7 +10,7 @@ const compiled = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX },
 }).outputText.replace(/from (["'])([^"']+)\1/g, (_, quote, name) => `from ${quote}${import.meta.resolve(name)}${quote}`);
 const { Markdown } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
-const render = (text) => renderToStaticMarkup(createElement(Markdown, { children: text }));
+const render = (text) => renderToStaticMarkup(createElement(Markdown, null, text));
 
 test('comparison table renders as a table inside a scrollable region', () => {
   const html = render('| Model | Cena |\n| --- | ---: |\n| A | 10 USD |');

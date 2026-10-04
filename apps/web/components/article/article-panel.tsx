@@ -84,6 +84,7 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
   const generationBusy = generating || Boolean(jobs.active) || !jobs.loaded;
 
   const researchReady = research?.status === "completed";
+  const generationHasRun = versions.length > 0 || jobs.history.length > 0;
 
   async function generate(options: GenerateArticleRequest) {
     setGenerating(true);
@@ -136,9 +137,10 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
 
   return (
     <WorkflowSection number={4} title="Generowanie artykułu" description="Brief i treść opracowane na podstawie ukończonego researchu." paid
+      initiallyCollapsed={loaded ? versions.length > 0 : undefined}
       status={jobs.latest ? jobStatusLabel[jobs.latest.status] : loadError ? "Błąd odczytu" : generationError ? "Ostatnie uruchomienie: błąd" : articleState(Boolean(article), generating, Boolean(researchReady), loaded)}
-      actions={<Button variant={article ? "outline" : "default"} size="sm" onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generationBusy}>
-        {article ? <RefreshCwIcon /> : <SparklesIcon />}{article ? "Nowa wersja · płatne" : "Generuj artykuł · płatne"}
+      actions={<Button variant={generationHasRun ? "outline" : "default"} size="sm" onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generationBusy}>
+        {generationHasRun ? <RefreshCwIcon /> : <SparklesIcon />}{generationHasRun ? "Nowa wersja · płatne" : "Generuj artykuł · płatne"}
       </Button>}
       summary={<UsageSummary rows={[
         {label: "Brief", configured: "brief", model: article?.brief_llm_model, input: article?.brief_llm_model ? article.brief_input_tokens : null, output: article?.brief_llm_model ? article.brief_output_tokens : null, cost: article?.brief_cost_usd},

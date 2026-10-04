@@ -1,10 +1,22 @@
-import { CheckCircle2Icon, CircleIcon, CircleAlertIcon, Loader2Icon } from "lucide-react";
+"use client";
+
+import { useId, useState } from "react";
+import { CheckCircle2Icon, ChevronDownIcon, ChevronUpIcon, CircleIcon, CircleAlertIcon, Loader2Icon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function WorkflowSection({ number, title, description, status, paid, actions, summary, children }: {
+export function WorkflowSection({ number, title, description, status, paid, actions, summary, children, initiallyCollapsed }: {
   number: number; title: string; description: string; status: string; paid: boolean;
   actions?: React.ReactNode; summary: React.ReactNode; children: React.ReactNode;
+  // Undefined until the first successful result read. Later polling must not change expansion.
+  initiallyCollapsed?: boolean;
 }) {
+  const contentId = useId();
+  const [expanded, setExpanded] = useState<boolean | null>(null);
+  if (expanded === null && initiallyCollapsed !== undefined) {
+    setExpanded(!initiallyCollapsed);
+  }
+  const isExpanded = expanded ?? true;
   const completed = status === "Zakończony" || status === "Zakończono";
   const error = status.toLowerCase().includes("błąd");
   const running = ["W toku", "Uruchamianie…", "W kolejce"].includes(status);
@@ -25,10 +37,19 @@ export function WorkflowSection({ number, title, description, status, paid, acti
             </div>
           </div>
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2 md:justify-end">{actions}</div>}
+        <div className="flex flex-wrap items-center gap-2 md:justify-end">
+          {actions}
+          <Button variant="ghost" size="sm" aria-expanded={isExpanded} aria-controls={contentId}
+            onClick={() => setExpanded(!isExpanded)}>
+            {isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />}
+            {isExpanded ? "Zwiń" : "Rozwiń"}
+          </Button>
+        </div>
       </header>
-      <div className="space-y-6 p-5">{children}</div>
-      <footer className="border-t bg-muted/20 p-5">{summary}</footer>
+      <div id={contentId} hidden={!isExpanded}>
+        <div className="space-y-6 p-5">{children}</div>
+        <footer className="border-t bg-muted/20 p-5">{summary}</footer>
+      </div>
     </section>
   );
 }

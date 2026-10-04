@@ -79,9 +79,11 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
 
   const busy = starting || Boolean(jobs.active) || !jobs.loaded;
   const hasReport = research?.status === "completed";
+  const researchHasRun = research !== null || jobs.history.length > 0;
 
   return (
     <WorkflowSection number={3} title="Research — baza faktów" description="Źródła, zweryfikowane fakty i kontekst do napisania artykułu." paid
+      initiallyCollapsed={loaded ? hasReport : undefined}
       status={jobs.latest ? jobStatusLabel[jobs.latest.status] : loadError ? "Błąd odczytu" : startError ? "Ostatnie uruchomienie: błąd" : starting ? "Uruchamianie…" : researchState(research, loaded)}
       actions={<div className="flex flex-wrap gap-2">
           {research && research.sources.length > 0 && (
@@ -90,9 +92,9 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
               Ponów analizę · płatne
             </Button>
           )}
-          <Button size="sm" onClick={() => trigger("start")} disabled={busy || !loaded}>
+          <Button variant={researchHasRun ? "outline" : "default"} size="sm" onClick={() => trigger("start")} disabled={busy || !loaded}>
             {busy ? <Loader2Icon className="animate-spin" /> : <FlaskConicalIcon />}
-            {busy ? "Research w toku…" : research ? "Nowy research · płatne" : "Uruchom research · płatne"}
+            {busy ? "Research w toku…" : researchHasRun ? "Nowy research · płatne" : "Uruchom research · płatne"}
           </Button>
         </div>}
       summary={<UsageSummary rows={[{label: "Wyszukiwanie i analiza źródeł", aggregated: true, configured: "research", model: research?.llm_model, input: research?.llm_model ? research.llm_input_tokens : null, output: research?.llm_model ? research.llm_output_tokens : null, cost: research?.estimated_cost_usd}]} note="Dane dotyczą aktualnego raportu. Nowy research zastępuje raport; ponowna analiza korzysta z zachowanych źródeł. Każde uruchomienie nalicza nowy koszt. Opłaty wyszukiwarki nie są ujęte." />}>
