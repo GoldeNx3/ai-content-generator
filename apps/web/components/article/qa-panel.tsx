@@ -5,6 +5,7 @@ import { useDemoMode } from "@/components/demo-mode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ShieldCheckIcon, RefreshCwIcon } from "lucide-react";
 import { toast } from "sonner";
+import { navigateStage } from "@/components/pipeline-state";
 import { WorkflowSection } from "@/components/workflow-section";
 import { UsageSummary } from "@/components/usage-summary";
 import { JobStatus, jobStatusLabel } from "@/components/job-status";
@@ -27,6 +28,7 @@ const ISSUE_LABELS: Record<QAIssueType, string> = {
   repetition: "Powtórzenie", style_issue: "Problem stylistyczny", structure_issue: "Problem struktury",
   seo_issue: "Problem SEO", overclaim: "Zbyt mocne twierdzenie", other: "Inny problem",
 };
+const AUTO_FIX_TYPES = ["unsupported_claim", "title_mismatch", "repetition", "style_issue", "structure_issue", "seo_issue", "overclaim", "incorrect_number", "incorrect_date"];
 const SEVERITY_STYLES = {
   info: "bg-sky-50 text-sky-800", warning: "bg-amber-50 text-amber-900",
   high: "bg-orange-50 text-orange-900", critical: "bg-rose-50 text-rose-800",
@@ -83,11 +85,11 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
   const fixJobs = useCandidateJobs(candidateId, "auto_fix_article", loadFixes, article.id);
   async function runFix() {
     setFixSubmitting(true); activeFixSeen.current = true;
-    try { await fixJobs.enqueue(() => api.autoFix(article.id)); toast.success("Auto Fix zapisany w kolejce"); }
+    try { await fixJobs.enqueue(() => api.autoFix(article.id)); toast.success("Auto Fix zapisany w kolejce"); navigateStage(6); }
     catch (failure) { toast.error("Nie udało się uruchomić Auto Fix", {description: errorText(failure)}); }
     finally { if (mounted.current) setFixSubmitting(false); }
   }
-  const fixable = report?.issues.filter((issue) => issue.auto_fixable && ["unsupported_claim", "title_mismatch", "repetition", "style_issue", "structure_issue", "seo_issue", "overclaim", "incorrect_number", "incorrect_date"].includes(issue.type)).length ?? 0;
+  const fixable = report?.issues.filter((issue) => issue.auto_fixable && AUTO_FIX_TYPES.includes(issue.type)).length ?? 0;
   const busy = submitting || Boolean(jobs.active) || !jobs.loaded || !loaded || editing || selectingVersion;
   const autoFixDisabledReason = editing ? "Zapisz lub anuluj edycję przed uruchomieniem Auto Fix." :
     selectingVersion ? "Poczekaj na wczytanie wybranej wersji." :
@@ -113,9 +115,9 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
     finally { setSubmitting(false); }
   }
   return <><WorkflowSection number={5} title="QA / Fact Checker" paid status={status}
-    tone={report?.status === "completed" && !report.is_stale ? report.qa_passed ? "success" : "attention" : undefined}
-    description="Kontrola artykułu względem jego researchu, briefu i zapisanych źródeł."
-    headerDetails={<div data-qa-target={article.id} className="space-y-2 rounded-lg border bg-background p-3">
+    tone={(status === "Zakończony" || status === "Zakończono") && report?.status === "completed" && !report.is_stale ? report.qa_passed ? "success" : "attention" : undefined}
+    description="Kontrola faktów i jakości wybranej wersji na podstawie zapisanych dowodów."
+    headerDetails={<div data-qa-target={article.id} className="space-y-2">
       <FilterSelect label="Wersja artykułu do QA" allowAll={false} value={String(article.id)}
         disabled={editing || selectingVersion || submitting}
         options={versions.map((version) => ({value: String(version.id),
@@ -128,9 +130,17 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
       <a href="#article-workspace" onClick={() => window.dispatchEvent(new Event(`article-${article.id}-reveal`))} className="inline-flex min-h-9 items-center rounded px-2 text-sm font-medium underline underline-offset-4 focus-visible:outline-2">Czytaj wybrany tekst</a>
     </div>}
     initiallyCollapsed={loaded ? report?.status === "completed" && !report.is_stale : undefined}
-    actions={<Button size="sm" variant={report ? "outline" : "default"} disabled={busy} onClick={() => void run()}>
-      {report ? <RefreshCwIcon /> : <ShieldCheckIcon />}{report ? `Run QA ponownie · ${demo ? "demo · bezpłatne" : "płatne"}` : `Run QA · ${demo ? "demo · bezpłatne" : "płatne"}`}
-    </Button>}
+    actionTitle="Wynik QA" actionDescription={report?.qa_passed && !report.is_stale ? "Kontrola została zaliczona. Przejdź do decyzji redakcyjnej dla tej wersji." : "Przejrzyj problemy. Auto Fix poprawia tylko wskazane przez QA, bezpieczne do zmiany fragmenty."}
+    actionDetails={report?.status === "completed" && <p className="text-sm text-slate-600">{report.issues.length} problemów · {fixable} automatycznych · {report.issues.length - fixable} do ręcznej oceny</p>}
+    actions={<>
+      {report?.qa_passed && !report.is_stale && <Button onClick={() => navigateStage(6)}>Przejdź do zatwierdzenia</Button>}
+      {report?.status === "completed" && !report.qa_passed && autoFixDisabledReason === null && <Button title="Auto Fix tworzy nową wersję i uruchamia jej QA, bez dodawania nowych faktów." onClick={() => void runFix()}>Napraw automatycznie {fixable} {fixable === 1 ? "problem" : "problemy"}</Button>}
+      {report?.status === "completed" && !report.qa_passed && <Button variant={autoFixDisabledReason === null ? "outline" : "default"} disabled={editing || selectingVersion} onClick={onEdit}>Popraw ręcznie</Button>}
+      <Button size="sm" variant={report ? "outline" : "default"} disabled={busy} onClick={() => void run()}>
+        {report ? <RefreshCwIcon /> : <ShieldCheckIcon />}{report ? `Run QA ponownie · ${demo ? "demo · bezpłatne" : "płatne"}` : `Run QA · ${demo ? "demo · bezpłatne" : "płatne"}`}
+      </Button>
+    </>}
+
     activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active}
       error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
       summary={<UsageSummary rows={[{label: "QA / Fact Checker", configured: "qa", model: report?.llm_model,
@@ -159,7 +169,7 @@ function QualityReport({report, article}: {report: ArticleQA; article: Article})
   return <div className="space-y-6" data-qa-report={report.id}>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Raport jakości</h3>
-        <p className="mt-2 text-3xl font-semibold tabular-nums">{report.overall_score}<span className="text-base text-muted-foreground"> / 100</span></p></div>
+        <p className="mt-2 text-5xl font-semibold tabular-nums">{report.overall_score}<span className="text-base text-muted-foreground"> / 100</span></p></div>
       <span className={`rounded-full px-3 py-1 text-sm font-medium ${report.qa_passed ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
         {report.is_stale ? "Ocena nieaktualna" : report.qa_passed ? "QA passed" : "Wymaga weryfikacji"}</span>
     </div>
@@ -183,13 +193,14 @@ function IssueCard({issue, article, stale}: {issue: ArticleQAIssue; article: Art
   const canJump = !stale && anchor && headings.filter((id) => id === anchor).length === 1;
   return <section className="space-y-3 rounded-lg border p-4">
     <div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${SEVERITY_STYLES[issue.severity]}`}>{issue.severity.toUpperCase()}</span>
-      <h4 className="text-sm font-semibold">{ISSUE_LABELS[issue.type]}</h4></div>
+      <h4 className="text-sm font-semibold">{ISSUE_LABELS[issue.type]}</h4><span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{!stale && issue.auto_fixable && AUTO_FIX_TYPES.includes(issue.type) ? "Możliwy Auto Fix" : "Ręczna weryfikacja"}</span></div>
     {issue.excerpt && <blockquote className="break-words border-l-2 pl-3 text-sm italic">„{issue.excerpt}”</blockquote>}
     <div className="space-y-2 text-sm"><p><span className="font-medium">Powód: </span>{issue.reason}</p>
       <p><span className="font-medium">Sugestia: </span>{issue.suggestion}</p></div>
     {issue.section_heading && <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-      <span>Sekcja: {issue.section_heading}</span>{canJump && <button className="text-emerald-700 underline" onClick={() => jumpToSection(prefix, anchor)}>Jump to section</button>}
+      <span>Sekcja: {issue.section_heading}</span>{canJump && <button className="text-emerald-700 underline" onClick={() => jumpToSection(prefix, anchor)}>Zobacz w artykule</button>}
     </div>}
+    <p className="text-xs text-muted-foreground">Powiązane źródła: {issue.source_ids.length}</p>
     {(issue.fact_ids.length > 0 || issue.source_ids.length > 0) && <p className="text-xs text-muted-foreground">Fakty: {issue.fact_ids.join(", ") || "—"} · Źródła: {issue.source_ids.join(", ") || "—"}</p>}
   </section>;
 }

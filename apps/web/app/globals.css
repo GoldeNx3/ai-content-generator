@@ -138,7 +138,6 @@
 }
 
 /* Keep panels mounted: background jobs and unsaved edits survive view changes. */
-.candidate-screen:not([data-view="article-workspace"]) #article-workspace,
 .candidate-screen:not([data-view="workflow-step-1"]) [data-topic-details],
 .candidate-screen:not([data-view="workflow-step-1"]) #workflow-step-1,
 .candidate-screen:not([data-view="workflow-step-2"]) #workflow-step-2,
@@ -165,4 +164,13 @@
   background: #fff1f2;
   padding: .75rem;
   color: #9f1239;
+}
+
+.stage-action-buttons > [data-slot="button"], .stage-action-buttons > a,
+.stage-action-buttons > div > [data-slot="button"] { width: 100%; min-height: 44px; }
+.stage-action-buttons > div { display: grid; gap: 8px; }
+[data-workflow-step] .bg-primary { background-color: #047857; color: white; }
+@media (max-width: 639px) {
+  [data-workflow-step] header { flex-wrap: wrap; }
+  [data-workflow-step] header > span { margin-left: 64px; }
 }

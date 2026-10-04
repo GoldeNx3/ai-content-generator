@@ -10,7 +10,7 @@ const STAGE_HELP: Record<number, { purpose: string; requirements: string; next: 
   1: { purpose: "Zachowuje temat i oryginalny materiał pobrany z RSS.", requirements: "Temat musi pochodzić z aktywnego źródła RSS. W demo dostarcza go seeder.", next: "Sprawdź materiał, zdecyduj czy go opracować i przejdź do oceny lub Research. Zatwierdzenie tematu nie zatwierdza artykułu." },
   2: { purpose: "Ocenia trafność, aktualność oraz potencjał tematu. Zapisuje punktację, kategorię i uzasadnienie.", requirements: "Wymaga zapisanego tematu i braku aktywnej oceny. Ponowne uruchomienie zastępuje punktację.", next: "Wykorzystaj ocenę do decyzji redakcyjnej. Research można uruchomić także bez punktacji." },
   3: { purpose: "Zbiera źródła, fakty, niepewności i konflikty. Tworzy bazę dowodów dla tekstu.", requirements: "Wymaga zapisanego tematu i wolnej kolejki tego etapu. Nowy Research zastępuje raport; ponowna analiza korzysta z zachowanych źródeł.", next: "Sprawdź dowody. Ukończony Research z faktami pozwala przygotować brief i wygenerować artykuł." },
-  4: { purpose: "Przygotowuje brief i pisze artykuł na podstawie Research oraz wybranych ustawień.", requirements: "Wymaga ukończonego Research z faktami i braku aktywnej generacji.", next: "Otwórz tekst w zakładce Artykuł i uruchom QA wybranej wersji. Każda generacja tworzy nową wersję; wcześniejsze pozostają w historii." },
+  4: { purpose: "Przygotowuje brief i pisze artykuł na podstawie Research oraz wybranych ustawień.", requirements: "Wymaga ukończonego Research z faktami i braku aktywnej generacji.", next: "Przeczytaj tekst w podglądzie i uruchom QA wybranej wersji. Każda generacja tworzy nową wersję; wcześniejsze pozostają w historii." },
   5: { purpose: "Sprawdza fakty, źródła, styl, strukturę i SEO konkretnej wersji. Korzysta wyłącznie z zapisanych dowodów, bez nowego researchu.", requirements: "Wymaga wygenerowanej wersji, zakończonej edycji i braku aktywnego QA dla tego tekstu.", next: "QA passed wymaga progu raportu, 0 krytycznych problemów i 0 niepopartych twierdzeń. Problemy przejrzyj w poprawkach; QA samo nie zmienia tekstu." },
   6: { purpose: "Auto Fix wykonuje precyzyjne poprawki i zapisuje nową wersję. Approval zapisuje decyzję człowieka o konkretnej wersji.", requirements: "Auto Fix wymaga aktualnego, ukończonego QA, problemów auto-fixable, wolnej kolejki i pozostałej iteracji. Approval wymaga aktualnego QA passed.", next: "Nowa wersja automatycznie trafia do QA. Jedno kliknięcie to jedna iteracja. Nierozwiązane problemy sprawdź ręcznie; zatwierdzenie niczego nie publikuje." },
 };
@@ -29,7 +29,7 @@ export function WorkflowSection({ number, title, description, headerDetails, sta
   actions?: React.ReactNode; summary: React.ReactNode; children: React.ReactNode;
   actionTitle?: string; actionDescription?: string; actionDetails?: React.ReactNode; resultTitle?: string; timestamp?: string | null;
   headerDetails?: React.ReactNode; activity?: React.ReactNode; tone?: Tone;
-  // Undefined until the first successful result read. Later polling must not change expansion.
+  // Retained for compatibility with existing callers; stage results stay expanded.
   initiallyCollapsed?: boolean;
   revealEvent?: string;
 }) {

@@ -2,6 +2,7 @@
 
 import { useDemoMode } from "@/components/demo-mode";
 
+import { CheckCircle2Icon, CircleIcon, AlertCircleIcon, Loader2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api";
 import { isActiveJob } from "@/hooks/use-candidate-jobs";
@@ -50,16 +51,18 @@ export function JobStatus({ jobs, active, error, onRetry }: {
     catch (failure) { setReadError(errorText(failure)); }
     finally { setRetrying(false); }
   }
-  return <div className="space-y-2 rounded-lg border p-3 text-sm" role="status">
+  const Icon = job?.status === "succeeded" ? CheckCircle2Icon : job?.status === "failed" ? AlertCircleIcon : job?.status === "running" ? Loader2Icon : CircleIcon;
+  const color = job?.status === "failed" ? "text-rose-700" : job?.status === "succeeded" ? "text-emerald-700" : "text-sky-700";
+  return <div className="space-y-3 text-sm" role="status">
     {error && <p className="text-destructive">Nie udało się odczytać statusu: {error}</p>}
-    {active && active.kind !== job?.kind && <p>Dla tego tematu trwa inne zadanie: {active.kind} · {jobStatusLabel[active.status]}.</p>}
+    {active && active.kind !== job?.kind && <p>Dla tego tematu trwa inne zadanie · {jobStatusLabel[active.status]}.</p>}
     {job && <>
-      <p className="font-medium">{jobStatusLabel[job.status]}{job.stage && ` · ${stages[job.stage] ?? job.stage}`} · próba {job.attempt_count}/{job.max_attempts}</p>
-      {isActiveJob(job) && <p className="text-muted-foreground">Możesz zamknąć przeglądarkę. Zadanie wykona worker.</p>}
+      <ol className="space-y-5 border-l border-slate-200 pl-5"><li className="relative"><Icon className={`absolute -left-[30px] top-0.5 size-5 bg-white ${color} ${job.status === "running" ? "animate-spin" : ""}`} /><p className={`font-medium ${color}`}>{jobStatusLabel[job.status]}{job.stage && stages[job.stage] && ` · ${stages[job.stage]}`}</p><p className="mt-1 text-xs text-muted-foreground">{formatDate(job.finished_at ?? job.started_at ?? job.created_at)}</p></li></ol>
+      {isActiveJob(job) && <p className="text-muted-foreground">Możesz opuścić ten ekran. Wynik pojawi się po zakończeniu zadania.</p>}
       {job.status === "retrying" && <p>Ponowienie najwcześniej: {formatDate(job.available_at)}</p>}
       {job.error_message && job.status !== "succeeded" && <p className="text-destructive">{job.error_message}</p>}
       {job.status === "failed" && <Button size="sm" variant="outline" disabled={retrying || Boolean(active)} onClick={() => void retry()}>Ponów zadanie · {demo ? "demo · bezpłatne" : "płatne"}</Button>}
-      <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)}>{expanded ? "Ukryj" : "Historia zadań i wywołań"}</Button>
+      <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)}>{expanded ? "Ukryj" : "Szczegóły techniczne"}</Button>
       {expanded && <div className="space-y-3 text-xs">
         {jobs.map((item) => <p key={item.id}>{formatDate(item.created_at)} · {jobStatusLabel[item.status]} · {item.id}</p>)}
         {readError && <p className="text-destructive">{readError}</p>}

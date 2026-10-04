@@ -23,7 +23,7 @@ function scoreClass(score: number): string {
 
 export function SourceList({ sources }: { sources: ResearchSource[] }) {
   if (sources.length === 0) {
-    return <p className="text-sm text-muted-foreground">No sources yet.</p>;
+    return <p className="text-sm text-muted-foreground">Brak źródeł.</p>;
   }
   return (
     <ul className="divide-y rounded-lg border bg-background">
@@ -39,32 +39,32 @@ function SourceItem({ source }: { source: ResearchSource }) {
   const canExpand = Boolean(source.extracted_content);
 
   return (
-    <li className="p-3">
+    <li id={`research-source-${source.id}`} className="scroll-mt-36 p-4">
       <div className="flex items-start gap-3">
         <span
           className={cn("w-9 shrink-0 pt-0.5 text-right font-mono text-sm font-semibold", scoreClass(source.source_score))}
-          title="Source credibility score (backend heuristic)"
+          title="Ocena wiarygodności źródła"
         >
-          {source.source_score}
+          [{source.id}]
         </span>
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="font-medium">{sourceLabel(source)}</span>
-            <span className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[11px] text-violet-800 ring-1 ring-violet-200">
-              {source.source_type}
+            <span className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-700">
+              {({official:"Oficjalne źródło",documentation:"Dokumentacja",github:"GitHub",news:"Wiadomości",blog:"Blog",community:"Społeczność",other:"Inne"})[source.source_type]}
             </span>
-            <span className="text-xs text-muted-foreground">{source.origin}</span>
+            <span className="text-xs text-muted-foreground">{source.origin === "original" ? "Materiał oryginalny" : source.origin === "manual" ? "Dodane ręcznie" : "Dodatkowe źródło"}</span>
             <span
               className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium ring-1", FETCH_STYLES[source.fetch_status])}
               title={source.error ?? undefined}
             >
-              {source.fetch_status}
-              {source.http_status ? ` · ${source.http_status}` : ""}
+              {source.fetch_status === "success" ? "Pobrano" : source.fetch_status === "failed" ? "Błąd pobrania" : "Oczekuje"}
+
             </span>
           </div>
           {source.title && <p className="text-sm">{source.title}</p>}
           <div className="flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
-            <span>{source.published_at ? formatDate(source.published_at) : "date unknown"}</span>
+            <span>{source.published_at ? formatDate(source.published_at) : "Data nieznana"}</span>
             <a
               href={source.url}
               target="_blank"
@@ -75,6 +75,9 @@ function SourceItem({ source }: { source: ResearchSource }) {
               <ExternalLinkIcon className="size-3 shrink-0" />
             </a>
           </div>
+          {source.extracted_content && <p className="line-clamp-3 text-sm leading-6 text-slate-600">{source.extracted_content.slice(0,240)}{source.extracted_content.length>240 ? "…" : ""}</p>}
+          <a href={source.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1 text-xs font-medium text-sky-800 hover:underline">Otwórz źródło <ExternalLinkIcon className="size-3" /></a>
+          <p className="text-xs text-muted-foreground">Wiarygodność: {source.source_score}/100</p>
           {source.error && <p className="text-xs text-rose-700">{source.error}</p>}
           {canExpand && (
             <button
@@ -84,7 +87,7 @@ function SourceItem({ source }: { source: ResearchSource }) {
               aria-expanded={open}
             >
               {open ? <ChevronDownIcon className="size-3.5" /> : <ChevronRightIcon className="size-3.5" />}
-              Extracted content ({source.extracted_content?.length.toLocaleString("en")} chars)
+              Pełna pobrana treść ({source.extracted_content?.length.toLocaleString("pl-PL")} znaków)
             </button>
           )}
           {open && (

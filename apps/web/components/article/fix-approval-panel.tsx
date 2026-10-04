@@ -4,6 +4,9 @@ import { useDemoMode } from "@/components/demo-mode";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { FilterSelect } from "@/components/filter-select";
+import { ArticlePreview } from "./article-preview";
+import { ScoreBar } from "@/components/score-badge";
 import { WorkflowSection } from "@/components/workflow-section";
 import { UsageSummary } from "@/components/usage-summary";
 import { JobStatus } from "@/components/job-status";
@@ -35,13 +38,23 @@ export function FixApprovalPanel({article, versions, qa, fixes, jobs, error, edi
     } catch (failure) { toast.error("Nie udało się zapisać decyzji", {description: errorText(failure)}); }
     finally { setApproving(false); }
   }
-  return <WorkflowSection number={6} title="Auto Fix + Approval" paid
+  return <WorkflowSection number={6} title="Poprawki i zatwierdzenie" paid
     tone={jobs.active ? "running" : undefined}
     status={ARTICLE_STATUS_LABELS[article.status] ?? "Szkic"}
     description={`Poprawki i decyzja redakcyjna dotyczą wersji ${article.version}.`}
-    actions={<Button size="sm" disabled={busy || autoFixDisabledReason !== null} title={autoFixDisabledReason ?? undefined}
-      onClick={() => void onAutoFix()}>{fixSubmitting || jobs.active?.kind === "auto_fix_article" ? "Fixing…" : `Auto Fix · ${demo ? "demo · bezpłatne" : "płatne"}`}</Button>}
-    headerDetails={<div className="space-y-2"><p className="text-sm text-muted-foreground">
+    actionTitle="Decyzja redakcyjna" actionDescription={article.status === "approved" ? "Ta wersja została zatwierdzona. Decyzja jest zapisana w historii." : "Zatwierdź konkretną wersję po zaliczonym QA lub popraw pozostałe problemy."}
+    actionDetails={<p className="text-sm text-slate-600">Wersja {article.version} · {ARTICLE_STATUS_LABELS[article.status]}</p>}
+    actions={<>
+      {article.status === "ready_for_approval" && <>
+        <Button disabled={busy || !qaCurrent || !qa.qa_passed} onClick={() => void decide()}>Zatwierdź wersję</Button>
+        <Button variant="outline" disabled={busy} onClick={() => setRejecting(true)}>Odrzuć wersję</Button>
+      </>}
+      {(autoFixDisabledReason === null || fixSubmitting || jobs.active?.kind === "auto_fix_article") && <Button variant={article.status === "ready_for_approval" ? "outline" : "default"} disabled={busy || autoFixDisabledReason !== null} title="Auto Fix tworzy nową wersję i uruchamia jej QA." onClick={() => void onAutoFix()}>{fixSubmitting || jobs.active?.kind === "auto_fix_article" ? "Fixing…" : `Auto Fix · ${demo ? "demo · bezpłatne" : "płatne"}`}</Button>}
+      <Button variant="outline" disabled={busy} onClick={onEdit}>Edytuj tekst</Button>
+      {rejecting && <div className="space-y-2"><label className="block text-sm">Powód odrzucenia (opcjonalny)<textarea className="mt-1 block w-full rounded-lg border p-2" value={reason} maxLength={2000} onChange={(event) => setReason(event.target.value)} /></label>
+      <div className="flex gap-2"><Button variant="destructive" disabled={busy} onClick={() => void decide(true)}>Potwierdź odrzucenie</Button><Button variant="ghost" onClick={() => setRejecting(false)}>Anuluj</Button></div></div>}
+    </>}
+    headerDetails={<div className="space-y-2"><FilterSelect label="Wersja do zatwierdzenia" allowAll={false} value={String(article.id)} disabled={busy} options={versions.map(v=>({value:String(v.id),label:`Wersja ${v.version}${v.is_current ? " · najnowsza" : ""}`}))} onChange={value=>value&&void onSelectVersion(Number(value))} /><p className="font-medium">{article.title}</p><p className="text-sm text-muted-foreground">
       {autoFixDisabledReason ?? `Problemy do poprawy: ${fixableCount}. Auto Fix utworzy nową wersję na podstawie v${article.version} i uruchomi jej QA.`}
     </p><a href="#article-workspace" onClick={() => window.dispatchEvent(new Event(`article-${article.id}-reveal`))} className="inline-flex min-h-9 items-center rounded px-2 text-sm font-medium underline underline-offset-4 focus-visible:outline-2">Czytaj wybrany tekst</a></div>}
     activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job: Job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
@@ -60,23 +73,18 @@ export function FixApprovalPanel({article, versions, qa, fixes, jobs, error, edi
       <p>{item.summary}</p>
       {item.warnings.map((warning) => <p key={warning} className="text-amber-800">{warning}</p>)}
       <div className="space-y-2">{item.issues.map((issue) => <p key={issue.id}>Issue #{issue.qa_issue_id} · {issue.status}: {issue.reason}</p>)}</div>
-      {item.changes.length > 0 && <details><summary className="cursor-pointer font-medium">Zmienione fragmenty · Before / After</summary>
+      {item.changes.length > 0 && <details open><summary className="cursor-pointer font-medium">Zmienione fragmenty · Before / After</summary>
         <div className="mt-3 space-y-3">{item.changes.map((change, index) => <div key={index} className="space-y-2 rounded-lg bg-muted/20 p-3">
           <p className="font-medium">{change.field}</p><div className="grid gap-3 md:grid-cols-2">
-            <div><p className="text-xs text-muted-foreground">Before</p><p className="whitespace-pre-wrap break-words">{change.before}</p></div>
-            <div><p className="text-xs text-muted-foreground">After</p><p className="whitespace-pre-wrap break-words">{change.after || "Usunięto fragment"}</p></div>
+            <div className="rounded-lg border border-rose-100 bg-rose-50/40 p-3"><p className="text-xs font-medium text-rose-800">Przed poprawką</p><p className="whitespace-pre-wrap break-words">{change.before}</p></div>
+            <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3"><p className="text-xs font-medium text-emerald-800">Po poprawce</p><p className="whitespace-pre-wrap break-words">{change.after || "Usunięto fragment"}</p></div>
           </div></div>)}</div></details>}
     </section>)}
     {qaCurrent && <p className={`rounded-lg border p-4 text-sm ${qa.qa_passed ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900"}`}>Wynik QA: {qa.overall_score}/100 · krytyczne: {qa.critical_issue_count} · niepoparte twierdzenia: {qa.unsupported_claims_count} · ostrzeżenia: {qa.warning_count}</p>}
     {!qaCurrent && <p className="text-sm text-muted-foreground">{qa?.status === "pending" || qa?.status === "running" ? "QA nowej wersji w kolejce / w toku…" : "Zatwierdzenie wymaga nowego, zaliczonego QA."}</p>}
-    {article.status === "ready_for_approval" && <div className="flex flex-wrap gap-2">
-      <Button disabled={busy || !qaCurrent || !qa.qa_passed} onClick={() => void decide()}>Zatwierdź wersję</Button>
-      <Button variant="outline" disabled={busy} onClick={() => setRejecting(true)}>Odrzuć wersję</Button>
-      <Button variant="outline" disabled={busy} onClick={onEdit}>Edytuj tekst</Button>
-    </div>}
-    {article.status === "manual_review_required" && <div className="space-y-2 text-sm"><p>Wymagana ręczna weryfikacja. Kolejny Auto Fix nie zostanie uruchomiony automatycznie.</p><Button variant="outline" disabled={busy} onClick={onEdit}>Edytuj tekst</Button></div>}
     {article.status === "approved" && <p className="text-sm text-emerald-800">Zatwierdzono tę wersję{article.approved_at ? ` · ${new Date(article.approved_at).toLocaleString("pl-PL")}` : ""}.</p>}
-    {rejecting && <div className="space-y-2"><label className="block text-sm">Powód odrzucenia (opcjonalny)<textarea className="mt-1 block w-full rounded-lg border p-2" value={reason} maxLength={2000} onChange={(event) => setReason(event.target.value)} /></label>
-      <div className="flex gap-2"><Button disabled={busy} onClick={() => void decide(true)}>Potwierdź odrzucenie</Button><Button variant="ghost" onClick={() => setRejecting(false)}>Anuluj</Button></div></div>}
+    {qaCurrent && <section className="space-y-4" aria-label="Końcowy raport QA"><h3 className="text-base font-semibold">Końcowe QA · {qa.overall_score}/100</h3><div className="grid gap-3 sm:grid-cols-2">{[["Fakty",qa.factual_score],["Źródła",qa.source_score],["Styl",qa.style_score],["Struktura",qa.structure_score],["SEO",qa.seo_score]].map(([label,value])=><ScoreBar key={String(label)} label={String(label)} value={Number(value)} />)}</div></section>}
+    <section className="space-y-6 border-t pt-6"><h3 className="text-base font-semibold">Podgląd finalnego artykułu · wersja {article.version}</h3><ArticlePreview article={article} anchorPrefix={`final-article-${article.id}`} /></section>
+
   </WorkflowSection>;
 }

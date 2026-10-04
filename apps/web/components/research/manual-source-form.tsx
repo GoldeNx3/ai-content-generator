@@ -24,14 +24,14 @@ export function ManualSourceForm({ candidateId, disabled, onAdded }: ManualSourc
     try {
       const source = await api.addResearchSource(candidateId, url.trim());
       if (source.fetch_status === "success") {
-        toast.success("Source added", { description: "Run “Re-run analysis” to include it in the report." });
+        toast.success("Dodano źródło", { description: "Wybierz „Ponów analizę”, aby uwzględnić je w raporcie." });
       } else {
-        toast.warning("Source saved, but fetching failed", { description: source.error ?? undefined });
+        toast.warning("Zapisano źródło, ale pobranie treści się nie powiodło", { description: source.error ?? undefined });
       }
       setUrl("");
       onAdded();
     } catch (error) {
-      toast.error("Could not add source", { description: errorText(error) });
+      toast.error("Nie udało się dodać źródła", { description: errorText(error) });
     } finally {
       setSaving(false);
     }
@@ -44,14 +44,14 @@ export function ManualSourceForm({ candidateId, disabled, onAdded }: ManualSourc
         required
         value={url}
         onChange={(event) => setUrl(event.target.value)}
-        placeholder="https://… additional source URL"
-        aria-label="Additional source URL"
-        className="min-w-64 flex-1"
+        placeholder="https://… adres dodatkowego źródła"
+        aria-label="Adres dodatkowego źródła"
+        className="min-w-0 basis-64 flex-1"
         disabled={disabled || saving}
       />
       <Button type="submit" variant="outline" disabled={disabled || saving}>
         {saving ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
-        Add source
+        Dodaj źródło
       </Button>
     </form>
   );

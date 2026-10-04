@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { useCandidateJobs } from "@/hooks/use-candidate-jobs";
 import { JobStatus, jobStatusLabel } from "@/components/job-status";
+import { navigateStage } from "@/components/pipeline-state";
 import { WorkflowSection } from "@/components/workflow-section";
 import { UsageSummary } from "@/components/usage-summary";
 import { articleState } from "@/lib/workflow";
@@ -142,6 +143,18 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
 
   return (
     <>
+    <WorkflowSection revealEvent={`article-${article?.id}-reveal`} number={4} title="Generowanie artykułu" description="Brief i treść opracowane na podstawie ukończonego researchu." paid
+      initiallyCollapsed={loaded ? versions.length > 0 : undefined}
+      status={jobs.latest ? jobStatusLabel[jobs.latest.status] : loadError ? "Błąd odczytu" : generationError ? "Ostatnie uruchomienie: błąd" : articleState(Boolean(article), generating, Boolean(researchReady), loaded)}
+      actionTitle="Generowanie" actionDescription={article ? "Tekst jest gotowy. Sprawdź wybraną wersję i przejdź do kontroli jakości. Ponowna generacja utworzy nową wersję i naliczy koszt AI." : "Wybierz format, długość i perspektywę tekstu. Brief i artykuł powstaną w jednym zadaniu."}
+      actions={<>{article && <Button onClick={() => navigateStage(5)}>Przejdź do QA</Button>}<Button variant={generationHasRun ? "outline" : "default"} size="sm" onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generationBusy}>
+        {generationHasRun ? <RefreshCwIcon /> : <SparklesIcon />}{generationHasRun ? `Nowa wersja · ${demo ? "demo · bezpłatne" : "płatne"}` : `Generuj artykuł · ${demo ? "demo · bezpłatne" : "płatne"}`}
+      </Button></>}
+      activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
+      summary={<UsageSummary rows={[
+        {label: "Brief", configured: "brief", model: article?.brief_llm_model, input: article?.brief_llm_model ? article.brief_input_tokens : null, output: article?.brief_llm_model ? article.brief_output_tokens : null, cost: article?.brief_cost_usd},
+        {label: "Pisanie artykułu", configured: "writer", model: article?.llm_model, input: article?.llm_model ? article.writer_input_tokens : null, output: article?.llm_model ? article.writer_output_tokens : null, cost: article?.writer_cost_usd}
+      ]} total={article?.estimated_cost_usd} note={demo ? "Generacja demo jest bezpłatna. Każde uruchomienie tworzy nową wersję i zachowuje historię." : "Każda generacja tworzy nową, płatną wersję. Poprzednie wersje pozostają dostępne. Edycja i zmiana statusu nie wywołują AI."} />}>
     {article ? <ArticleWorkspace article={article} versions={versions} selecting={selectingVersion}
       editingArticle={editing ? editingArticle : null} saving={saving} editingBlocked={Boolean(jobs.active)} onSelect={selectVersion}
       onEdit={editArticle} onSave={save} onCancel={() => setEditing(false)} /> :
@@ -149,17 +162,7 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
         <h2 id="article-empty-title" className="font-semibold">Wybrany artykuł</h2>
         <p role={loadError ? "alert" : undefined} className="mt-2 text-sm text-muted-foreground">{loadError ? loadError : !loaded ? "Wczytywanie artykułów…" : researchReady ? "Nie ma jeszcze tekstu. Wygeneruj pierwszą wersję na podstawie Research." : "Najpierw ukończ Research, a następnie wygeneruj artykuł. Tutaj zobaczysz wybraną wersję."}</p>
       </section>}
-    <WorkflowSection revealEvent={`article-${article?.id}-reveal`} number={4} title="Generowanie artykułu" description="Brief i treść opracowane na podstawie ukończonego researchu." paid
-      initiallyCollapsed={loaded ? versions.length > 0 : undefined}
-      status={jobs.latest ? jobStatusLabel[jobs.latest.status] : loadError ? "Błąd odczytu" : generationError ? "Ostatnie uruchomienie: błąd" : articleState(Boolean(article), generating, Boolean(researchReady), loaded)}
-      actions={<Button variant={generationHasRun ? "outline" : "default"} size="sm" onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generationBusy}>
-        {generationHasRun ? <RefreshCwIcon /> : <SparklesIcon />}{generationHasRun ? `Nowa wersja · ${demo ? "demo · bezpłatne" : "płatne"}` : `Generuj artykuł · ${demo ? "demo · bezpłatne" : "płatne"}`}
-      </Button>}
-      activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
-      summary={<UsageSummary rows={[
-        {label: "Brief", configured: "brief", model: article?.brief_llm_model, input: article?.brief_llm_model ? article.brief_input_tokens : null, output: article?.brief_llm_model ? article.brief_output_tokens : null, cost: article?.brief_cost_usd},
-        {label: "Pisanie artykułu", configured: "writer", model: article?.llm_model, input: article?.llm_model ? article.writer_input_tokens : null, output: article?.llm_model ? article.writer_output_tokens : null, cost: article?.writer_cost_usd}
-      ]} total={article?.estimated_cost_usd} note="Każda generacja tworzy nową, płatną wersję. Poprzednie wersje pozostają dostępne. Edycja i zmiana statusu nie wywołują AI." />}>
+
       <div className="space-y-6">
 
         <div className="space-y-1 text-sm text-muted-foreground">          {loadError && <p className="text-destructive">{loadError}</p>}
@@ -197,7 +200,7 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
       </WorkflowSection>
       <WorkflowSection number={6} title="Auto Fix + Approval" paid status="Najpierw wykonaj QA"
         description="Poprawki i zatwierdzanie zawsze dotyczą wybranej wersji artykułu." initiallyCollapsed
-        actions={<Button size="sm" disabled>Auto Fix</Button>} summary={<UsageSummary note="Poprawki wymagają ukończonego QA; approval wymaga QA passed." />}>
+        actions={<Button size="sm" variant="outline" onClick={() => navigateStage(5)}>Przejdź do QA</Button>} summary={<UsageSummary note="Poprawki wymagają ukończonego QA; approval wymaga QA passed." />}>
         <p className="text-sm text-muted-foreground">Po QA zobaczysz dostępne poprawki. Zatwierdzanie będzie dostępne po spełnieniu wymagań jakości.</p>
       </WorkflowSection>
     </>}

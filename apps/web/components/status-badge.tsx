@@ -15,7 +15,7 @@ export function StatusBadge({ status }: { status: CandidateStatus }) {
         STATUS_STYLES[status],
       )}
     >
-      {status}
+      {{pending:"Oczekuje",approved:"Zatwierdzony",ignored:"Pominięty"}[status]}
     </span>
   );
 }
@@ -24,7 +24,7 @@ export function CategoryBadge({ category }: { category: string | null }) {
   if (!category) return <span className="text-xs text-muted-foreground">—</span>;
   return (
     <span className="inline-flex items-center rounded-md bg-violet-50 px-2 py-0.5 font-mono text-xs text-violet-800 ring-1 ring-violet-200">
-      {category}
+      {({news:"Wiadomości",guide:"Poradnik",comparison:"Porównanie",case_study:"Studium przypadku",explainer:"Wyjaśnienie"} as Record<string,string>)[category] ?? category}
     </span>
   );
 }

@@ -18,12 +18,17 @@ export function UsageSummary({ rows = [], free = false, note, total }: { rows?: 
   const demo = useDemoMode();
   free = free || demo;
   const pricing = useContext(PricingContext);
+  const models = [...new Set(rows.map(row => row.model || (row.configured && pricing?.models[row.configured])).filter(Boolean))];
+  const tokensKnown = rows.length > 0 && rows.every(row => row.input != null && row.output != null);
+  const tokens = rows.reduce((sum,row) => sum + (row.input ?? 0) + (row.output ?? 0),0);
+  const savedCost = total ?? (rows.length > 0 && rows.every(row=>row.cost!=null) ? String(rows.reduce((sum,row)=>sum+Number(row.cost),0)) : null);
   return <div className="space-y-3 text-sm">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Podsumowanie uruchomienia</h3>
       {!free && <a href="https://developers.openai.com/api/docs/pricing" target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground underline underline-offset-4">Cennik OpenAI · USD / 1 mln tokenów</a>}
     </div>
-    {free ? <dl className="grid gap-3 sm:grid-cols-3"><UsageItem label="Model" value="Nie używa AI" /><UsageItem label="Tokeny AI" value="0" /><UsageItem label="Koszt AI" value="$0.00" /></dl> : rows.map((row) => {
+    {!free && <dl className="grid grid-cols-3 gap-2"><UsageItem label="Model" value={models.join(" + ") || "Brak danych"} /><UsageItem label="Tokeny AI" value={tokensKnown ? tokens.toLocaleString("pl-PL") : "Brak danych"} /><UsageItem label="Koszt AI" value={costLabel(savedCost)} /></dl>}
+    {free ? <dl className="grid grid-cols-3 gap-2"><UsageItem label="Model" value="Nie używa AI" /><UsageItem label="Tokeny AI" value="0" /><UsageItem label="Koszt AI" value="$0.00" /></dl> : <details className="text-xs"><summary className="cursor-pointer text-muted-foreground">Stawki i szczegóły zużycia</summary><div className="mt-4 space-y-4">{rows.map((row) => {
       const model = row.model || (row.configured && pricing?.models[row.configured]);
       const key = model && Object.keys(pricing?.rates ?? {}).sort((a, b) => b.length - a.length).find((key) => model === key || model.startsWith(`${key}-`));
       const rate = key ? pricing?.rates[key] : undefined;
@@ -46,12 +51,12 @@ export function UsageSummary({ rows = [], free = false, note, total }: { rows?: 
         {row.aggregated && rate?.long_context_threshold !== undefined && <p className="text-xs text-muted-foreground">Powyżej {rate.long_context_threshold.toLocaleString("pl-PL")} tokenów wejścia w jednym wywołaniu: ${rate.long_input} / ${rate.long_output} za 1 mln tokenów wejścia / wyjścia. Zużycie researchu jest sumą wywołań.</p>}
         {rate?.cached_input !== undefined && <p className="text-xs text-muted-foreground">Stawka wejścia z cache: ${isLong ? rate.long_cached_input ?? rate.cached_input : rate.cached_input} / 1 mln tokenów.</p>}
       </div>;
-    })}
+    })}</div></details>}
     {total !== undefined && <p className="border-t pt-3 font-medium">Łączny zapisany koszt tej wersji: {costLabel(total)}</p>}
     {!free && <p className="text-xs text-muted-foreground">Stawki Standard aplikacji. Koszty są szacunkowe; nie uwzględniają rabatów cache ani dodatkowych opłat. </p>}
     {note && <p className="text-xs leading-relaxed text-muted-foreground">{note}</p>}
   </div>;
 }
 function UsageItem({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-medium tabular-nums">{value}</dd></div>;
+  return <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/50 p-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-2 break-words text-xs font-medium tabular-nums">{value}</dd></div>;
 }

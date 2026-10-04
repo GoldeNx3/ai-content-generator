@@ -6,15 +6,15 @@ import type { FactImportance, ResearchFact, ResearchSource } from "@/types/api";
 import { citationLabel } from "./research-utils";
 
 const IMPORTANCE_STYLES: Record<FactImportance, string> = {
-  critical: "bg-rose-50 text-rose-800 ring-rose-200",
+  critical: "bg-emerald-50 text-emerald-800 ring-emerald-200",
   important: "bg-amber-50 text-amber-800 ring-amber-200",
   supporting: "bg-zinc-100 text-zinc-600 ring-zinc-200",
 };
 
 const GROUPS: { importance: FactImportance; title: string }[] = [
-  { importance: "critical", title: "Critical facts" },
-  { importance: "important", title: "Important facts" },
-  { importance: "supporting", title: "Supporting facts" },
+  { importance: "critical", title: "Kluczowe fakty" },
+  { importance: "important", title: "Ważne fakty" },
+  { importance: "supporting", title: "Fakty uzupełniające" },
 ];
 
 interface FactListProps {
@@ -26,7 +26,7 @@ export function FactList({ facts, sources }: FactListProps) {
   const sourcesById = new Map(sources.map((source) => [source.id, source]));
 
   if (facts.length === 0) {
-    return <p className="text-sm text-muted-foreground">No verified facts.</p>;
+    return <p className="text-sm text-muted-foreground">Brak zweryfikowanych faktów.</p>;
   }
 
   return (
@@ -50,26 +50,24 @@ export function FactList({ facts, sources }: FactListProps) {
                         IMPORTANCE_STYLES[fact.importance],
                       )}
                     >
-                      {fact.importance}
+                      {({critical:"Kluczowy",important:"Ważny",supporting:"Uzupełniający"})[fact.importance]}
                     </span>
                   </div>
                   <p className="text-sm leading-relaxed">{fact.claim}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span>Sources:</span>
+                    <span>Źródła:</span>
                     {fact.source_ids.map((id) => {
                       const source = sourcesById.get(id);
                       if (!source) return null;
                       return (
                         <a
                           key={id}
-                          href={source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          href={`#research-source-${source.id}`}
                           className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
                           title={source.url}
                         >
                           <CheckIcon className="size-3" />
-                          {citationLabel(source)}
+                          [{source.id}] {citationLabel(source)}
                         </a>
                       );
                     })}

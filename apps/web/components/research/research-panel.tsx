@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { useCandidateJobs } from "@/hooks/use-candidate-jobs";
 import { JobStatus, jobStatusLabel } from "@/components/job-status";
+import { navigateStage } from "@/components/pipeline-state";
 import { WorkflowSection } from "@/components/workflow-section";
 import { UsageSummary } from "@/components/usage-summary";
 import { researchState } from "@/lib/workflow";
@@ -44,7 +45,7 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
         return true;
     } catch (error) {
       setLoadError(errorText(error));
-      toast.error("Could not load research", { description: errorText(error) });
+      toast.error("Nie udało się wczytać Research", { description: errorText(error) });
       return false;
     }
   }, [candidateId]);
@@ -74,7 +75,7 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
       toast.success("Research zapisany w kolejce");
     } catch (error) {
       setStartError(errorText(error));
-      toast.error("Could not start research", { description: errorText(error) });
+      toast.error("Nie udało się uruchomić Research", { description: errorText(error) });
     } finally {
       setStarting(false);
     }
@@ -88,7 +89,10 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
     <WorkflowSection number={3} title="Research — baza faktów" description="Źródła, zweryfikowane fakty i kontekst do napisania artykułu." paid
       initiallyCollapsed={loaded ? hasReport : undefined}
       status={jobs.latest ? jobStatusLabel[jobs.latest.status] : loadError ? "Błąd odczytu" : startError ? "Ostatnie uruchomienie: błąd" : starting ? "Uruchamianie…" : researchState(research, loaded)}
+      actionTitle="Status Research" actionDescription={hasReport ? "Dowody są gotowe. Przejrzyj źródła i luki przed wygenerowaniem tekstu." : "Research zbierze źródła i przygotuje fakty dla autora. Wynik pojawi się tutaj."}
+      actionDetails={research && <p className="rounded-lg bg-slate-50 p-3 text-sm">{research.sources.length} źródeł · {research.facts.length} faktów · {research.uncertainties.length + research.conflicts.length} luk i konfliktów</p>}
       actions={<div className="flex flex-wrap gap-2">
+          {hasReport && <Button onClick={() => navigateStage(4)}>Przejdź do generowania</Button>}
           {research && research.sources.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => trigger("retry")} disabled={busy || !loaded}>
               <RefreshCwIcon />
@@ -109,7 +113,7 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
           <p>{research?.started_at ? `Uruchomiono: ${formatDate(research.started_at)}` : "Research nie został jeszcze uruchomiony."}</p>
           {research?.completed_at && <p>Zakończono: {formatDate(research.completed_at)}</p>}
           {research && <p>{research.sources.length} źródeł · {research.facts.length} faktów</p>}
-          <p className="mt-2">{hasReport ? "Kolejny krok: wygeneruj artykuł w sekcji poniżej." : "Do wygenerowania artykułu potrzebny jest ukończony research."}</p>
+          <p className="mt-2">{hasReport ? "Kolejny krok: przejdź do generowania artykułu." : "Do wygenerowania artykułu potrzebny jest ukończony research."}</p>
 </div>
         {!loaded && <p className="text-sm text-muted-foreground">Ładowanie…</p>}
 
@@ -143,9 +147,24 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
           </div>
         )}
 
+        {research && (
+          <section className="space-y-3">
+            <h3 className="font-semibold">
+              Źródła <span className="font-normal text-muted-foreground">({research.sources.length})</span>
+            </h3>
+            <SourceList sources={research.sources} />
+            <ManualSourceForm candidateId={candidateId} disabled={busy} onAdded={load} />
+            {research.search_queries.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Zapytania użyte w Research: {research.search_queries.map((query) => `“${query}”`).join(", ")}
+              </p>
+            )}
+          </section>
+        )}
+
         {hasReport && research && (
           <>
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="space-y-4">
               <ReportText title="Podsumowanie" text={research.summary} />
               <ReportText title="Dlaczego to ważne" text={research.why_it_matters} />
               <ReportText title="Proponowana perspektywa" text={research.suggested_angle} />
@@ -215,20 +234,7 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
           </>
         )}
 
-        {research && (
-          <section className="space-y-3">
-            <h3 className="font-semibold">
-              Źródła <span className="font-normal text-muted-foreground">({research.sources.length})</span>
-            </h3>
-            <SourceList sources={research.sources} />
-            <ManualSourceForm candidateId={candidateId} disabled={busy} onAdded={load} />
-            {research.search_queries.length > 0 && (
-              <p className="text-xs text-muted-foreground">
-                Search queries: {research.search_queries.map((query) => `“${query}”`).join(", ")}
-              </p>
-            )}
-          </section>
-        )}
+
 
       </div>
     </WorkflowSection>

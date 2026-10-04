@@ -40,9 +40,9 @@ try {
  await page.getByText('Tryb demo · 0 kosztów AI.',{exact:true}).waitFor();
  assert.equal(await page.locator('[data-cost="paid"]').count(),0);
  const panel=page.locator('[data-workflow-step="5"]');
- const expand=panel.getByRole('button',{name:'Rozwiń',exact:true});await expand.waitFor();await expand.click();
+ await page.getByRole('navigation',{name:'Nawigacja po temacie i artykule'}).getByRole('link',{name:'QA / jakość',exact:true}).click();
  await panel.getByText(/Problemy: 1 · automatycznie: 1/).waitFor();
- const fixButton=page.locator('[data-workflow-step="6"]').getByRole('button',{name:'Auto Fix · demo · bezpłatne',exact:true});
+ const fixButton=panel.getByRole('button',{name:'Napraw automatycznie 1 problem',exact:true});
  await fixButton.click();
  for(let i=0;i<120;i++){
   versions=await(await fetch(`${API}/candidates/${candidate.id}/articles`)).json();
@@ -53,7 +53,7 @@ try {
  // Load the current version and approve through the real UI.
  await page.reload();
  const approval=page.locator('[data-workflow-step="6"]');
- const show=approval.getByRole('button',{name:/^(Rozwiń|Zwiń)$/});await show.waitFor();if((await show.innerText())==='Rozwiń')await show.click();
+ await page.getByRole('navigation',{name:'Nawigacja po temacie i artykule'}).getByRole('link',{name:'Poprawki i zatwierdzenie',exact:true}).click();
  await approval.getByRole('button',{name:'Zatwierdź wersję',exact:true}).click();
  await approval.getByText(/zatwierdzon/i).first().waitFor();
  const approved=await(await fetch(`${API}/articles/${child.id}`)).json();
