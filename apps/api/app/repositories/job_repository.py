@@ -8,7 +8,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.job import Job, JobAttempt
-from app.models import ArticleFix, ArticleQA, Research, ResearchStatus
+from app.models import WordPressPublication, ArticleFix, ArticleQA, Research, ResearchStatus
 
 
 class JobRepository:
@@ -73,6 +73,11 @@ class JobRepository:
             job.lease_token = None
             job.worker_id = None
             job.locked_until = None
+            if job.kind in ('publish_wordpress','prepare_wordpress'):
+                p = await self.session.scalar(select(WordPressPublication).where(WordPressPublication.job_id == job.id))
+                if p:
+                    p.status = 'queued' if job.status == 'retrying' else 'failed'
+                    p.error_code = 'worker_lost'
             if job.kind == 'auto_fix_article':
                 fix = await self.session.scalar(select(ArticleFix).where(ArticleFix.job_id == job.id))
                 if fix:

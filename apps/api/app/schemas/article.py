@@ -54,6 +54,9 @@ class WriterSection(BaseModel):
     source_ids: list[int]
 
 
+from app.schemas.wordpress import SEOData
+
+
 class WriterOutput(BaseModel):
     title: str
     slug: str
@@ -62,6 +65,7 @@ class WriterOutput(BaseModel):
     sections: list[WriterSection]
     conclusion: str
     conclusion_fact_ids: list[int]
+    seo_data: SEOData = Field(default_factory=SEOData)
     meta_title: str
     meta_description: str
 
@@ -131,6 +135,8 @@ class ArticleSummary(BaseModel):
 
 
 class ArticleRead(ArticleSummary):
+    seo_title: str
+    seo_data: dict[str, Any] = Field(default_factory=dict)
     research_id: int | None
     slug: str
     lead: str

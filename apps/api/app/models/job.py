@@ -17,7 +17,7 @@ ACTIVE_STATUSES = ('queued', 'running', 'retrying')
 class Job(Base):
     __tablename__ = 'jobs'
     __table_args__ = (
-        CheckConstraint("kind IN ('classify','research','write','qa_article','auto_fix_article')", name='ck_jobs_kind'),
+        CheckConstraint("kind IN ('classify','research','write','qa_article','auto_fix_article','prepare_wordpress','publish_wordpress')", name='ck_jobs_kind'),
         CheckConstraint("status IN ('queued','running','retrying','succeeded','failed')", name='ck_jobs_status'),
         Index('uq_jobs_active_candidate', 'candidate_id', unique=True,
               postgresql_where=text("status IN ('queued','running','retrying')")),

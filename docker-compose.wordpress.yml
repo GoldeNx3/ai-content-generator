@@ -1,0 +1,10 @@
+# Optional local integration with Projects/goldndev-wordpress.
+services:
+  api:
+    networks: [default, wordpress]
+  worker:
+    networks: [default, wordpress]
+networks:
+  wordpress:
+    external: true
+    name: goldendev-wordpress_default

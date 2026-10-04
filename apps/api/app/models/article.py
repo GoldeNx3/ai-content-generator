@@ -86,6 +86,12 @@ class Article(TimestampMixin, Base):
     qa_passed: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"), nullable=False)
     is_edited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # Additional version-owned SEO, generated alongside the writer output.
+    seo_data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}", nullable=False)
+
+    @property
+    def seo_title(self): return self.meta_title
+
     # Generation details (structured, as returned by the LLM after backend validation).
     brief: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     sections: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False)

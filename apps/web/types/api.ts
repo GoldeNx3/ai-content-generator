@@ -238,6 +238,7 @@ export interface ArticleSummary {
 }
 
 export interface Article extends ArticleSummary {
+  seo_data?: Partial<WordPressProfile>;
   research_id: number | null;
   slug: string;
   lead: string;
@@ -293,7 +294,7 @@ export interface Job {
   id: string;
   candidate_id: number;
   candidate_title?: string | null;
-  kind: "classify" | "research" | "write" | "qa_article" | "auto_fix_article";
+  kind: "classify" | "research" | "write" | "qa_article" | "auto_fix_article" | "prepare_wordpress" | "publish_wordpress";
   article_id?: number | null;
   status: JobStatus;
   stage: string | null;
@@ -362,4 +363,25 @@ export interface ArticleFix {
   llm_model: string | null; llm_input_tokens: number | null; llm_output_tokens: number | null;
   estimated_cost_usd: string | null; created_at: string; updated_at: string;
   issues: {id: number; qa_issue_id: number; status: "fixed" | "skipped" | "failed"; reason: string; created_at: string}[];
+}
+
+export interface WordPressProfile {
+  title: string; slug: string; seo_title: string; meta_description: string;
+  excerpt: string; canonical_url: string | null; focus_keyword: string;
+  secondary_keywords: string[]; og_title: string; og_description: string;
+  twitter_title: string; twitter_description: string; robots_index: boolean; robots_follow: boolean;
+  schema_type: string; category: string; tags: string[]; author_id: number | null;
+  featured_image_url: string | null; featured_image_asset: string | null;
+}
+export interface WordPressPublication {
+  id: number; article_version_id: number; wordpress_post_id: number | null;
+  wordpress_url: string | null; status: string; wp_status: string | null;
+  last_synced_at: string | null; scheduled_at: string | null; warnings: string[]; error_code: string | null;
+}
+export interface WordPressState {
+  remote_status: string | null;
+  publication: WordPressPublication | null; profile: WordPressProfile;
+  checks: {name:string; status:string; value?:string|number}[];
+  categories: string[]; qa_ok: boolean; newer_approved_version_id: number | null;
+  conflict: {current_hash:string;post_id:number} | null; wordpress_admin_url: string | null;
 }

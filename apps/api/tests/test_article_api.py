@@ -76,3 +76,21 @@ async def test_queue_preserves_format_and_angle_on_partial_regeneration(client, 
     assert version['generation_options']['length'] == 'long'
     versions = (await client.get(f'/api/candidates/{candidate.id}/articles')).json()
     assert [item['article_format'] for item in versions] == ['case_study', 'case_study']
+
+
+async def test_generation_persists_full_seo_before_qa_or_wordpress(client,session,execute_job):
+    from tests.article_fakes import make_output
+    from app.schemas.wordpress import SEOData
+    candidate,_=await research_fixture(session)
+    seo=SEOData(excerpt='Opis artykułu',focus_keyword='Claude Code',secondary_keywords=['Barclays'],
+        og_title='OG zatwierdzany z artykułem',og_description='Opis OG',twitter_title='Twitter title',
+        twitter_description='Twitter opis',tags=['Claude','Anthropic','Barclays'],category='Newsy',schema_type='NewsArticle')
+    llm=FakeArticleLLM(output=lambda ctx:make_output([f.id for f in ctx.facts],[s.id for s in ctx.sources],seo_data=seo))
+    job=await client.post(f'/api/candidates/{candidate.id}/article',json={})
+    await execute_job({'write':llm})
+    result=(await client.get('/api/jobs/'+job.json()['id'])).json()
+    assert result['status']=='succeeded',result
+    article=(await client.get('/api/articles/'+str(result['result_id']))).json()
+    assert article['status']=='draft'
+    assert article['seo_data']==seo.model_dump(mode='json')
+    assert article['seo_title']==article['meta_title'] and article['meta_description'] and article['slug']

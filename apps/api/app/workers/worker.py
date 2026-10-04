@@ -13,21 +13,21 @@ from uuid import uuid4
 from sqlalchemy import func, select
 
 from app.core.config import get_settings
-from app.models import ArticleFix, ArticleQA, Candidate, Research, ResearchStatus
+from app.models import WordPressPublication, ArticleFix, ArticleQA, Candidate, Research, ResearchStatus
 from app.demo import is_demo_candidate, demo_settings
 from app.core.config import Settings
 from app.models.job import Job
 from app.repositories.job_repository import JobRepository
-from app.services.jobs.errors import LeaseLostError
+from app.services.jobs.errors import LeaseLostError, JobInputError
 from app.services.jobs.execution import JobExecution
 from app.services.jobs.retry import failure
 from app.services.research.errors import NoSourceContentError
 from app.workers.calls import CallRecorder
-from app.workers.handlers import classify, research, write, qa, auto_fix
+from app.workers.handlers import wordpress, classify, research, write, qa, auto_fix
 from app.workers.providers import providers_for, settings_for
 
 logger = logging.getLogger(__name__)
-HANDLERS = {'classify': classify.handle, 'research': research.handle, 'write': write.handle, 'qa_article': qa.handle, 'auto_fix_article': auto_fix.AutoFixArticleHandler().handle}
+HANDLERS = {'publish_wordpress': wordpress.handle, 'prepare_wordpress': wordpress.handle, 'classify': classify.handle, 'research': research.handle, 'write': write.handle, 'qa_article': qa.handle, 'auto_fix_article': auto_fix.AutoFixArticleHandler().handle}
 HEALTH_FILE = Path('/tmp/worker-health.json')
 
 
@@ -69,7 +69,7 @@ class Worker:
                 from app.workers.demo_providers import demo_providers
                 providers = demo_providers()
             else:
-                providers = providers or providers_for(settings)
+                providers = (providers or {}) if job.kind in ('publish_wordpress','prepare_wordpress') else providers or providers_for(settings)
             timeout = getattr(settings, f'job_{job.kind}_timeout_seconds')
             async with self.sessions() as session:
                 async with asyncio.timeout(timeout):
@@ -116,7 +116,8 @@ class Worker:
                 current.status = 'retrying' if retryable and current.attempt_count < current.max_attempts else 'failed'
                 current.error_code = 'worker_interrupted' if interrupted else code
                 current.error_message = ('Praca została przerwana; poprzednie wywołanie mogło naliczyć koszt.'
-                                         if interrupted else exc.public_message
+                                         if interrupted else str(exc) if isinstance(exc, JobInputError)
+                                         else exc.public_message
                                          if isinstance(exc, NoSourceContentError)
                                          else 'Nie udało się wykonać zadania. ' + code)
                 current.available_at = now + timedelta(seconds=delay)
@@ -127,6 +128,14 @@ class Worker:
                 attempt.error_code = current.error_code
                 attempt.error_message = current.error_message
                 attempt.last_stage = current.stage
+                if current.kind in ('publish_wordpress','prepare_wordpress'):
+                    p = await session.scalar(select(WordPressPublication).where(WordPressPublication.job_id == current.id))
+                    if p:
+                        p.status = 'queued' if current.status == 'retrying' else 'failed'
+                        p.error_code = code
+                        if getattr(exc, 'details', None) and exc.code == 'wordpress_http_409':
+                            p.conflict = exc.details
+                        # Conflict may have been checkpointed in another transaction.
                 if current.kind == 'auto_fix_article':
                     fix = await session.scalar(select(ArticleFix).where(ArticleFix.job_id == current.id))
                     if fix:

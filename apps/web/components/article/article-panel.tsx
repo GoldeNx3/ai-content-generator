@@ -24,6 +24,7 @@ import type {
   Research,
 } from "@/types/api";
 
+import { WordPressPanel } from "./wordpress-panel";
 import { QAPanel } from "./qa-panel";
 import { ArticleWorkspace } from "./article-workspace";
 import { GenerateArticleDialog } from "./generate-article-dialog";
@@ -204,7 +205,7 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
         <p className="text-sm text-muted-foreground">Po QA zobaczysz dostępne poprawki. Zatwierdzanie będzie dostępne po spełnieniu wymagań jakości.</p>
       </WorkflowSection>
     </>}
-    {article && <QAPanel key={article.id} article={article} versions={versions} onSelectVersion={selectVersion}
+    {article && <QAPanel key={`qa-${article.id}`} article={article} versions={versions} onSelectVersion={selectVersion}
       onVersionCreated={async (id, sourceId) => { if (!editing) await loadVersions(id, sourceId); }}
       onEdit={editArticle}
       selectingVersion={selectingVersion} candidateId={candidateId} editing={editing} onArticleChange={async () => {
@@ -213,6 +214,7 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
       setArticle((current) => current?.id === refreshed.id ? refreshed : current);
       setVersions((current) => current.map((version) => version.id === refreshed.id ? {...version, ...refreshed} : version));
     }} />}
+    {article && <WordPressPanel key={`wordpress-${article.id}`} article={article} onSelectVersion={selectVersion} editing={editing} />}
     </>
   );
 }

@@ -3,7 +3,7 @@
 
 from sqlalchemy import func, select, text
 
-from app.models import ArticleFix, ArticleQA, Article, Candidate, Research
+from app.models import WordPressPublication, ArticleFix, ArticleQA, Article, Candidate, Research
 from app.models.job import Job, JobAttempt
 from app.services.jobs.errors import LeaseLostError
 
@@ -37,7 +37,10 @@ class JobExecution:
             self.checkpoints.update(checkpoint)
         job.checkpoints = dict(self.checkpoints)
         if result is not None:
-            if isinstance(result, ArticleFix):
+            if isinstance(result, WordPressPublication):
+                result.job_id = job.id
+                job.result_type = "wordpress_publication"
+            elif isinstance(result, ArticleFix):
                 result.job_id = job.id
                 job.result_type = 'article_fix'
             elif isinstance(result, ArticleQA):

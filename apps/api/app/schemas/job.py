@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, computed_field
 class JobRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: UUID
-    kind: Literal['classify', 'research', 'write', 'qa_article', 'auto_fix_article']
+    kind: Literal['classify', 'research', 'write', 'qa_article', 'auto_fix_article', 'prepare_wordpress', 'publish_wordpress']
     article_id: int | None = None
     candidate_id: int
     candidate_title: str | None = None

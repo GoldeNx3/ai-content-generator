@@ -1,4 +1,5 @@
 import type {
+  WordPressState, WordPressProfile,
   ArticleFix,
   ArticleQA,
   QueueQuery,
@@ -126,6 +127,12 @@ async function enqueue<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export const api = {
+  getWordPress: (id:number) => request<WordPressState>(`/article-versions/${id}/wordpress`),
+  prepareWordPress: (id:number) => enqueue<Job>(`/article-versions/${id}/wordpress/prepare`),
+  setWordPressSettings: (id:number, data:Partial<WordPressProfile>) => patch<WordPressState>(`/article-versions/${id}/wordpress/settings`,data),
+  publishWordPress: (id:number, body:{status:"draft"|"future"|"publish";scheduled_at?:string}) => enqueue<Job>(`/article-versions/${id}/wordpress`,body),
+  syncWordPress: (id:number, body:{expected_wp_hash?:string}={}) => enqueue<Job>(`/article-versions/${id}/wordpress/sync`,body),
+  testWordPress: () => post<{ok:boolean;user_id:number;capabilities:{seo_plugin:string;timezone:string}}>("/wordpress/test-connection"),
   getJob: (id: string) => request<Job>(`/jobs/${id}`),
   listJobs: (candidateId: number) => request<JobPage>(`/candidates/${candidateId}/jobs`),
   queueStats: () => request<JobStats>("/jobs/stats"),

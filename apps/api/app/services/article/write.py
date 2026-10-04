@@ -196,6 +196,9 @@ class ArticleService:
         writer_cost = self._cost(writer_result.usage)
         # model_dump zamienia model Pydantic na słownik; exclude_unset pomija pola, których użytkownik
         # nie przesłał.
+        seo_data=output.seo_data.model_dump(mode="json")
+        if 'schema_type' not in output.seo_data.model_fields_set:
+            seo_data['schema_type']='NewsArticle' if str(article_type) in ('news','release') else 'Article'
         article = Article(
             candidate_id=candidate.id,
             research_id=research.id,
@@ -207,6 +210,7 @@ class ArticleService:
             lead=lead,
             content=content,
             generated_content=content,
+            seo_data=seo_data,
             meta_title=trim_text(output.meta_title, META_TITLE_MAX),
             meta_description=trim_text(output.meta_description, META_DESCRIPTION_MAX),
             article_type=article_type,

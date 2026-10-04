@@ -66,7 +66,7 @@ class JobService:
 
     async def enqueue(self, kind: str, candidate_id: int, options: dict | None = None,
                       key: UUID | None = None, retry_of=None, commit=True) -> Job:
-        if kind not in ('classify', 'research', 'write', 'qa_article', 'auto_fix_article'):
+        if kind not in ('classify', 'research', 'write', 'qa_article', 'auto_fix_article', 'prepare_wordpress', 'publish_wordpress'):
             raise JobInputError('Nieznany etap.', 422)
         options = options or {}
         if kind == 'write':
@@ -91,7 +91,7 @@ class JobService:
         if active:
             code = 'job_already_active' if active.request_hash == request_hash else 'candidate_busy'
             raise JobConflict(code, active.id)
-        if not self.settings.openai_api_key and not is_demo_candidate(candidate):
+        if kind not in ('publish_wordpress','prepare_wordpress') and not self.settings.openai_api_key and not is_demo_candidate(candidate):
             raise JobInputError('OPENAI_API_KEY is not set', 503)
         payload = await self._payload(kind, candidate, options)
         job = Job(id=uuid4(), kind=kind, candidate_id=candidate_id, payload=payload,
@@ -110,6 +110,8 @@ class JobService:
                 self.session.add(ArticleQA(article_id=article.id, article_version=article.version,
                     job_id=job.id, input_snapshot=payload['qa_context'], input_hash=input_hash(payload['qa_context']),
                     status='pending', pass_score=self.settings.qa_pass_score, issues=[]))
+            if kind in ('prepare_wordpress', 'publish_wordpress'):
+                job.article_id = options['article_id']
             if kind == 'auto_fix_article':
                 from app.models import ArticleFix
                 from app.services.qa.context import input_hash
@@ -143,7 +145,7 @@ class JobService:
     async def _payload(self, kind, candidate, options) -> dict:
         # Snapshot zawiera ustawienia wykonania, ale nigdy klucze ani URL bazy.
         settings = self.settings.model_dump(exclude={
-            'openai_api_key', 'tavily_api_key', 'database_url', 'test_database_url', 'cors_origins',
+            'wordpress_username', 'wordpress_app_password', 'openai_api_key', 'tavily_api_key', 'database_url', 'test_database_url', 'cors_origins',
         })
         if is_demo_candidate(candidate):
             settings = demo_settings(settings)
@@ -156,6 +158,9 @@ class JobService:
         research = await self.session.scalar(select(Research).where(Research.candidate_id == candidate.id))
         if kind == 'research' and not options.get('discover', True) and research is None:
             raise JobInputError('Research not found - start a research first', 404)
+        if kind in ('prepare_wordpress', 'publish_wordpress'):
+            from app.services.wordpress.api_helpers import approved_version
+            await approved_version(self.session, options['article_id'], self.settings)
         if kind == 'qa_article':
             from app.services.qa.context import build_qa_payload
             article = await self.session.scalar(select(Article).where(Article.id == options.get('article_id'))
@@ -191,6 +196,9 @@ class JobService:
             raise JobInputError('Job not found', 404)
         if previous.status != 'failed':
             raise JobConflict('job_not_failed', previous.id)
+        if previous.kind in ('publish_wordpress','prepare_wordpress'):
+            from app.services.wordpress.api_helpers import enqueue_wordpress
+            return await enqueue_wordpress(self, previous.article_id, previous.payload['options'], key, previous.kind, previous.id)
         return await self.enqueue(previous.kind, previous.candidate_id,
                                   previous.payload['options'], key, previous.id)
 

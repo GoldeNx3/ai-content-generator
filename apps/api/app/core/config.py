@@ -25,6 +25,37 @@ DEFAULT_LLM_PRICING: dict[str, dict[str, float]] = {
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    wordpress_url: str = ""
+    wordpress_api_url: str = ""
+    wordpress_username: str = ""
+    wordpress_app_password: str = ""
+    wordpress_default_status: str = "draft"
+    wordpress_default_author_id: int | None = None
+    wordpress_default_category_id: int | None = None
+    wordpress_seo_plugin: str = "yoast"
+    wordpress_timeout_seconds: float = Field(default=30, gt=0)
+    wordpress_asset_root: str = "/app/assets"
+    wordpress_max_image_bytes: int = 10_000_000
+    wordpress_instance_id: str = "content-engine"
+    job_publish_wordpress_timeout_seconds: float = Field(default=600, gt=0)
+    job_prepare_wordpress_timeout_seconds: float = Field(default=300, gt=0)
+
+    @field_validator("wordpress_default_author_id", "wordpress_default_category_id", mode="before")
+    @classmethod
+    def empty_wp_id(cls, value): return None if value == "" else value
+
+    @field_validator("wordpress_seo_plugin")
+    @classmethod
+    def seo_plugin(cls, value):
+        if value not in {"yoast", "rankmath", "none"}: raise ValueError("Unsupported SEO plugin")
+        return value
+
+    @field_validator("wordpress_default_status")
+    @classmethod
+    def wp_default(cls, value):
+        if value not in {"draft", "future", "publish"}: raise ValueError("Unsupported WP status")
+        return value
+
     database_url: str = "postgresql+psycopg://content:content@localhost:5432/content"
     test_database_url: str = "postgresql+psycopg://content:content@localhost:5432/content_test"
 

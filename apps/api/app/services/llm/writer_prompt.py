@@ -138,7 +138,8 @@ Pola wyjściowe:
   podajesz wyłącznie w polach used_fact_ids / source_ids.
 - used_fact_ids / source_ids: wyłącznie numery z list FACT #id i SOURCE #id. Nie twórz własnych.
 - slug: małe litery, myślniki, bez polskich znaków.
-- meta_title: do 60 znaków. meta_description: 140-160 znaków, konkretna, bez clickbaitu."""
+- meta_title: naturalny, około 50–60 znaków, fraza blisko początku; nie przycinaj sztucznie. meta_description: 140–160 znaków, konkretna, bez clickbaitu.
+- seo_data: przygotuj excerpt, focus_keyword, secondary_keywords, 3–8 krótkich tags, og_title/og_description i twitter_title/twitter_description (fallback meta_title/meta_description). robots_index i robots_follow true. schema_type NewsArticle dla newsów, Article dla reszty; TechArticle dla technicznych opracowań. FAQ/HowTo tylko jeśli rzeczywiście są w tekście. canonical_url null; author_id i featured_image_url null. Nie wymyślaj internal links."""
 
 
 def _facts_block(context: ArticleContext) -> str:

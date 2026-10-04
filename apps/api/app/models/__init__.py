@@ -43,3 +43,5 @@ from app.models.job import Job, JobAttempt, JobBatch
 from app.models.qa import ArticleQA, ArticleQAIssue
 
 from app.models.auto_fix import ArticleFix, ArticleFixIssue
+
+from app.models.wordpress import WordPressPublication
