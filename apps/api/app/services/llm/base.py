@@ -1,7 +1,7 @@
 # Rola pliku: Kontrakty dostawców LLM i obiekty danych wejścia/wyjścia. Serwisy korzystają z tych
 # kontraktów zamiast znać szczegóły OpenAI.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Protocol
 
@@ -11,7 +11,14 @@ from app.schemas.research import ResearchOutput, SearchQueries
 
 
 class LLMError(Exception):
-    """Raised when the LLM provider fails or returns unusable output."""
+    """Błąd dostawcy z jawną informacją, czy kolejka może go ponowić."""
+
+    def __init__(self, message: str, *, code: str = "llm_error", retryable: bool = False,
+                 retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.code = code
+        self.retryable = retryable
+        self.retry_after = retry_after
 
 
 class LLMNotConfiguredError(LLMError):
@@ -34,6 +41,7 @@ class LLMUsage:
     input_tokens: int
     output_tokens: int
     recorded: bool = True
+    response_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +102,7 @@ class SourceInput:
     url: str
     source_type: str
     source_score: int
+    content: str = ""  # Default supports existing frozen queue payloads.
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,6 +124,8 @@ class ArticleContext:
     length_hint: str
     angle: str | None
     instructions: str | None
+    article_format: str | None = None  # absent in legacy frozen queue payloads
+    recent_structures: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)

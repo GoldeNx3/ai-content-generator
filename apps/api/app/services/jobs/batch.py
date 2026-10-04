@@ -1,0 +1,60 @@
+# Rola pliku: Trwała lista kandydatów jednej partii, także po utracie odpowiedzi.
+
+import hashlib
+from uuid import uuid4, uuid5
+
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
+
+from app.models.job import Job, JobBatch
+from app.repositories.candidate_repository import CandidateRepository
+from app.services.jobs.errors import JobConflict
+
+
+async def enqueue_batch(service, limit, key=None):
+    session = service.session
+    key = key or uuid4()
+    request_hash = hashlib.sha256(f'classify-batch:{limit}'.encode()).hexdigest()
+    batch = await session.get(JobBatch, key)
+    if batch is None:
+        ids = await CandidateRepository(session).list_unclassified_ids(limit)
+        # Dwie identyczne prośby mogą nadejść jednocześnie. Tylko jedna lista
+        # wygrywa INSERT; druga prośba odczytuje zapisaną listę zwycięzcy.
+        await session.execute(insert(JobBatch).values(id=key, request_hash=request_hash,
+            candidate_ids=ids, skipped_ids=[]).on_conflict_do_nothing(index_elements=['id']))
+        await session.commit()
+        batch = await session.get(JobBatch, key, populate_existing=True)
+    if batch.request_hash != request_hash:
+        raise JobConflict('idempotency_conflict')
+    ids = list(batch.candidate_ids)
+    result = {'job_ids': [], 'enqueued': 0, 'existing': 0, 'skipped_busy': 0}
+    for candidate_id in ids:
+        # Blokada partii obejmuje decyzję enqueue ALBO skip. Nie wystarczy
+        # sam odczyt listy: równoległe powtórzenie mogłoby ją już zmienić.
+        batch = await session.scalar(select(JobBatch).where(JobBatch.id == key)
+                                     .with_for_update().execution_options(populate_existing=True))
+        if candidate_id in batch.skipped_ids:
+            result['skipped_busy'] += 1
+            await session.commit()
+            continue
+        child_key = uuid5(key, str(candidate_id))
+        existed = await session.scalar(select(Job.id).where(Job.idempotency_key == child_key))
+        try:
+            job = await service.enqueue('classify', candidate_id, key=child_key)
+            result['job_ids'].append(job.id)
+            result['existing' if existed else 'enqueued'] += 1
+        except JobConflict:
+            await session.rollback()
+            batch = await session.scalar(select(JobBatch).where(JobBatch.id == key)
+                                         .with_for_update().execution_options(populate_existing=True))
+            # rollback zwolnił blokadę. Inne żądanie mogło już zapisać
+            # dziecko; istniejący job ma pierwszeństwo nad spóźnionym skip.
+            child = await session.scalar(select(Job.id).where(Job.idempotency_key == child_key))
+            if child:
+                result['job_ids'].append(child)
+                result['existing'] += 1
+            else:
+                batch.skipped_ids = sorted(set(batch.skipped_ids) | {candidate_id})
+                result['skipped_busy'] += 1
+            await session.commit()
+    return result

@@ -3,7 +3,7 @@
 
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_CLASSIFIER_MODEL = "gpt-4.1-mini"
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     # Long generations (research analysis, article writing) on large/reasoning models can take minutes.
     research_timeout_seconds: float = 300.0
 
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,http://localhost:3001"
 
     http_timeout_seconds: float = 15.0
     fetch_interval_minutes: int = 30
@@ -49,6 +49,15 @@ class Settings(BaseSettings):
     fetch_max_age_days: int = 14
     # Max candidates classified by one classify-pending call (protects LLM budget).
     classify_batch_limit: int = 50
+
+    # Trwałe zadania: sekundy, liczba prób i limit całego kroku.
+    job_poll_seconds: float = Field(default=1, gt=0)
+    job_heartbeat_seconds: float = Field(default=10, gt=0)
+    job_lease_seconds: float = Field(default=60, gt=0)
+    job_max_attempts: int = Field(default=3, ge=1)
+    job_classify_timeout_seconds: float = Field(default=180, gt=0)
+    job_research_timeout_seconds: float = Field(default=900, gt=0)
+    job_write_timeout_seconds: float = Field(default=900, gt=0)
 
     # Research engine
     search_provider: str = "manual"  # manual | tavily
@@ -62,6 +71,12 @@ class Settings(BaseSettings):
     research_max_total_chars: int = 60_000
     # Hard cap on stored facts (most important first) - protects writer prompt size and UI.
     research_max_facts: int = 60
+
+    @model_validator(mode="after")
+    def heartbeat_fits_lease(self):
+        if self.job_heartbeat_seconds >= self.job_lease_seconds:
+            raise ValueError("JOB_HEARTBEAT_SECONDS musi być krótsze niż JOB_LEASE_SECONDS")
+        return self
 
     @field_validator("openai_classifier_model")
     @classmethod

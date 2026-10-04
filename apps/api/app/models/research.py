@@ -1,6 +1,7 @@
 # Rola pliku: Modele tabel research: mapują rekordy SQL na obiekty Pythona i definiują pola oraz powiązania.
 
 from datetime import datetime
+from uuid import UUID
 from decimal import Decimal
 from typing import Any
 
@@ -40,6 +41,12 @@ research_fact_sources = Table(
 
 class Research(TimestampMixin, Base):
     __tablename__ = "researches"
+
+    # Powiązanie wyniku z zadaniem; stare dane mogą nie mieć tego pola.
+    job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", name="fk_research_job_id", use_alter=True, ondelete="SET NULL"),
+         nullable=True,
+    )
 
     # Mapped[T] opisuje typ pola ORM; mapped_column definiuje kolumnę SQL, a relationship relację między
     # obiektami.
@@ -105,7 +112,8 @@ class ResearchSource(TimestampMixin, Base):
     )
     source_score: Mapped[int] = mapped_column(Integer, default=40, nullable=False)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # Raw HTML (capped) kept for debugging / future re-extraction. Never sent to the LLM.
+    # Editorial HTML, without scripts/navigation, capped for diagnostics and link discovery.
+    # Never sent to the LLM; extracted_content is the text evidence.
     raw_content: Mapped[str | None] = mapped_column(Text, deferred=True)
     extracted_content: Mapped[str | None] = mapped_column(Text)
     fetch_status: Mapped[FetchStatus] = mapped_column(

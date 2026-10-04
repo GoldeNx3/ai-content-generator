@@ -105,7 +105,7 @@ async def test_classification_preserves_usage_without_adding_it_to_llm_schema() 
     captured = []
     provider = provider_returning(httpx.Response(200, json=payload), captured)
     result = await provider.classify_candidate(CANDIDATE)
-    assert result._usage == {"model": "test-model", "input_tokens": 1000, "output_tokens": 200}
+    assert result._usage == {"model": "test-model", "input_tokens": 1000, "output_tokens": 200, "response_id": "resp_1"}
     schema = json.loads(captured[0].content)["text"]["format"]["schema"]["properties"]
     assert "_usage" not in schema
 

@@ -16,18 +16,17 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { FORMAT_OPTIONS, generationDefaults } from "@/lib/article-options";
 import {
-  CANDIDATE_CATEGORIES,
+  type ArticleFormat,
   type ArticleLength,
-  type CandidateCategory,
   type GenerateArticleRequest,
 } from "@/types/api";
 
 const LENGTH_OPTIONS: { value: ArticleLength; label: string }[] = [
-  { value: "auto", label: "Length: Auto" },
-  { value: "short", label: "Length: Short" },
-  { value: "standard", label: "Length: Standard" },
-  { value: "long", label: "Length: Long" },
+  { value: "auto", label: "Tyle, ile wymaga temat" },
+  { value: "short", label: "Zwięźle — do 400 słów" },
+  { value: "long", label: "Długi — pogłębione opracowanie" },
 ];
 
 interface GenerateArticleDialogProps {
@@ -35,7 +34,6 @@ interface GenerateArticleDialogProps {
   onOpenChange: (open: boolean) => void;
   title: string;
   defaults: GenerateArticleRequest;
-  defaultType: CandidateCategory;
   suggestedAngle: string | null;
   busy: boolean;
   onSubmit: (options: GenerateArticleRequest) => void;
@@ -45,16 +43,17 @@ export function GenerateArticleDialog(props: GenerateArticleDialogProps) {
   // Remount the form on every open so it starts from the latest defaults.
   return (
     <Dialog open={props.open} onOpenChange={(open) => !props.busy && props.onOpenChange(open)}>
-      <DialogContent className="sm:max-w-lg" showCloseButton={!props.busy}>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg" showCloseButton={!props.busy}>
         {props.open && <GenerateForm {...props} />}
       </DialogContent>
     </Dialog>
   );
 }
 
-function GenerateForm({ title, defaults, defaultType, suggestedAngle, busy, onSubmit }: GenerateArticleDialogProps) {
-  const [articleType, setArticleType] = useState<CandidateCategory>(defaults.article_type ?? defaultType);
-  const [length, setLength] = useState<ArticleLength>(defaults.length ?? "auto");
+function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit }: GenerateArticleDialogProps) {
+  const initial = generationDefaults(defaults);
+  const [articleFormat, setArticleFormat] = useState<ArticleFormat | "auto">(initial.article_format ?? "auto");
+  const [length, setLength] = useState<ArticleLength>(initial.length ?? "auto");
   const [useSuggestedAngle, setUseSuggestedAngle] = useState(!defaults.angle);
   const [angle, setAngle] = useState(defaults.angle ?? "");
   const [instructions, setInstructions] = useState(defaults.instructions ?? "");
@@ -62,7 +61,7 @@ function GenerateForm({ title, defaults, defaultType, suggestedAngle, busy, onSu
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSubmit({
-      article_type: articleType,
+      article_format: articleFormat,
       length,
       angle: useSuggestedAngle ? null : angle.trim() || null,
       instructions: instructions.trim() || null,
@@ -74,31 +73,37 @@ function GenerateForm({ title, defaults, defaultType, suggestedAngle, busy, onSu
       <DialogHeader>
         <DialogTitle>{title}</DialogTitle>
         <DialogDescription>
-          The writer uses only facts from the completed research. A new version is created; older drafts stay.
+          Wybierz, co tekst ma wyjaśnić czytelnikowi. Autor korzysta z faktów z ukończonego researchu.
         </DialogDescription>
       </DialogHeader>
 
       <PaidNotice>Uruchomisz AI do przygotowania briefu i artykułu. Powstanie nowa wersja; poprzednie pozostaną dostępne.</PaidNotice>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid gap-3">
         <FilterSelect
-          label="Article type"
+          label="Format artykułu"
           allowAll={false}
-          value={articleType}
-          options={CANDIDATE_CATEGORIES.map((value) => ({ value, label: `Type: ${value}` }))}
-          onChange={(value) => value && setArticleType(value as CandidateCategory)}
+          value={articleFormat}
+          options={FORMAT_OPTIONS}
+          onChange={(value) => value && setArticleFormat(value as ArticleFormat | "auto")}
         />
+        <p className="text-xs text-muted-foreground">{FORMAT_OPTIONS.find((option) => option.value === articleFormat)?.description}</p>
         <FilterSelect
-          label="Length"
+          label="Długość"
           allowAll={false}
           value={length}
           options={LENGTH_OPTIONS}
           onChange={(value) => value && setLength(value as ArticleLength)}
         />
+        <p className="text-xs text-muted-foreground">{length === "long"
+          ? "Cel: omówienie 1800–2500 słów, studium przypadku 2200–3000, poradnik lub porównanie 2500–3500, wiadomość 1000–1200. Braki materiału zostaną zgłoszone."
+          : length === "short"
+            ? "Do 400 słów: sedno tematu i najważniejsze informacje."
+            : "Zwykle 1200–1800 słów dla omówienia; długość i plan sekcji są dobierane do tematu oraz źródeł."}</p>
       </div>
 
       <div className="grid gap-2">
-        <Label>Angle</Label>
+        <Label htmlFor="article-angle">Kąt artykułu — na jakie pytanie odpowiada tekst?</Label>
         <label className="flex items-start gap-2 text-sm">
           <input
             type="checkbox"
@@ -107,15 +112,16 @@ function GenerateForm({ title, defaults, defaultType, suggestedAngle, busy, onSu
             onChange={(event) => setUseSuggestedAngle(event.target.checked)}
           />
           <span>
-            Use research suggestion
+            Przyjmij propozycję researchu
             {suggestedAngle && <span className="mt-0.5 block text-xs text-muted-foreground">{suggestedAngle}</span>}
           </span>
         </label>
         {!useSuggestedAngle && (
           <Textarea
+            id="article-angle"
             value={angle}
             onChange={(event) => setAngle(event.target.value)}
-            placeholder="Your angle for this article"
+            placeholder="Np. Dlaczego przeniesienie komponentów nie wystarczyło, by zakończyć migrację?"
             maxLength={1000}
             required
           />
@@ -123,23 +129,23 @@ function GenerateForm({ title, defaults, defaultType, suggestedAngle, busy, onSu
       </div>
 
       <div className="grid gap-2">
-        <Label htmlFor="article-instructions">Additional instructions</Label>
+        <Label htmlFor="article-instructions">Dodatkowe wskazówki</Label>
         <Textarea
           id="article-instructions"
           value={instructions}
           onChange={(event) => setInstructions(event.target.value)}
-          placeholder="Optional, e.g. focus on what this means for developers"
+          placeholder="Opcjonalnie, np. skup się na decyzjach zespołu i pomiń drugorzędne szczegóły"
           maxLength={2000}
         />
         <p className="text-xs text-muted-foreground">
-          Instructions shape form and focus. They can’t add facts — content comes only from the research.
+          Wskazówki wpływają na formę i akcenty. Fakty muszą pochodzić z researchu.
         </p>
       </div>
 
       <DialogFooter>
         <Button type="submit" disabled={busy}>
           {busy ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />}
-          {busy ? "Generating… (brief + draft, up to ~1 min)" : "Generuj · płatne wywołanie AI"}
+          {busy ? "Zapisywanie w kolejce…" : "Generuj · płatne wywołanie AI"}
         </Button>
       </DialogFooter>
     </form>

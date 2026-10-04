@@ -1,103 +1,102 @@
-# Rola pliku: Reguły redakcyjne typów artykułów i docelowej długości. Liczba dostępnych faktów ogranicza
-# cel długości tekstu.
+# Rola pliku: Format redakcyjny niezależny od kategorii RSS oraz budżet długości.
 
 from dataclasses import dataclass
 
 from app.models import CandidateCategory
-from app.schemas.article import ArticleLength
+from app.schemas.article import ArticleFormat, ArticleLength, GenerateArticleRequest
 
-# Rough number of words one granular research fact can support without padding.
-WORDS_PER_FACT = 45
-BASE_WORDS = 150
-# Below this share of the target length the draft gets a review warning.
-SHORT_DRAFT_RATIO = 0.6
+# Editorial targets describe depth, not a conversion from fact count to prose.
+LONG_TARGETS = {"news": 1000, "explainer": 1800, "case_study": 2200,
+                "guide": 2500, "comparison": 2500}
 
 
-# dataclass generuje m.in. konstruktor z zadeklarowanych pól; frozen blokuje przypisania do pól, slots
-# ogranicza atrybuty.
 @dataclass(frozen=True, slots=True)
 class ArticleTypeGuide:
-    min_words: int
     max_words: int
     structure: str
     style: str
 
     def describe(self) -> str:
-        return f"Struktura: {self.structure}\nStyl: {self.style}"
+        return f"Podejście: {self.structure}\nStyl: {self.style}"
 
 
-GUIDES: dict[CandidateCategory, ArticleTypeGuide] = {
-    CandidateCategory.NEWS: ArticleTypeGuide(
-        600, 1200,
-        "Lead -> Co się wydarzyło -> Najważniejsze informacje -> Dlaczego to ważne -> Co dalej "
-        "(sekcję 'Co dalej' pomiń, jeśli research nic o tym nie mówi).",
-        "Newsowy, rzeczowy, najważniejsze na początku (odwrócona piramida).",
+GUIDES = {
+    ArticleFormat.NEWS: ArticleTypeGuide(
+        1200, "Jedno wydarzenie, jego najważniejszy konkret i niezbędny kontekst.",
+        "Krótka wiadomość. Najważniejsze na początku. Nie twórz obowiązkowych sekcji ani podsumowania.",
     ),
-    CandidateCategory.RELEASE: ArticleTypeGuide(
-        600, 1400,
-        "Lead -> Co zostało wydane -> Najważniejsze zmiany i możliwości -> Dostępność / dla kogo -> Kontekst.",
-        "Konkretny, techniczny, z nazwami funkcji i wersji z faktów.",
+    ArticleFormat.EXPLAINER: ArticleTypeGuide(
+        2500, "Wyjaśnij jedno pytanie czytelnika o produkt, zmianę lub technologię.",
+        "Omówienie. Łącz fakty w wyjaśnienie; pomijaj katalog drugorzędnych funkcji.",
     ),
-    CandidateCategory.GUIDE: ArticleTypeGuide(
-        1200, 2500,
-        "Lead -> Czego dotyczy -> Wymagania -> Kroki / sposób użycia -> Ograniczenia -> Podsumowanie praktyczne.",
-        "Poradnikowy, praktyczny, kroki numerowane tylko tam, gdzie wynikają z faktów.",
+    ArticleFormat.CASE_STUDY: ArticleTypeGuide(
+        3000, "Opowiedz o rzeczywistym problemie, decyzji, przeszkodach i rezultacie, jeśli są w researchu.",
+        "Studium przypadku. Prowadź historię przez konkretne decyzje i kompromisy; nie udawaj instrukcji dla czytelnika.",
     ),
-    CandidateCategory.COMPARISON: ArticleTypeGuide(
-        1500, 2500,
-        "Lead -> Co porównujemy -> Różnice w kluczowych obszarach -> Dla kogo które rozwiązanie -> Wnioski.",
-        "Analityczny, neutralny; porównuj tylko parametry obecne w faktach.",
+    ArticleFormat.GUIDE: ArticleTypeGuide(
+        3500, "Odpowiedz, jak wykonać konkretne zadanie, używając wyłącznie udokumentowanych kroków.",
+        "Poradnik. Numeruj tylko rzeczywiste kroki. Jeśli brakuje instrukcji, wyjaśnij ograniczenie zamiast je wymyślać.",
     ),
-    CandidateCategory.PRICING: ArticleTypeGuide(
-        500, 1200,
-        "Lead -> Ile kosztuje / co się zmienia -> Szczegóły planów -> Kogo dotyczy -> Kontekst.",
-        "Konkretny; każda cena i limit wyłącznie z faktów.",
-    ),
-    CandidateCategory.TOOL: ArticleTypeGuide(
-        700, 1500,
-        "Lead -> Czym jest narzędzie -> Najważniejsze funkcje -> Dla kogo -> Ograniczenia i dostępność.",
-        "Praktyczny, z perspektywy użytkownika.",
-    ),
-    CandidateCategory.OTHER: ArticleTypeGuide(
-        500, 1200,
-        "Lead -> 2-4 sekcje porządkujące temat -> krótkie zakończenie.",
-        "Informacyjny, rzeczowy.",
+    ArticleFormat.COMPARISON: ArticleTypeGuide(
+        3500, "Porównaj rozwiązania według wspólnego pytania i parametrów obecnych w researchu.",
+        "Porównanie. Pokaż różnice i kompromisy; nie dopisuj rekomendacji bez pokrycia w materiale.",
     ),
 }
 
-LENGTH_FRACTIONS = {
-    ArticleLength.SHORT: 0.0,
-    ArticleLength.STANDARD: 0.5,
-    ArticleLength.LONG: 1.0,
-}
+
+def legacy_format(category: CandidateCategory | str) -> ArticleFormat:
+    return {
+        "news": ArticleFormat.NEWS, "guide": ArticleFormat.GUIDE,
+        "comparison": ArticleFormat.COMPARISON,
+    }.get(category, ArticleFormat.EXPLAINER)
 
 
-def guide_for(article_type: CandidateCategory) -> ArticleTypeGuide:
-    return GUIDES[article_type]
+def requested_format(request: GenerateArticleRequest) -> str:
+    if request.article_format is not None:
+        return request.article_format
+    if request.article_type is not None:
+        return legacy_format(request.article_type)
+    return "auto"
 
 
-def facts_word_cap(facts_count: int) -> int:
-    return BASE_WORDS + WORDS_PER_FACT * facts_count
+def guide_for(article_format: ArticleFormat | CandidateCategory | str) -> ArticleTypeGuide:
+    if article_format == "auto":
+        return ArticleTypeGuide(
+            3500, "Dobierz format do ukończonego researchu, niezależnie od kategorii RSS.",
+            "Wybierz news, explainer, case_study, guide lub comparison. Poradnik tylko z instrukcjami; "
+            "porównanie tylko z porównywalnymi danymi. Układ i nagłówki wynikają z tematu.",
+        )
+    return GUIDES.get(article_format) or GUIDES[legacy_format(article_format)]
 
 
-def length_hint(article_type: CandidateCategory, length: ArticleLength, facts_count: int) -> str:
-    guide = guide_for(article_type)
-    cap = facts_word_cap(facts_count)
-    if length == ArticleLength.AUTO:
-        target = f"preferowane {guide.min_words}-{guide.max_words} słów"
-    else:
-        words = int(guide.min_words + (guide.max_words - guide.min_words) * LENGTH_FRACTIONS[length])
-        target = f"około {words} słów"
-    return f"{target}; materiał ({facts_count} faktów) wystarcza na ok. {cap} słów."
+def length_hint(article_format: str, length: ArticleLength, facts_count: int) -> str:
+    normal = "Cel: news 500-900 słów, omówienie 1200-1800, case study 1500-2200, poradnik lub porównanie 1800-2500."
+    preferences = {
+        ArticleLength.AUTO: normal,
+        ArticleLength.SHORT: "Zwięźle: wybierz sedno, zwykle do 400 słów; krótszy tekst jest poprawny.",
+        ArticleLength.STANDARD: normal,
+        ArticleLength.LONG: "Pogłębiony tekst. Cel: news 1000-1200 słów, omówienie 1800-2500, "
+        "case study 2200-3000, poradnik lub porównanie 2500-3500. Rozwiń mechanizmy, przykłady, "
+        "warunki użycia i ograniczenia ze źródeł; braki materiału zgłoś, zamiast je wymyślać.",
+    }
+    return preferences[length]
 
 
 def resolve_length(
-    article_type: CandidateCategory, length: ArticleLength, brief_words: int, facts_count: int
+    article_type: ArticleFormat | CandidateCategory | str,
+    length: ArticleLength,
+    brief_words: int,
+    facts_count: int,
 ) -> int:
-    """Backend decides the final target: type range, user choice, and what the facts can support."""
-    guide = guide_for(article_type)
-    if length == ArticleLength.AUTO:
-        target = min(max(brief_words, guide.min_words), guide.max_words)
-    else:
-        target = int(guide.min_words + (guide.max_words - guide.min_words) * LENGTH_FRACTIONS[length])
-    return min(target, facts_word_cap(facts_count))
+    """Resolve the editorial target independently of the number of mandatory facts.
+
+    facts_count is retained for callers using the previous interface.
+    A target never authorizes inventing facts when evidence is insufficient.
+    """
+    target = brief_words
+    if length == ArticleLength.SHORT:
+        target = min(target, 400)
+    elif length == ArticleLength.LONG:
+        format_name = article_type if article_type in GUIDES else legacy_format(article_type)
+        target = max(target, LONG_TARGETS[format_name])
+    return min(target, guide_for(article_type).max_words)

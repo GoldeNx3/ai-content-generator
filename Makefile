@@ -1,7 +1,10 @@
-.PHONY: up down build migrate seed logs test fetch classify
+.PHONY: up dev down build migrate seed wipe logs test fetch classify
 
 up:
 	docker compose up -d --build
+
+dev:
+	docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build --renew-anon-volumes
 
 down:
 	docker compose down
@@ -10,10 +13,13 @@ build:
 	docker compose build
 
 migrate:
-	docker compose exec api alembic upgrade head
+	docker compose run --rm migrate
 
 seed:
 	docker compose exec api python -m app.jobs.seed
+
+wipe:
+	python3 scripts/wipe.py
 
 logs:
 	docker compose logs -f

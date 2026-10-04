@@ -1,6 +1,7 @@
 # Rola pliku: Modele tabel article: mapują rekordy SQL na obiekty Pythona i definiują pola oraz powiązania.
 
 from decimal import Decimal
+from uuid import UUID
 from typing import Any
 
 from sqlalchemy import Boolean, Enum, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, text
@@ -17,6 +18,20 @@ class Article(TimestampMixin, Base):
     """One row per generated version. Regeneration adds a row; only one row per candidate is current."""
 
     __tablename__ = "articles"
+
+    @property
+    def article_format(self) -> str:
+        # New versions store the resolved format in their existing JSON brief.
+        # Older versions retain the format implied by their old category.
+        return (self.brief or {}).get("article_format") or {
+            "guide": "guide", "comparison": "comparison", "news": "news",
+        }.get(self.article_type, "explainer")
+
+    # Powiązanie wyniku z zadaniem; stare dane mogą nie mieć tego pola.
+    generation_job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", name="fk_article_generation_job_id", use_alter=True, ondelete="SET NULL"),
+        unique=True, nullable=True,
+    )
     __table_args__ = (
         UniqueConstraint("candidate_id", "version", name="uq_articles_candidate_version"),
         Index(

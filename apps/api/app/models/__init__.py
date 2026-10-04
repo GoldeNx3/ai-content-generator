@@ -36,3 +36,6 @@ __all__ = [
     "SourceType",
     "research_fact_sources",
 ]
+
+# Import rejestruje nowe tabele w metadanych ORM i Alembic.
+from app.models.job import Job, JobAttempt, JobBatch

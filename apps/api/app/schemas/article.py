@@ -3,7 +3,7 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -12,8 +12,25 @@ from app.models.enums import ArticleStatus, CandidateCategory
 # ---------- LLM structured output ----------
 
 
+class ArticleFormat(StrEnum):
+    NEWS = "news"
+    EXPLAINER = "explainer"
+    CASE_STUDY = "case_study"
+    GUIDE = "guide"
+    COMPARISON = "comparison"
+
+
+class BriefSection(BaseModel):
+    heading: str
+    purpose: str = Field(description="Pytanie sekcji i konkretne wyjaśnienie, przykład lub porównanie")
+    fact_ids: list[int]
+    target_words: int = Field(gt=0, le=4000)
+    presentation: Literal["prose", "table", "code", "steps", "mixed"] = "prose"
+
+
 class ArticleBrief(BaseModel):
     article_type: CandidateCategory
+    article_format: ArticleFormat = ArticleFormat.NEWS
     primary_angle: str
     target_audience: str
     suggested_title: str
@@ -24,7 +41,10 @@ class ArticleBrief(BaseModel):
     optional_facts: list[int] = Field(description="ID faktów, które można wykorzystać")
     uncertainties_to_avoid: list[str]
     conflicts_to_mention: list[str]
-    desired_length_words: int = Field(ge=100, le=4000)
+    desired_length_words: int = Field(gt=0, le=4000)
+    section_plan: list[BriefSection] = Field(default_factory=list)
+    research_gaps: list[str] = Field(default_factory=list,
+        description="Konkretne braki dowodów uniemożliwiające pogłębione opracowanie")
 
 
 class WriterSection(BaseModel):
@@ -57,6 +77,8 @@ class ArticleLength(StrEnum):
 
 
 class GenerateArticleRequest(BaseModel):
+    # None supports saved legacy requests; new clients explicitly send auto.
+    article_format: ArticleFormat | Literal["auto"] | None = None
     article_type: CandidateCategory | None = Field(
         default=None, description="Default: candidate category, else news"
     )
@@ -87,6 +109,7 @@ class ArticleSummary(BaseModel):
     status: ArticleStatus
     title: str
     article_type: CandidateCategory
+    article_format: ArticleFormat
     word_count: int
     is_edited: bool
     estimated_cost_usd: Decimal | None

@@ -4,9 +4,11 @@
 from collections.abc import Awaitable, Callable, Sequence
 from typing import TypeVar
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.deps import ArticleServiceDep
+from app.api.deps import ArticleServiceDep, JobServiceDep
+from app.api.jobs import IdempotencyKey, enqueue_call
+from app.schemas.job import JobRead
 from app.models import Article
 from app.schemas.article import (
     ArticleRead,
@@ -47,14 +49,11 @@ async def _call(fn: Callable[[], Awaitable[T]]) -> T:
         raise HTTPException(code, detail=str(exc)) from exc
 
 
-@router.post(
-    "/candidates/{candidate_id}/article", response_model=ArticleRead, status_code=status.HTTP_201_CREATED
-)
-async def generate_article(
-    candidate_id: int, service: ArticleServiceDep, payload: GenerateArticleRequest | None = None
-) -> Article:
-    """Brief + writer (synchronous, ~20-90 s). Requires a completed research. Creates a new version."""
-    return await _call(lambda: service.generate(candidate_id, payload or GenerateArticleRequest()))
+@router.post("/candidates/{candidate_id}/article", response_model=JobRead, status_code=202)
+async def generate_article(candidate_id: int, service: JobServiceDep, response: Response,
+                           payload: GenerateArticleRequest | None = None, key: IdempotencyKey = None):
+    options = (payload or GenerateArticleRequest()).model_dump(mode='json')
+    return await enqueue_call(response, lambda: service.enqueue('write', candidate_id, options, key))
 
 
 @router.get("/candidates/{candidate_id}/articles", response_model=list[ArticleSummary])
@@ -67,12 +66,10 @@ async def get_article(article_id: int, service: ArticleServiceDep) -> Article:
     return await _call(lambda: service.get(article_id))
 
 
-@router.post("/articles/{article_id}/regenerate", response_model=ArticleRead, status_code=status.HTTP_201_CREATED)
-async def regenerate_article(
-    article_id: int, service: ArticleServiceDep, payload: GenerateArticleRequest | None = None
-) -> Article:
-    """New version; options not given in the body are taken from this version."""
-    return await _call(lambda: service.regenerate(article_id, payload))
+@router.post("/articles/{article_id}/regenerate", response_model=JobRead, status_code=202)
+async def regenerate_article(article_id: int, service: JobServiceDep, response: Response,
+                             payload: GenerateArticleRequest | None = None, key: IdempotencyKey = None):
+    return await enqueue_call(response, lambda: service.regenerate(article_id, payload, key))
 
 
 @router.patch("/articles/{article_id}", response_model=ArticleRead)

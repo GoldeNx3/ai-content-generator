@@ -45,7 +45,7 @@ async def test_generates_draft_from_research(session: AsyncSession) -> None:
     assert article.version == 1 and article.is_current
     assert article.article_type == CandidateCategory.NEWS  # candidate category, not the LLM's suggestion
     assert llm.briefs[0].article_type == CandidateCategory.NEWS
-    assert llm.briefs[0].desired_length_words == 150 + 45 * 3  # capped by available facts
+    assert llm.briefs[0].desired_length_words == 1200  # format ceiling, independent of required count
     assert article.slug == "barclays-rozszerza-wdrozenie-claude"
     assert article.content.startswith("## Co się wydarzyło\n\nBank rozszerza")
     assert "## Claude Code dla programistów" in article.content
@@ -66,8 +66,7 @@ async def test_generates_draft_from_research(session: AsyncSession) -> None:
     assert article.estimated_cost_usd == Decimal("0.027600")
     assert article.llm_input_tokens == 7_000 and article.llm_output_tokens == 2_500
     assert article.llm_model == "gpt-4.1"
-    # The fake draft is tiny compared to the target, so only the "too short" warning is expected.
-    assert len(article.validation_warnings) == 1 and "słów przy celu" in article.validation_warnings[0]
+    assert any("za krótki" in w for w in article.validation_warnings)
 
 
 async def test_requires_completed_research(session: AsyncSession) -> None:
@@ -191,11 +190,11 @@ def test_brief_structured_output_validation() -> None:
 
 
 def test_length_resolution() -> None:
-    assert resolve_length(CandidateCategory.NEWS, ArticleLength.AUTO, 300, 20) == 600
-    assert resolve_length(CandidateCategory.NEWS, ArticleLength.AUTO, 5000, 20) == 1050  # 150 + 45 * 20
+    assert resolve_length(CandidateCategory.NEWS, ArticleLength.AUTO, 300, 20) == 300
+    assert resolve_length(CandidateCategory.NEWS, ArticleLength.AUTO, 5000, 20) == 1200
     assert resolve_length(CandidateCategory.NEWS, ArticleLength.AUTO, 5000, 40) == 1200  # type max
-    assert resolve_length(CandidateCategory.GUIDE, ArticleLength.LONG, 0, 3) == 285  # facts cap wins
-    assert resolve_length(CandidateCategory.COMPARISON, ArticleLength.SHORT, 0, 50) == 1500
+    assert resolve_length(CandidateCategory.GUIDE, ArticleLength.LONG, 600, 3) == 2500
+    assert resolve_length(CandidateCategory.COMPARISON, ArticleLength.SHORT, 1500, 50) == 400
 
 
 def test_helpers() -> None:

@@ -1,9 +1,6 @@
 # Rola pliku: Punkt wejścia API: tworzy aplikację FastAPI, podpina routery i CORS oraz zarządza startem i
-# zatrzymaniem schedulera.
+# zatrzymaniem aplikacji. Scheduler i worker mają osobne procesy.
 
-import asyncio
-import contextlib
-import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -12,10 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import get_settings
-from app.core.db import SessionLocal
 from app.core.logging import setup_logging
-from app.jobs.scheduler import run_scheduler
-from app.services.research.research import mark_interrupted_researches
 
 
 # Kod przed yield wykonuje się przy starcie API, a po yield przy zamykaniu; context manager wyznacza cykl
@@ -25,19 +19,7 @@ from app.services.research.research import mark_interrupted_researches
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     setup_logging()
-    settings = get_settings()
-    async with SessionLocal() as session:
-        interrupted = await mark_interrupted_researches(session)
-    if interrupted:
-        logging.getLogger(__name__).warning("Marked %d interrupted researches as failed", interrupted)
-    task: asyncio.Task[None] | None = None
-    if settings.fetch_interval_minutes > 0:
-        task = asyncio.create_task(run_scheduler(settings.fetch_interval_minutes))
     yield
-    if task is not None:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
 
 
 def create_app() -> FastAPI:

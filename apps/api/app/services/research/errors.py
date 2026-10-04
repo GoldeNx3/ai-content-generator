@@ -7,6 +7,15 @@ class ResearchError(Exception):
     """Błąd domenowy researchu, niezależny od FastAPI."""
 
 
+class NoSourceContentError(ResearchError):
+    code = "no_source_content"
+    public_message = (
+        "Nie udało się pobrać treści żadnego źródła. "
+        "Dodaj dostępne źródło ręcznie i ponów analizę "
+        "lub skonfiguruj wyszukiwarkę."
+    )
+
+
 class CandidateNotFoundError(ResearchError):
     pass
 

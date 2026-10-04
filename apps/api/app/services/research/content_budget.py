@@ -1,6 +1,8 @@
 # Rola pliku: Przycina teksty źródeł do limitów znaków, aby łączny materiał przekazany LLM mieścił się w
 # budżecie konfiguracji.
 
+from app.services.markdown import fences
+
 TRUNCATION_MARKER = "\n\n[... treść skrócona ...]"
 
 
@@ -15,14 +17,24 @@ def truncate_text(text: str, max_chars: int) -> str:
     # Znacznik też trafia do promptu: rezerwujemy dla niego miejsce w limicie.
     # Przy bardzo małym budżecie zachowujemy sam początek tekstu bez znacznika.
     if max_chars <= len(TRUNCATION_MARKER):
-        return text[:max_chars]
+        limit = max_chars
+        for block in fences(text):
+            if block.start < limit < block.end:
+                limit = block.start
+        return text[:limit].rstrip()
     content_limit = max_chars - len(TRUNCATION_MARKER)
+    for block in fences(text):
+        if block.start < content_limit < block.end:
+            content_limit = block.start
     cut = text[:content_limit]
     for separator in ("\n\n", "\n", ". "):
         position = cut.rfind(separator)
         if position > content_limit * 0.6:
             cut = cut[: position + (1 if separator == ". " else 0)]
             break
+    for block in fences(text):
+        if block.start < len(cut) < block.end:
+            cut = text[:block.start]
     return cut.rstrip() + TRUNCATION_MARKER
 
 

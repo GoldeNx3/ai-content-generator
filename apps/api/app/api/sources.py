@@ -65,6 +65,13 @@ async def update_source(source_id: int, payload: SourceUpdate, session: SessionD
 @router.delete("/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_source(source_id: int, session: SessionDep) -> Response:
     repo = SourceRepository(session)
+    from sqlalchemy import select
+    from app.models import Candidate
+    from app.models.job import Job
+    await _get_or_404(repo, source_id)
+    ids = (await session.scalars(select(Candidate.id).where(Candidate.source_id == source_id).with_for_update())).all()
+    if ids and await session.scalar(select(Job.id).where(Job.candidate_id.in_(ids)).limit(1)):
+        raise HTTPException(409, 'Źródło ma historię zadań i nie może zostać usunięte.')
     await repo.delete(await _get_or_404(repo, source_id))
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

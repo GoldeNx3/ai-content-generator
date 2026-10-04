@@ -3,16 +3,15 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
-from app.api.deps import ProviderDep, SessionDep
+from app.api.deps import JobServiceDep, SessionDep
+from app.api.jobs import IdempotencyKey, enqueue_call
+from app.schemas.job import JobRead, EnqueuedBatch
 from app.core.config import get_settings
 from app.models import Candidate
 from app.repositories.candidate_repository import CandidateRepository
 from app.schemas.candidate import CandidateFilters, CandidatePage, CandidateRead, CandidateStatusUpdate
-from app.schemas.classification import ClassifyBatchResult
-from app.services.classification_service import ClassificationService
-from app.services.llm.base import LLMError, LLMNotConfiguredError
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
 
@@ -42,18 +41,16 @@ async def list_candidates(
     )
 
 
-@router.post("/classify-pending", response_model=ClassifyBatchResult)
-async def classify_pending(
-    session: SessionDep,
-    provider: ProviderDep,
-    limit: Annotated[int | None, Query(ge=1, le=1000, description="Defaults to CLASSIFY_BATCH_LIMIT")] = None,
-) -> ClassifyBatchResult:
+@router.post("/classify-pending", response_model=EnqueuedBatch, status_code=202)
+async def classify_pending(service: JobServiceDep, response: Response, key: IdempotencyKey = None,
+    limit: Annotated[int | None, Query(ge=1, le=1000)] = None) -> dict:
+    from app.services.jobs.errors import JobInputError, JobConflict
     try:
-        return await ClassificationService(session, provider).classify_pending(
-            limit or get_settings().classify_batch_limit
-        )
-    except LLMNotConfiguredError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+        return await service.batch(limit or get_settings().classify_batch_limit, key)
+    except JobConflict as exc:
+        raise HTTPException(409, detail={'code': exc.code, 'job_id': str(exc.job_id) if exc.job_id else None}) from exc
+    except JobInputError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
 
 
 @router.get("/{candidate_id}", response_model=CandidateRead)
@@ -61,15 +58,10 @@ async def get_candidate(candidate_id: int, session: SessionDep) -> Candidate:
     return await _get_or_404(session, candidate_id)
 
 
-@router.post("/{candidate_id}/classify", response_model=CandidateRead)
-async def classify_candidate(candidate_id: int, session: SessionDep, provider: ProviderDep) -> Candidate:
-    candidate = await _get_or_404(session, candidate_id)
-    try:
-        return await ClassificationService(session, provider).classify(candidate)
-    except LLMNotConfiguredError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
-    except LLMError as exc:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+@router.post("/{candidate_id}/classify", response_model=JobRead, status_code=202)
+async def classify_candidate(candidate_id: int, service: JobServiceDep, response: Response,
+                             key: IdempotencyKey = None):
+    return await enqueue_call(response, lambda: service.enqueue('classify', candidate_id, key=key))
 
 
 @router.patch("/{candidate_id}/status", response_model=CandidateRead)

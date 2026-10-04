@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/sources", label: "Sources" },
+  { href: "/queue", label: "Kolejka" },
 ];
 
 export function Nav() {

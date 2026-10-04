@@ -8,6 +8,7 @@ from app.core.config import Settings
 from app.models import FetchStatus, ResearchSource
 from app.services.research.content_extractor import ContentExtractor, ExtractedDocument, ExtractionError
 from app.services.research.source_scoring import assess_source
+from app.services.research.link_discovery import compact_source_html
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,9 @@ class ResearchSourceLoader:
         source.publisher = clean_publisher(extraction.publisher)
         source.published_at = extraction.published_at
         source.extracted_content = extraction.content
-        source.raw_content = (extraction.raw_html or "")[: self.settings.raw_content_max_chars] or None
+        source.raw_content = compact_source_html(
+            extraction.raw_html or "", self.settings.raw_content_max_chars, base_url=extraction.url,
+        ) or None
         logger.info(
             "Source saved candidate_id=%s research_id=%s url=%s chars=%d type=%s score=%d",
             candidate_id, research_id, source.url, len(extraction.content),

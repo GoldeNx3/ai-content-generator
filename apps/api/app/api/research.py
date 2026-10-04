@@ -4,9 +4,11 @@
 from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.deps import ResearchRunnerDep, ResearchServiceDep
+from app.api.deps import JobServiceDep, ResearchServiceDep, SessionDep
+from app.api.jobs import IdempotencyKey, enqueue_call
+from app.schemas.job import JobRead
 from app.models import Research, ResearchSource
 from app.schemas.research import ManualSourceCreate, ResearchRead, ResearchSourceRead
 from app.services.research.research import (
@@ -48,32 +50,29 @@ async def get_research(candidate_id: int, service: ResearchServiceDep) -> Resear
     return research
 
 
-@router.post("", response_model=ResearchRead, status_code=status.HTTP_202_ACCEPTED)
-async def start_research(
-    candidate_id: int, service: ResearchServiceDep, runner: ResearchRunnerDep, background: BackgroundTasks
-) -> Research:
-    """Starts a full research (fetch original, discover sources, LLM analysis) in the background.
-
-    Poll GET /research until status is completed or failed.
-    """
-    research = await _call(lambda: service.start(candidate_id, discover=True))
-    background.add_task(runner, research.id, True)
-    return research
+@router.post("", response_model=JobRead, status_code=202)
+async def start_research(candidate_id: int, service: JobServiceDep, response: Response,
+                         key: IdempotencyKey = None):
+    return await enqueue_call(response, lambda: service.enqueue('research', candidate_id, {'discover': True}, key))
 
 
-@router.post("/retry", response_model=ResearchRead, status_code=status.HTTP_202_ACCEPTED)
-async def retry_research(
-    candidate_id: int, service: ResearchServiceDep, runner: ResearchRunnerDep, background: BackgroundTasks
-) -> Research:
-    """Re-runs the analysis on the existing sources (incl. manual ones); refetches failed sources."""
-    research = await _call(lambda: service.start(candidate_id, discover=False))
-    background.add_task(runner, research.id, False)
-    return research
+@router.post("/retry", response_model=JobRead, status_code=202)
+async def retry_research(candidate_id: int, service: JobServiceDep, response: Response,
+                         key: IdempotencyKey = None):
+    return await enqueue_call(response, lambda: service.enqueue('research', candidate_id, {'discover': False}, key))
 
 
 @router.post("/sources", response_model=ResearchSourceRead, status_code=status.HTTP_201_CREATED)
 async def add_manual_source(
-    candidate_id: int, payload: ManualSourceCreate, service: ResearchServiceDep
+    candidate_id: int, payload: ManualSourceCreate, service: ResearchServiceDep, session: SessionDep
 ) -> ResearchSource:
     """Fetches, extracts and saves a user-provided URL. Run /retry afterwards to include it in the report."""
+    from sqlalchemy import select
+    from app.models import Candidate
+    from app.models.job import Job, ACTIVE_STATUSES
+    # Ta sama krótka blokada co enqueue chroni wejście researchu.
+    await session.scalar(select(Candidate.id).where(Candidate.id == candidate_id).with_for_update())
+    active = await session.scalar(select(Job.id).where(Job.candidate_id == candidate_id, Job.status.in_(ACTIVE_STATUSES)))
+    if active:
+        raise HTTPException(409, detail={"code": "candidate_busy", "job_id": str(active)})
     return await _call(lambda: service.add_manual_source(candidate_id, str(payload.url)))

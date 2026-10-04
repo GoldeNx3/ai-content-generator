@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangleIcon, FlaskConicalIcon, Loader2Icon, RefreshCwIcon, SplitIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { useCandidateJobs } from "@/hooks/use-candidate-jobs";
+import { JobStatus, jobStatusLabel } from "@/components/job-status";
 import { WorkflowSection } from "@/components/workflow-section";
 import { UsageSummary } from "@/components/usage-summary";
 import { researchState } from "@/lib/workflow";
@@ -36,9 +38,11 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
       setResearch(await api.getResearch(candidateId));
       setLoadError(null);
       setLoaded(true);
+        return true;
     } catch (error) {
       setLoadError(errorText(error));
       toast.error("Could not load research", { description: errorText(error) });
+      return false;
     }
   }, [candidateId]);
 
@@ -51,7 +55,8 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
     onResearchChange?.(research);
   }, [research, onResearchChange]);
 
-  const running = research?.status === "running" || research?.status === "pending";
+  const jobs = useCandidateJobs(candidateId, "research", load);
+  const running = jobs.active?.kind === "research";
   useEffect(() => {
     if (!running) return;
     const timer = setInterval(() => void load(), POLL_INTERVAL_MS);
@@ -62,7 +67,8 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
     setStarting(true);
     setStartError(null);
     try {
-      setResearch(kind === "start" ? await api.startResearch(candidateId) : await api.retryResearch(candidateId));
+      await jobs.enqueue(() => kind === "start" ? api.startResearch(candidateId) : api.retryResearch(candidateId));
+      toast.success("Research zapisany w kolejce");
     } catch (error) {
       setStartError(errorText(error));
       toast.error("Could not start research", { description: errorText(error) });
@@ -71,12 +77,12 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
     }
   }
 
-  const busy = starting || running;
+  const busy = starting || Boolean(jobs.active) || !jobs.loaded;
   const hasReport = research?.status === "completed";
 
   return (
     <WorkflowSection number={3} title="Research — baza faktów" description="Źródła, zweryfikowane fakty i kontekst do napisania artykułu." paid
-      status={loadError ? "Błąd odczytu" : startError ? "Ostatnie uruchomienie: błąd" : starting ? "Uruchamianie…" : researchState(research, loaded)}
+      status={jobs.latest ? jobStatusLabel[jobs.latest.status] : loadError ? "Błąd odczytu" : startError ? "Ostatnie uruchomienie: błąd" : starting ? "Uruchamianie…" : researchState(research, loaded)}
       actions={<div className="flex flex-wrap gap-2">
           {research && research.sources.length > 0 && (
             <Button variant="outline" size="sm" onClick={() => trigger("retry")} disabled={busy || !loaded}>
@@ -91,6 +97,7 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
         </div>}
       summary={<UsageSummary rows={[{label: "Wyszukiwanie i analiza źródeł", aggregated: true, configured: "research", model: research?.llm_model, input: research?.llm_model ? research.llm_input_tokens : null, output: research?.llm_model ? research.llm_output_tokens : null, cost: research?.estimated_cost_usd}]} note="Dane dotyczą aktualnego raportu. Nowy research zastępuje raport; ponowna analiza korzysta z zachowanych źródeł. Każde uruchomienie nalicza nowy koszt. Opłaty wyszukiwarki nie są ujęte." />}>
       <div className="space-y-8">
+        <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} />
         <div className="space-y-1 text-sm text-muted-foreground">          {startError && <p className="text-destructive">{startError} — możesz ponowić uruchomienie; kolejne wywołanie może naliczyć koszt.</p>}
           {loadError && <p className="text-destructive">{loadError}</p>}
           <p>{research?.started_at ? `Uruchomiono: ${formatDate(research.started_at)}` : "Research nie został jeszcze uruchomiony."}</p>
@@ -110,8 +117,8 @@ export function ResearchPanel({ candidateId, onResearchChange }: ResearchPanelPr
           <div className="flex items-center gap-3 rounded-lg bg-sky-50 px-4 py-3 text-sm text-sky-900">
             <Loader2Icon className="size-4 animate-spin" />
             <span>
-              Pobieranie źródeł i analiza… <Elapsed since={research.started_at} />{" "}
-              {research.sources.length > 0 && `· ${research.sources.length} source(s) so far`}
+              Pobieranie źródeł i analiza… <Elapsed since={jobs.active?.started_at ?? null} />{" "}
+              {research && research.sources.length > 0 && `· ${research.sources.length} źródeł`}
               <span className="block text-xs text-sky-800/80">
                 Zwykle 20–90 s; większe modele mogą potrzebować kilku minut.
               </span>

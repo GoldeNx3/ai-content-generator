@@ -1,50 +1,73 @@
-# Rola pliku: Uruchamia cykliczne pobieranie RSS i klasyfikację. To zadanie asyncio w procesie API, a nie
-# osobna kolejka zadań.
+# Rola pliku: Osobny scheduler pobiera RSS i zleca klasyfikację kolejce.
+# Advisory lock zapobiega równoczesnym przebiegom dwóch schedulerów.
+# Płatne operacje wykonuje wyłącznie worker, nie scheduler ani proces API.
 
 import asyncio
 import logging
+from uuid import NAMESPACE_URL, uuid5
+
+from sqlalchemy import text, select
 
 from app.core.config import get_settings
-from app.core.db import SessionLocal
-from app.services.classification_service import ClassificationService
+from app.core.db import SessionLocal, engine
+from app.models import Candidate
+from app.models.job import Job
 from app.services.ingestion_service import IngestionService
-from app.services.llm.factory import get_llm_provider
+from app.services.jobs.errors import JobConflict
+from app.services.jobs.service import JobService
 from app.services.rss_fetcher import RssFetcher
 
 logger = logging.getLogger(__name__)
+SCHEDULER_LOCK = 73481923
 
 
-# async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
-# inne zadania.
-async def run_pipeline_once() -> None:
-    """Fetch all active sources, then classify new candidates if an LLM is configured."""
+async def run_pipeline_once():
     settings = get_settings()
-    async with SessionLocal() as session:
-        fetch_result = await IngestionService(
-            session,
-            RssFetcher(timeout=settings.http_timeout_seconds),
-            max_age_days=settings.fetch_max_age_days,
-        ).fetch_all_active()
-        # model_dump zamienia model Pydantic na słownik; exclude_unset pomija pola, których użytkownik
-        # nie przesłał.
-        logger.info("Scheduled fetch finished: %s", fetch_result.model_dump())
-
-        if not settings.openai_api_key:
-            logger.info("OPENAI_API_KEY not set - skipping automatic classification")
+    # Dedykowane połączenie trzyma blokadę sesyjną. Nie wraca do poola,
+    # dopóki advisory lock nie zostanie jawnie zwolniony.
+    async with engine.connect() as lock_connection:
+        acquired = await lock_connection.scalar(text('SELECT pg_try_advisory_lock(:key)'), {'key': SCHEDULER_LOCK})
+        if not acquired:
             return
-        classify_result = await ClassificationService(session, get_llm_provider()).classify_pending(
-            settings.classify_batch_limit
-        )
-        logger.info("Scheduled classification finished: %s", classify_result.model_dump())
+        try:
+            async with SessionLocal() as session:
+                result = await IngestionService(session, RssFetcher(timeout=settings.http_timeout_seconds),
+                                                max_age_days=settings.fetch_max_age_days).fetch_all_active()
+                logger.info('Scheduled fetch: %s', result.model_dump())
+                if not settings.openai_api_key:
+                    return
+                # Pomijamy już zlecone klasyfikacje PRZED limitowaniem. Błędne
+                # zadania ponawia użytkownik; nie blokują następnych tematów.
+                prior = select(Job.id).where(Job.candidate_id == Candidate.id, Job.kind == 'classify').exists()
+                ids = (await session.scalars(select(Candidate.id).where(
+                    Candidate.total_score.is_(None), ~prior)
+                    .order_by(Candidate.id.desc()).limit(settings.classify_batch_limit))).all()
+                service = JobService(session, settings)
+                for candidate_id in ids:
+                    try:
+                        key = uuid5(NAMESPACE_URL, f'scheduled-classify:{candidate_id}')
+                        await service.enqueue('classify', candidate_id, key=key)
+                    except JobConflict:
+                        await session.rollback()
+        finally:
+            await lock_connection.execute(text('SELECT pg_advisory_unlock(:key)'), {'key': SCHEDULER_LOCK})
 
 
-async def run_scheduler(interval_minutes: int) -> None:
-    logger.info("Scheduler started, interval=%d min", interval_minutes)
+async def run_scheduler(interval_minutes):
+    if interval_minutes <= 0:
+        # Wyłączenie schedulera nie kończy procesu, który Docker restartowałby.
+        await asyncio.Event().wait()
     while True:
         try:
             await run_pipeline_once()
         except asyncio.CancelledError:
             raise
         except Exception:
-            logger.exception("Scheduled pipeline run failed")
+            logger.exception('Scheduler run failed')
         await asyncio.sleep(interval_minutes * 60)
+
+
+if __name__ == '__main__':
+    from app.core.logging import setup_logging
+    setup_logging()
+    asyncio.run(run_scheduler(get_settings().fetch_interval_minutes))

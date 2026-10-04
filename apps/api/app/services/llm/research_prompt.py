@@ -8,7 +8,10 @@ from app.services.llm.base import CandidateInput, ResearchDocument
 QUERY_SYSTEM_PROMPT = """\
 Pomagasz researcherowi polskiego portalu technologicznego znaleźć dodatkowe źródła.
 Na podstawie tematu wygeneruj maksymalnie 3 krótkie zapytania do wyszukiwarki (po angielsku,
-3-8 słów każde). Preferuj źródła pierwotne: oficjalne blogi i strony firm, dokumentację,
+3-8 słów każde). Zapytania mają poszerzyć materiał: (1) mechanizm działania lub dokumentacja,
+(2) praktyczne użycie, migracja lub przykład, (3) ograniczenia, ceny lub porównanie.
+Dobierz te kierunki do tematu, nie szukaj trzech kopii tego samego newsa.
+Preferuj źródła pierwotne: oficjalne blogi i strony firm, dokumentację,
 repozytoria GitHub, cenniki, changelogi. Nie powtarzaj tytułu dosłownie."""
 
 RESEARCH_SYSTEM_PROMPT = """\
@@ -36,9 +39,12 @@ Pola:
 - facts: istotne, konkretne informacje ze źródeł, każda jako osobny fakt (po polsku). Jeden fakt
   = jedna informacja (osobno: cennik, wynik danego benchmarku, dostępność, data, funkcja, zapowiedź),
   ale wyniki jednego benchmarku dla kilku modeli to JEDEN fakt, a cennik jednego modelu to JEDEN fakt.
-  Pomijaj elementy dekoracyjne (dema, przykłady wizualne), informacje o samej publikacji i przypisy
-  metodologiczne bez znaczenia dla czytelnika. Bogate źródło daje zwykle 15-30 faktów, nigdy więcej
-  niż 40; drugorzędne szczegóły oznacz jako supporting. Każdy fakt ma importance
+  Zbieraj także mechanizmy działania, udokumentowane przykłady zastosowania, kroki konfiguracji
+  i migracji, wymagania, ograniczenia, koszty, kryteria porównania i istotną metodologię pomiarów.
+  Nie redukuj materiału do listy premier i parametrów. Przykład ma zachować zadanie, działanie
+  i rezultat; instrukcja ma zachować kolejność i warunki. Pomijaj tylko dekoracje bez informacji.
+  Nie ograniczaj bogatego zestawu źródeł sztucznie do 40 faktów; wybieraj treści wnoszące nowe
+  informacje, bez duplikatów. Drugorzędne szczegóły oznacz jako supporting. Każdy fakt ma importance
   (critical = rdzeń newsa, important = istotny kontekst, supporting = szczegóły) i confidence 0-100.
   Do facts NIE wpisuj interpretacji, ocen ani wniosków (np. "co pozwala...", "co oznacza...",
   "przełomowy") - tylko to, co źródło faktycznie stwierdza.

@@ -1,3 +1,10 @@
+x-backend: &backend
+  image: content-enginge-api
+  build: ./apps/api
+  env_file: .env
+  volumes:
+    - ./apps/api:/app
+
 services:
   db:
     image: postgres:17-alpine
@@ -16,16 +23,44 @@ services:
       timeout: 3s
       retries: 20
 
-  api:
-    build: ./apps/api
-    env_file: .env
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./apps/api:/app
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
     depends_on:
       db:
         condition: service_healthy
+
+  api:
+    <<: *backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.workers.main"]
+    restart: unless-stopped
+    stop_grace_period: 40s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,time; from pathlib import Path; p=Path('/tmp/worker-health.json'); assert p.exists() and time.time()-json.loads(p.read_text())['time']<30"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 3
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  scheduler:
+    <<: *backend
+    command: ["python", "-m", "app.jobs.scheduler"]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
   web:
     build:

@@ -65,7 +65,7 @@ def html_response(title: str, body: str = PARAGRAPH * 4) -> httpx.Response:
 
 
 def extractor_for(pages: dict[str, httpx.Response | Callable[[httpx.Request], httpx.Response]]) -> ContentExtractor:
-    return ContentExtractor(client=httpx.AsyncClient(transport=page_transport(pages)), timeout=1)
+    return ContentExtractor(client=httpx.AsyncClient(transport=page_transport(pages)), timeout=1, resolve_dns=False)
 
 
 class FakeSearch:

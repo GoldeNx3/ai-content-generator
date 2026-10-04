@@ -1,6 +1,7 @@
 # Rola pliku: Modele tabel candidate: mapują rekordy SQL na obiekty Pythona i definiują pola oraz powiązania.
 
 from datetime import datetime
+from uuid import UUID
 from decimal import Decimal
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
@@ -18,6 +19,12 @@ def enum_values(enum_cls: type) -> list[str]:
 
 class Candidate(TimestampMixin, Base):
     __tablename__ = "candidates"
+
+    # Powiązanie wyniku z zadaniem; stare dane mogą nie mieć tego pola.
+    classification_job_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jobs.id", name="fk_candidate_classification_job_id", use_alter=True, ondelete="SET NULL"),
+         nullable=True,
+    )
 
     # Mapped[T] opisuje typ pola ORM; mapped_column definiuje kolumnę SQL, a relationship relację między
     # obiektami.

@@ -8,16 +8,20 @@ import time
 from collections.abc import Sequence
 from decimal import Decimal
 
+from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models import Candidate, FetchStatus, Research, ResearchFact, ResearchSource, ResearchSourceOrigin
 from app.services.llm.base import CandidateInput, LLMUsage, ResearchDocument, ResearchLLMProvider
 from app.services.llm.cost import LLMCostCalculator
+from app.services.jobs.errors import LeaseLostError
+from app.services.jobs.transactions import save, stage
 from app.services.research.content_budget import fit_documents
-from app.services.research.errors import ResearchError
+from app.services.research.errors import NoSourceContentError
 from app.services.research.fact_validation import validate_research_output
-from app.services.research.search import SearchProvider, SearchResult
+from app.services.research.search import ManualSearchProvider, SearchProvider, SearchResult
+from app.services.research.link_discovery import discover_article_links
 from app.services.research.source_loader import ResearchSourceLoader, clean_publisher
 from app.services.research.source_scoring import (
     SourceAssessment, apply_llm_suggestion, assess_source, official_domains_for,
@@ -34,7 +38,7 @@ class ResearchPipeline:
 
     def __init__(
         self, session: AsyncSession, loader: ResearchSourceLoader, search: SearchProvider,
-        llm: ResearchLLMProvider, costs: LLMCostCalculator, settings: Settings,
+        llm: ResearchLLMProvider, costs: LLMCostCalculator, settings: Settings, execution=None,
     ) -> None:
         self.session = session
         self.loader = loader
@@ -42,11 +46,13 @@ class ResearchPipeline:
         self.llm = llm
         self.costs = costs
         self.settings = settings
+        self.execution = execution
+        self.candidate_input = None
 
     async def run(self, research: Research, candidate: Candidate, discover: bool) -> None:
         # 1. Przygotuj kontekst wpisu i źródło oryginalne.
         official = official_domains_for(candidate.external_url)
-        candidate_input = CandidateInput(
+        candidate_input = self.candidate_input or CandidateInput(
             title=candidate.title,
             summary=candidate.summary,
             source=candidate.source.name,
@@ -54,20 +60,22 @@ class ResearchPipeline:
         )
         usages: list[LLMUsage] = []
         known_sources = list(research.sources)
+        await stage(self.execution, "fetching_original")
 
         if not any(s.origin == ResearchSourceOrigin.ORIGINAL for s in research.sources):
             original = ResearchSource(url=candidate.external_url, origin=ResearchSourceOrigin.ORIGINAL)
             research.sources.append(original)
             await self.loader.fetch_into(original, official, candidate.id, research.id)
-            await self.session.commit()
+            await save(self.session, self.execution)
 
         # Ponawiamy nieudane pobrania zachowanych źródeł, np. niedostępnego ręcznego URL-a.
         for source in known_sources:
             if source.fetch_status != FetchStatus.SUCCESS:
                 await self.loader.fetch_into(source, official, candidate.id, research.id)
-        await self.session.commit()
+        await save(self.session, self.execution)
 
         # 2. Opcjonalnie znajdź i pobierz dodatkowe materiały.
+        await stage(self.execution, "discovering_sources")
         if discover:
             await self._discover_sources(research, candidate, candidate_input, official, usages)
 
@@ -79,11 +87,12 @@ class ResearchPipeline:
 
         fetched = self._ordered_fetched_sources(research.sources)
         if not fetched:
-            raise ResearchError("No source content could be fetched - add a source manually and retry")
+            raise NoSourceContentError("No source content could be fetched - add a source manually and retry")
 
         # 3. Zmieść teksty w budżecie i przekaż je do analizy LLM.
         documents, used_sources = self._build_documents(fetched)
         llm_started = time.perf_counter()
+        await stage(self.execution, "analysing")
         result = await self.llm.research(candidate_input, documents)
         usages.append(result.usage)
         self._record_usage(research, usages)
@@ -122,18 +131,35 @@ class ResearchPipeline:
         official: set[str],
         usages: list[LLMUsage],
     ) -> None:
-        try:
-            queries_result = await self.llm.generate_search_queries(candidate_input)
-        except Exception as exc:  # błąd wyszukiwania nie blokuje analizy oryginału
-            logger.warning("Query generation failed research_id=%s error=%s", research.id, exc)
+        if self.execution and self.execution.checkpoints.get('discovery_done'):
+            # Zapytania są już ukończone; nie wykonujemy ich ponownie, lecz ich
+            # zapisane zużycie nadal należy do kosztu końcowego raportu.
+            cached = self.execution.checkpoints.get('discovering_sources')
+            if cached and cached.get('usage'):
+                usages.append(LLMUsage(**cached['usage']))
             return
-        usages.append(queries_result.usage)
-        queries = [q.strip() for q in queries_result.queries.queries if q.strip()][:MAX_QUERIES]
+        results: list[SearchResult] = []
+        for source in research.sources:
+            if source.origin == ResearchSourceOrigin.ORIGINAL and source.fetch_status == FetchStatus.SUCCESS:
+                if "raw_content" in inspect(source).unloaded:
+                    await self.session.refresh(source, ["raw_content"])
+                results.extend(discover_article_links(source.raw_content or "", source.url))
+        queries = []
+        if not isinstance(self.search, ManualSearchProvider):
+            try:
+                queries_result = await self.llm.generate_search_queries(candidate_input)
+                usages.append(queries_result.usage)
+                queries = [q.strip() for q in queries_result.queries.queries if q.strip()][:MAX_QUERIES]
+            except LeaseLostError:
+                raise
+            except Exception as exc:  # Linked evidence is still usable if search fails.
+                logger.warning("Query generation failed research_id=%s error=%s", research.id, exc)
         research.search_queries = queries
         self._record_usage(research, usages)
-        await self.session.commit()
+        await save(self.session, self.execution)
 
-        results: list[SearchResult] = []
+        if isinstance(self.search, ManualSearchProvider):
+            results.extend(await self.search.search("", limit=self.settings.research_max_extra_sources))
         for query in queries:
             try:
                 found = await self.search.search(query, limit=RESULTS_PER_QUERY)
@@ -151,20 +177,24 @@ class ResearchPipeline:
                 continue
             known.add(key)
             picked.append((item, assess_source(item.url, official)))
-        # Najpierw najwyżej ocenione źródła; równe oceny zachowują kolejność wyników.
-        picked.sort(key=lambda pair: pair[1].score, reverse=True)
+        # Prefer complementary documentation over repeated announcements at equal credibility.
+        picked.sort(key=lambda pair: (pair[1].score, any(
+            term in (pair[0].url + " " + pair[0].title).lower()
+            for term in ("docs", "documentation", "migration", "pricing", "changelog", "guide", "release")
+        )), reverse=True)
         picked = picked[: self.settings.research_max_extra_sources]
 
         new_sources = [
             ResearchSource(url=item.url, title=item.title[:1000] or None, origin=ResearchSourceOrigin.SEARCH)
             for item, _ in picked
         ]
+        await stage(self.execution, "fetching_sources")
         # gather wykonuje korutyny współbieżnie i zbiera wyniki w kolejności przekazanych argumentów.
         extractions = await asyncio.gather(*(self.loader.extract_safely(source.url) for source in new_sources))
         for source, extraction in zip(new_sources, extractions, strict=True):
             research.sources.append(source)
             self.loader.apply_extraction(source, extraction, official, candidate.id, research.id)
-        await self.session.commit()
+        await save(self.session, self.execution, checkpoint={'discovery_done': True})
 
     # Oryginał idzie pierwszy, potem źródła z wyższym score; nieudane lub puste pobrania są pomijane.
     # staticmethod nie dostaje automatycznie self; to funkcja pomocnicza umieszczona w przestrzeni nazw klasy.

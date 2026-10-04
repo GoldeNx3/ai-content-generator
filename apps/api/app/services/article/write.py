@@ -3,6 +3,7 @@
 
 import logging
 import time
+from dataclasses import replace
 from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
@@ -20,8 +21,8 @@ from app.models import (
     Research,
     ResearchStatus,
 )
-from app.schemas.article import ArticleUpdate, GenerateArticleRequest, WriterOutput
-from app.services.article.article_types import SHORT_DRAFT_RATIO, guide_for, length_hint, resolve_length
+from app.schemas.article import ArticleFormat, ArticleUpdate, GenerateArticleRequest, WriterOutput
+from app.services.article.article_types import guide_for, requested_format, resolve_length
 from app.services.article.composition import (
     META_DESCRIPTION_MAX,
     META_TITLE_MAX,
@@ -31,6 +32,9 @@ from app.services.article.composition import (
     slugify,
     trim_text,
 )
+from app.services.article.context import build_article_context
+from app.services.article.editorial import recent_structures
+from app.services.jobs.transactions import save, stage
 from app.services.article.validation import validate_brief, validate_writer_output
 from app.services.llm.base import ArticleContext, ArticleLLMProvider, FactInput, LLMUsage, SourceInput
 from app.services.llm.cost import LLMCostCalculator
@@ -60,11 +64,12 @@ class ArticleService:
     # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
     # jej polach.
     def __init__(
-        self, session: AsyncSession, llm: ArticleLLMProvider, cost_calculator: LLMCostCalculator
+        self, session: AsyncSession, llm: ArticleLLMProvider, cost_calculator: LLMCostCalculator, execution=None
     ) -> None:
         self.session = session
         self.llm = llm
         self.costs = cost_calculator
+        self.execution = execution
 
     # ---------- queries ----------
 
@@ -85,7 +90,7 @@ class ArticleService:
 
     # Najpierw ukończony research i fakty, potem brief i writer; zapis nowej wersji następuje po
     # otrzymaniu i walidacji wyników.
-    async def generate(self, candidate_id: int, request: GenerateArticleRequest) -> Article:
+    async def generate(self, candidate_id: int, request: GenerateArticleRequest, context: ArticleContext | None = None) -> Article:
         candidate = await self._get_candidate(candidate_id)
         research = await self.session.scalar(select(Research).where(Research.candidate_id == candidate_id))
         if research is None or research.status != ResearchStatus.COMPLETED:
@@ -94,7 +99,11 @@ class ArticleService:
             raise ResearchNotReadyError("Research has no verified facts - re-run research before writing.")
 
         article_type = request.article_type or candidate.category or CandidateCategory.NEWS
-        context = self._build_context(candidate, research, article_type, request)
+        if context is None:
+            context = self._build_context(candidate, research, article_type, request)
+            context = replace(context, recent_structures=await recent_structures(self.session))
+        if context.article_format is None:
+            context = replace(context, article_format=requested_format(request))
         started = time.perf_counter()
         logger.info(
             "Article generation started candidate_id=%s research_id=%s type=%s facts=%d",
@@ -103,16 +112,31 @@ class ArticleService:
 
         brief_result = await self.llm.generate_brief(context)
         brief, warnings = validate_brief(brief_result.brief, context.facts)
+        article_format = brief.article_format if context.article_format == "auto" else ArticleFormat(context.article_format)
         brief = brief.model_copy(
             update={
                 "article_type": article_type,  # the editor's choice wins over the LLM
+                "article_format": article_format,
+                "primary_angle": context.angle or brief.primary_angle,
                 "desired_length_words": resolve_length(
-                    article_type, request.length, brief.desired_length_words, len(context.facts)
+                    article_format, request.length, brief.desired_length_words, len(brief.required_facts)
                 ),
             }
         )
+        if brief.section_plan:
+            # Reserve the lead's share; keep section allocations aligned with the final target.
+            plan_total = sum(section.target_words for section in brief.section_plan)
+            section_budget = max(1, brief.desired_length_words - min(100, brief.desired_length_words // 10))
+            brief = brief.model_copy(update={"section_plan": [
+                section.model_copy(update={"target_words": max(1, round(section.target_words * section_budget / plan_total))})
+                for section in brief.section_plan
+            ]})
+        warnings.extend(f"Brak materiału w researchu: {gap}" for gap in brief.research_gaps)
 
-        writer_result = await self.llm.write_article(context, brief)
+        writer_context = replace(context, article_format=article_format,
+                                 type_guide=guide_for(article_format).describe())
+        writer_result = await self.llm.write_article(writer_context, brief)
+        await stage(self.execution, "validating")
         output = sanitize_output(writer_result.output)
         source_ids = {source.id for source in context.sources}
         validated = validate_writer_output(
@@ -127,11 +151,14 @@ class ArticleService:
         content = compose_content(output)
         lead = output.lead.strip()
         word_count = count_words(lead, content)
-        if word_count < brief.desired_length_words * SHORT_DRAFT_RATIO:
+        if brief.desired_length_words >= 500 and word_count < brief.desired_length_words * 0.7:
             warnings.append(
-                f"Tekst ma {word_count} słów przy celu {brief.desired_length_words} - za mało faktów "
-                "w researchu albo model skrócił tekst. Rozważ ponowny research lub dodatkowe źródła."
+                f"Tekst za krótki: {word_count} słów przy celu {brief.desired_length_words}. "
+                "Sprawdź realizację planu sekcji i uzupełnij research o mechanizmy, przykłady lub instrukcje."
             )
+        if request.length == "long" and len([s for s in context.sources if s.content]) < 2:
+            warnings.append("Pogłębiony tekst korzysta z mniej niż dwóch źródeł z treścią. "
+                            "Dodaj dokumentację lub inne materiały pierwotne i ponów research.")
         brief_cost = self._cost(brief_result.usage)
         writer_cost = self._cost(writer_result.usage)
         # model_dump zamienia model Pydantic na słownik; exclude_unset pomija pola, których użytkownik
@@ -174,6 +201,10 @@ class ArticleService:
             writer_output_tokens=writer_result.usage.output_tokens,
             writer_cost_usd=writer_cost,
         )
+        # Przydział wersji i publikacja mają wspólną krótką blokadę kandydata.
+        # HTTP/LLM już się zakończyły; nie blokujemy wiersza podczas generacji.
+        await self.session.scalar(select(Candidate.id).where(Candidate.id == candidate.id).with_for_update())
+        article.version = await self._next_version(candidate.id)
         # Keep previous versions; only the "current" flag moves.
         await self.session.execute(
             update(Article)
@@ -183,7 +214,7 @@ class ArticleService:
         self.session.add(article)
         # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
         # trwałego zapisu.
-        await self.session.commit()
+        await save(self.session, self.execution, result=article)
         # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
         await self.session.refresh(article)
         logger.info(
@@ -240,56 +271,14 @@ class ArticleService:
         )
         return (current or 0) + 1
 
-    def _build_context(
-        self,
-        candidate: Candidate,
-        research: Research,
-        article_type: CandidateCategory,
-        request: GenerateArticleRequest,
-    ) -> ArticleContext:
-        sources = [s for s in research.sources if s.fetch_status == FetchStatus.SUCCESS]
-        return ArticleContext(
-            candidate_title=candidate.title,
-            candidate_source=candidate.source.name,
-            published_at=candidate.original_published_at,
-            research_summary=research.summary,
-            why_it_matters=research.why_it_matters,
-            suggested_angle=research.suggested_angle,
-            facts=[
-                FactInput(
-                    id=fact.id,
-                    claim=fact.claim,
-                    importance=fact.importance.value,
-                    confidence=fact.confidence,
-                    source_ids=fact.source_ids,
-                )
-                for fact in research.facts
-            ],
-            sources=[
-                SourceInput(
-                    id=s.id,
-                    publisher=s.publisher,
-                    title=s.title,
-                    url=s.url,
-                    source_type=s.source_type.value,
-                    source_score=s.source_score,
-                )
-                for s in sources
-            ],
-            uncertainties=list(research.uncertainties),
-            conflicts=list(research.conflicts),
-            article_type=article_type.value,
-            type_guide=guide_for(article_type).describe(),
-            length_hint=length_hint(article_type, request.length, len(research.facts)),
-            angle=(request.angle or "").strip() or None,
-            instructions=(request.instructions or "").strip() or None,
-        )
+    def _build_context(self, candidate, research, article_type, request) -> ArticleContext:
+        return build_article_context(candidate, research, article_type, request)
 
     # staticmethod nie dostaje automatycznie self; to funkcja pomocnicza umieszczona w przestrzeni nazw klasy.
     @staticmethod
     def _reference_texts(context: ArticleContext) -> list[str]:
         texts = [fact.claim for fact in context.facts]
-        texts += [f"{s.title or ''} {s.publisher or ''}" for s in context.sources]
+        texts += [f"{s.title or ''} {s.publisher or ''} {s.content}" for s in context.sources]
         texts += [context.candidate_title]
         texts += [f"{u.get('claim', '')} {u.get('reason', '')}" for u in context.uncertainties]
         texts += [str(c) for c in context.conflicts]
@@ -317,6 +306,7 @@ class ArticleService:
                     "publisher": s.publisher,
                     "source_type": s.source_type,
                     "source_score": s.source_score,
+                    "content": s.content,
                 }
                 for s in context.sources
             ],

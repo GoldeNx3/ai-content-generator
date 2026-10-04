@@ -5,6 +5,7 @@ import re
 import unicodedata
 
 from app.schemas.article import WriterOutput
+from app.services.markdown import transform_prose, without_fenced_code
 
 META_TITLE_MAX = 70
 META_DESCRIPTION_MAX = 170
@@ -22,10 +23,12 @@ _WORD = re.compile(r"[\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ][\w\-ąćęłńóś
 def strip_markers(text: str) -> tuple[str, list[int]]:
     """Removes inline FACT/SOURCE markers, returning clean text and the fact ids they named."""
     fact_ids: list[int] = []
-    for marker in _MARKER.findall(text):
-        if "fact" in marker.lower() or "fakt" in marker.lower():
-            fact_ids.extend(int(n) for n in _MARKER_FACT_IDS.findall(marker))
-    return _MARKER.sub("", text), fact_ids
+    def clean(prose):
+        for marker in _MARKER.findall(prose):
+            if "fact" in marker.lower() or "fakt" in marker.lower():
+                fact_ids.extend(int(n) for n in _MARKER_FACT_IDS.findall(marker))
+        return _MARKER.sub("", prose)
+    return transform_prose(text, clean), fact_ids
 
 
 # Kopie sekcji łączą referencje ze structured output i znaczniki znalezione w tekście; wynik jest nowym
@@ -76,7 +79,7 @@ def compose_content(output: WriterOutput) -> str:
 
 # *texts zbiera dowolną liczbę tekstów; sum sumuje wyniki generatora po usunięciu składni Markdown.
 def count_words(*texts: str) -> int:
-    return sum(len(_WORD.findall(_MARKDOWN_NOISE.sub(" ", text))) for text in texts)
+    return sum(len(_WORD.findall(_MARKDOWN_NOISE.sub(" ", without_fenced_code(text)))) for text in texts)
 
 
 # Words that must not end a truncated title/description ("... współpracę z").

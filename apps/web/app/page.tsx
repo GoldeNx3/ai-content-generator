@@ -51,6 +51,8 @@ export default function DashboardPage() {
   const [action, setAction] = useState<"fetch" | "classify" | null>(null);
   const [fetchSummary, setFetchSummary] = useState<string | null>(null);
   const [classifySummary, setClassifySummary] = useState<string | null>(null);
+  const [activeCount, setActiveCount] = useState(0);
+  const [queueError, setQueueError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -87,6 +89,30 @@ export default function DashboardPage() {
     if (classifySummary) sessionStorage.setItem("content-engine:classify-result", classifySummary);
   }, [fetchSummary, classifySummary]);
 
+  // Odczytujemy globalną kolejkę także po przeładowaniu strony.
+  useEffect(() => {
+    let disposed = false;
+    let previous = "";
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const jobs = await api.activeJobs();
+        if (disposed) return;
+        setActiveCount(jobs.total);
+        setQueueError(null);
+        const signature = JSON.stringify(jobs.items.map((job) => [job.id, job.status]));
+        if (signature !== previous) { previous = signature; await load(); }
+        timer = setTimeout(() => void poll(), jobs.total ? 2000 : 10000);
+      } catch (error) {
+        if (!disposed) { setQueueError(errorText(error)); timer = setTimeout(() => void poll(), 5000); }
+      }
+    }
+    void poll();
+    const visible = () => { if (document.visibilityState === "visible") { clearTimeout(timer); void poll(); } };
+    document.addEventListener("visibilitychange", visible);
+    return () => { disposed = true; clearTimeout(timer); document.removeEventListener("visibilitychange", visible); };
+  }, [load]);
+
   const updateQuery = (patch: Partial<CandidateQuery>) =>
     setQuery((current) => ({ ...current, page: 1, ...patch }));
 
@@ -114,10 +140,8 @@ export default function DashboardPage() {
     setClassifySummary(null);
     try {
       const result = await api.classifyPending();
-      setClassifySummary(`Oceniono ${result.classified} z ${result.processed} tematów · ${result.errors} błędów`);
-      toast.success(`Classified ${result.classified} of ${result.processed}`, {
-        description: result.errors ? `${result.errors} errors — see API logs` : undefined,
-      });
+      setClassifySummary(`W kolejce: ${result.enqueued} nowych zadań · ${result.existing} już zapisanych · ${result.skipped_busy} zajętych tematów`);
+      toast.success("Ocena tematów zapisana w kolejce");
       await load();
     } catch (error) {
       setClassifySummary(`Błąd oceny: ${errorText(error)}`);
@@ -180,6 +204,8 @@ export default function DashboardPage() {
         {classifySummary && <p className="text-sm">Ocena AI: {classifySummary}</p>}
       </div>}
 
+      <p className="text-sm" role="status">Aktywne zadania: {activeCount}. Worker działa również po zamknięciu przeglądarki.</p>
+      {queueError && <p className="text-sm text-destructive">Błąd odczytu kolejki: {queueError}</p>}
       <StatsCards stats={stats} />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -241,7 +267,7 @@ export default function DashboardPage() {
             )
           }
           onClassify={(candidate) =>
-            runRowAction(candidate, () => api.classifyCandidate(candidate.id), "Classified")
+            runRowAction(candidate, () => api.classifyCandidate(candidate.id), "Ocena zapisana w kolejce")
           }
         />
       )}

@@ -4,9 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertTriangleIcon, CheckIcon, PencilIcon, RefreshCwIcon, SendIcon, SparklesIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { useCandidateJobs } from "@/hooks/use-candidate-jobs";
+import { JobStatus, jobStatusLabel } from "@/components/job-status";
 import { WorkflowSection } from "@/components/workflow-section";
 import { UsageSummary } from "@/components/usage-summary";
 import { articleState } from "@/lib/workflow";
+import { articleFormatLabel, legacyArticleFormat } from "@/lib/article-options";
 import { FilterSelect } from "@/components/filter-select";
 import { Button } from "@/components/ui/button";
 import { api, errorText } from "@/lib/api";
@@ -40,7 +43,7 @@ interface ArticlePanelProps {
   research: Research | null;
 }
 
-export function ArticlePanel({ candidateId, candidateCategory, research }: ArticlePanelProps) {
+export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -49,6 +52,8 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
   const [dialog, setDialog] = useState<"generate" | "regenerate" | null>(null);
   const [generating, setGenerating] = useState(false);
   const [editing, setEditing] = useState(false);
+  // Formularz i docelowy ID są zamrożone na czas edycji tej konkretnej wersji.
+  const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [saving, setSaving] = useState(false);
 
   const loadVersions = useCallback(
@@ -60,9 +65,11 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
         setArticle(target ? await api.getArticle(target) : null);
         setLoadError(null);
         setLoaded(true);
+        return true;
       } catch (error) {
         setLoadError(errorText(error));
         toast.error("Could not load articles", { description: errorText(error) });
+        return false;
       }
     },
     [candidateId],
@@ -73,22 +80,21 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
     void loadVersions();
   }, [loadVersions]);
 
+  const jobs = useCandidateJobs(candidateId, "write", loadVersions);
+  const generationBusy = generating || Boolean(jobs.active) || !jobs.loaded;
+
   const researchReady = research?.status === "completed";
 
   async function generate(options: GenerateArticleRequest) {
     setGenerating(true);
     setGenerationError(null);
     try {
-      const created =
-        dialog === "regenerate" && article
-          ? await api.regenerateArticle(article.id, options)
-          : await api.generateArticle(candidateId, options);
-      toast.success(`Draft v${created.version} generated`, {
-        description: `${created.word_count} words · ${created.facts_used_count}/${created.facts_available_count} facts`,
-      });
+      await jobs.enqueue(() => dialog === "regenerate" && article
+        ? api.regenerateArticle(article.id, options)
+        : api.generateArticle(candidateId, options));
+      toast.success("Generowanie zapisane w kolejce");
       setDialog(null);
       setEditing(false);
-      await loadVersions(created.id);
     } catch (error) {
       setGenerationError(errorText(error));
       toast.error("Generation failed", { description: errorText(error) });
@@ -98,17 +104,18 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
   }
 
   async function save(data: ArticleUpdate) {
-    if (!article) return;
+    if (!editingArticle) return;
+    const editedId = editingArticle.id;
     if (Object.keys(data).length === 0) {
       setEditing(false);
       return;
     }
     setSaving(true);
     try {
-      setArticle(await api.updateArticle(article.id, data));
+      setArticle(await api.updateArticle(editedId, data));
       setEditing(false);
       toast.success("Draft saved");
-      await loadVersions(article.id);
+      await loadVersions(editedId);
     } catch (error) {
       toast.error("Could not save", { description: errorText(error) });
     } finally {
@@ -129,8 +136,8 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
 
   return (
     <WorkflowSection number={4} title="Generowanie artykułu" description="Brief i treść opracowane na podstawie ukończonego researchu." paid
-      status={loadError ? "Błąd odczytu" : generationError ? "Ostatnie uruchomienie: błąd" : articleState(Boolean(article), generating, Boolean(researchReady), loaded)}
-      actions={<Button variant={article ? "outline" : "default"} size="sm" onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generating}>
+      status={jobs.latest ? jobStatusLabel[jobs.latest.status] : loadError ? "Błąd odczytu" : generationError ? "Ostatnie uruchomienie: błąd" : articleState(Boolean(article), generating, Boolean(researchReady), loaded)}
+      actions={<Button variant={article ? "outline" : "default"} size="sm" onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generationBusy}>
         {article ? <RefreshCwIcon /> : <SparklesIcon />}{article ? "Nowa wersja · płatne" : "Generuj artykuł · płatne"}
       </Button>}
       summary={<UsageSummary rows={[
@@ -138,6 +145,7 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
         {label: "Pisanie artykułu", configured: "writer", model: article?.llm_model, input: article?.llm_model ? article.writer_input_tokens : null, output: article?.llm_model ? article.writer_output_tokens : null, cost: article?.writer_cost_usd}
       ]} total={article?.estimated_cost_usd} note="Każda generacja tworzy nową, płatną wersję. Poprzednie wersje pozostają dostępne. Edycja i zmiana statusu nie wywołują AI." />}>
       <div className="space-y-6">
+        <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} />
         <div className="space-y-1 text-sm text-muted-foreground">          {loadError && <p className="text-destructive">{loadError}</p>}
           {generationError && <p className="text-destructive">{generationError} — możesz ponowić generowanie; kolejne wywołanie może naliczyć koszt.</p>}
           {article && <p>Wersja {article.version} · {formatDate(article.created_at)} · {article.word_count} słów</p>}
@@ -163,7 +171,7 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
 
           {article && !editing && (
             <>
-              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              <Button variant="outline" size="sm" onClick={() => { setEditingArticle(article); setEditing(true); }}>
                 <PencilIcon />
                 Edytuj
               </Button>
@@ -203,8 +211,8 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
           </p>
         )}
 
-        {article && editing && (
-          <ArticleEditor article={article} saving={saving} onSave={save} onCancel={() => setEditing(false)} />
+        {editingArticle && editing && (
+          <ArticleEditor key={editingArticle.id} article={editingArticle} saving={saving} onSave={save} onCancel={() => setEditing(false)} />
         )}
 
         {article && !editing && <ArticleBody article={article} />}
@@ -215,9 +223,8 @@ export function ArticlePanel({ candidateId, candidateCategory, research }: Artic
         onOpenChange={(open) => !open && setDialog(null)}
         title={dialog === "regenerate" ? `Generuj nową wersję na podstawie v${article?.version}` : "Generuj artykuł"}
         defaults={dialog === "regenerate" && article ? article.generation_options : {}}
-        defaultType={candidateCategory ?? "news"}
         suggestedAngle={research?.suggested_angle ?? null}
-        busy={generating}
+        busy={generationBusy}
         onSubmit={generate}
       />
     </WorkflowSection>
@@ -257,11 +264,16 @@ function ArticleBody({ article }: { article: Article }) {
             <Stat label="Sections" value={article.sections_count} />
             <Stat label="Research facts used" value={`${article.facts_used_count} / ${article.facts_available_count}`} />
             <Stat label="Sources referenced" value={article.source_count} />
-            <Stat label="Type" value={article.article_type} />
+            <Stat label="Format" value={articleFormatLabel(article.article_format ?? legacyArticleFormat(article.article_type))} />
             <Stat label="Created" value={formatDate(article.created_at)} />
             <Stat label="Edited manually" value={article.is_edited ? "yes" : "no"} />
           </dl>
         </section>
+
+        {article.angle && <section className="space-y-2">
+          <h3 className="font-semibold">Kąt artykułu</h3>
+          <p className="text-xs">{article.angle}</p>
+        </section>}
 
         <section className="space-y-2">
           <h3 className="font-semibold">SEO</h3>

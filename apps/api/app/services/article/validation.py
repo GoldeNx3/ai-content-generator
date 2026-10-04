@@ -16,6 +16,7 @@ from typing import Any
 
 from app.schemas.article import ArticleBrief, WriterOutput
 from app.services.llm.base import FactInput
+from app.services.markdown import fences, without_fenced_code
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,14 @@ def validate_brief(brief: ArticleBrief, facts: list[FactInput]) -> tuple[Article
         warnings.append(f"Brief: usunięto nieistniejące ID faktów {invalid}")
     required = _unique([i for i in brief.required_facts if i in known])
     optional = _unique([i for i in brief.optional_facts if i in known and i not in required])
-    return brief.model_copy(update={"required_facts": required, "optional_facts": optional}), warnings
+    plan = []
+    for section in brief.section_plan:
+        unknown = sorted(set(section.fact_ids) - known)
+        if unknown:
+            warnings.append(f"Brief: sekcja „{section.heading}” zawiera nieistniejące ID faktów {unknown}")
+        plan.append(section.model_copy(update={"fact_ids": _unique([i for i in section.fact_ids if i in known])}))
+    return brief.model_copy(update={"required_facts": required, "optional_facts": optional,
+                                   "section_plan": plan}), warnings
 
 
 # Sprawdzamy ID względem researchu i zbieramy ostrzeżenia; poprawny kształt JSON nie gwarantuje pokrycia
@@ -94,8 +102,8 @@ def validate_writer_output(
             for source_id in facts_by_id[fact_id].source_ids:
                 if source_id in source_ids and source_id not in valid_sources:
                     valid_sources.append(source_id)
-        if not fact_ids:
-            warnings.append(f"Sekcja „{section.heading.strip()}” nie wskazuje żadnego faktu z researchu.")
+        if not fact_ids and not valid_sources:
+            warnings.append(f"Sekcja „{section.heading.strip()}” nie wskazuje żadnego faktu ani źródła z researchu.")
         sections.append(
             {
                 "heading": section.heading.strip().lstrip("#").strip(),
@@ -127,7 +135,9 @@ def validate_writer_output(
         )
     if len(output.title) > TITLE_MAX_RECOMMENDED:
         warnings.append(f"Tytuł ma {len(output.title)} znaków (zalecane do {TITLE_MAX_RECOMMENDED}).")
-    phrases = suspicious_phrases(text, reference_texts)
+    prose = "\n\n".join(without_fenced_code(t) for t in [output.lead, *(s.content for s in output.sections), output.conclusion])
+    warnings.extend(editorial_warnings(output, prose))
+    phrases = suspicious_phrases(output.title + "\n" + prose, reference_texts)
     if phrases:
         warnings.append(
             "Możliwe dopiski bez pokrycia w faktach (sprawdź ręcznie): " + ", ".join(f"„{p}”" for p in phrases)
@@ -176,3 +186,29 @@ def _trivial(number: str) -> bool:
 
 def _unique(ids: list[int]) -> list[int]:
     return list(dict.fromkeys(ids))
+
+
+_GENERIC_HEADINGS = {"wprowadzenie", "podsumowanie", "co się wydarzyło", "dlaczego to ważne",
+                     "co to oznacza", "co dalej", "wnioski", "kontekst"}
+
+
+def editorial_warnings(output: WriterOutput, prose: str) -> list[str]:
+    warnings = []
+    seen = set()
+    for paragraph in re.split(r"\n\s*\n", prose):
+        normalized = " ".join(paragraph.lower().split())
+        if len(normalized) < 100:
+            continue
+        if normalized in seen:
+            warnings.append("Powtórzony akapit: „" + paragraph.strip()[:90] + "…”.")
+        seen.add(normalized)
+    generic = [s.heading for s in output.sections if s.heading.strip().lower().lstrip('#').strip() in _GENERIC_HEADINGS]
+    if len(generic) >= 2:
+        warnings.append("Szablonowe nagłówki: " + ", ".join(generic) + ". Zastąp je konkretnymi pytaniami tego tematu.")
+    for label, content in [("lead", output.lead), *((s.heading, s.content) for s in output.sections), ("zakończenie", output.conclusion)]:
+        for block in fences(content):
+            if not block.closed:
+                warnings.append(f"Niezamknięty blok kodu w sekcji „{label}”.")
+            if not block.language:
+                warnings.append(f"Blok kodu bez języka w sekcji „{label}”; określ język lub użyj text.")
+    return warnings

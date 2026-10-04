@@ -14,7 +14,7 @@ MANUAL = "https://techcrunch.com/gpt-6"
 
 # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
 # inne zadania.
-async def test_research_endpoints(client: httpx.AsyncClient, session: AsyncSession) -> None:
+async def test_research_endpoints(client: httpx.AsyncClient, session: AsyncSession, execute_job) -> None:
     source = Source(name="OpenAI", url="https://openai.com/news/rss.xml")
     session.add(source)
     # flush wysyła zmiany do bazy (np. nadaje ID), ale nie zatwierdza jeszcze transakcji jak commit.
@@ -37,9 +37,11 @@ async def test_research_endpoints(client: httpx.AsyncClient, session: AsyncSessi
 
     started = await client.post(base)
     assert started.status_code == 202
-    assert started.json()["status"] == "running"
+    assert started.json()["status"] == "queued"
+    assert (await client.get(base)).status_code == 404
+    await execute_job({'research': FakeResearchLLM(), 'search': FakeSearch(), 'extractor': extractor_for(pages)})
 
-    # Background task finished inside the ASGI call; the saved report is returned on re-entry.
+    # Dopiero osobny worker tworzy raport, niezależnie od zamkniętego requestu API.
     report = (await client.get(base)).json()
     assert report["status"] == "completed"
     assert report["facts"][0]["source_ids"] == [report["sources"][0]["id"]]
@@ -54,6 +56,7 @@ async def test_research_endpoints(client: httpx.AsyncClient, session: AsyncSessi
 
     retried = await client.post(f"{base}/retry")
     assert retried.status_code == 202
+    await execute_job({'research': FakeResearchLLM(), 'search': FakeSearch(), 'extractor': extractor_for(pages)})
     report = (await client.get(base)).json()
     assert report["status"] == "completed"
     assert len(report["sources"]) == 2

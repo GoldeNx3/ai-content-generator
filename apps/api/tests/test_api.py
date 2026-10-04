@@ -73,7 +73,7 @@ async def test_candidate_list_filters_sorting_and_status(
 
 
 async def test_classify_endpoint_uses_provider(
-    client: httpx.AsyncClient, session: AsyncSession, source: Source
+    client: httpx.AsyncClient, session: AsyncSession, source: Source, execute_job
 ) -> None:
     candidate = Candidate(source_id=source.id, external_url="https://e.com/x", title="X")
     session.add(candidate)
@@ -83,8 +83,11 @@ async def test_classify_endpoint_uses_provider(
     app.dependency_overrides[get_provider] = lambda: FakeProvider()
 
     response = await client.post(f"/api/candidates/{candidate.id}/classify")
-    assert response.status_code == 200
-    assert response.json()["total_score"] == 79
+    assert response.status_code == 202
+    assert response.json()["status"] == "queued"
+    assert (await client.get(f"/api/candidates/{candidate.id}")).json()["total_score"] is None
+    await execute_job({'classify': FakeProvider()})
+    assert (await client.get(f"/api/candidates/{candidate.id}")).json()["total_score"] == 79
 
     batch = (await client.post("/api/candidates/classify-pending")).json()
-    assert batch == {"processed": 0, "classified": 0, "errors": 0}
+    assert batch == {"job_ids": [], "enqueued": 0, "existing": 0, "skipped_busy": 0}

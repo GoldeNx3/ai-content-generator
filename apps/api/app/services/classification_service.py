@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.services.llm.cost import LLMCostCalculator
+from app.services.jobs.transactions import save, stage
 from app.models import Candidate
 from app.repositories.candidate_repository import CandidateRepository
 from app.schemas.classification import ClassifyBatchResult
@@ -20,17 +21,20 @@ logger = logging.getLogger(__name__)
 class ClassificationService:
     # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
     # jej polach.
-    def __init__(self, session: AsyncSession, provider: LLMProvider) -> None:
+    def __init__(self, session: AsyncSession, provider: LLMProvider, execution=None, pricing=None) -> None:
         self.session = session
         self.provider = provider
+        self.execution = execution
+        self.pricing = pricing if pricing is not None else get_settings().llm_pricing
         self.candidates = CandidateRepository(session)
 
     # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
     # obsługiwać inne zadania.
-    async def classify(self, candidate: Candidate) -> Candidate:
+    async def classify(self, candidate: Candidate, candidate_input: CandidateInput | None = None) -> Candidate:
         """Classify one candidate. On LLM failure raises LLMError and leaves the row untouched."""
+        await stage(self.execution, "classifying")
         classification = await self.provider.classify_candidate(
-            CandidateInput(
+            candidate_input or CandidateInput(
                 title=candidate.title,
                 summary=candidate.summary,
                 source=candidate.source.name,
@@ -42,7 +46,7 @@ class ClassificationService:
         candidate.llm_input_tokens = int(usage["input_tokens"]) if usage else None
         candidate.llm_output_tokens = int(usage["output_tokens"]) if usage else None
         candidate.estimated_cost_usd = (
-            LLMCostCalculator(get_settings().llm_pricing).estimate(
+            LLMCostCalculator(self.pricing).estimate(
                 candidate.llm_model, candidate.llm_input_tokens, candidate.llm_output_tokens
             ) if usage else None
         )
@@ -56,7 +60,7 @@ class ClassificationService:
         candidate.classified_at = datetime.now(UTC)
         # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
         # trwałego zapisu.
-        await self.session.commit()
+        await save(self.session, self.execution, result=candidate)
         # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
         await self.session.refresh(candidate)
         return candidate

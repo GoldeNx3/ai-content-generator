@@ -1,17 +1,23 @@
 # Rola pliku: Pobiera HTML i wydobywa treść artykułu przez trafilatura lub BeautifulSoup; usuwa elementy
 # nawigacji i inne dodatki strony.
 
+import asyncio
+import ipaddress
 import logging
 import re
+import socket
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from urllib.parse import urljoin, urlsplit
 
 import httpx
 import trafilatura
 from bs4 import BeautifulSoup, Tag
 
 from app.services.http import USER_AGENT
+from app.services.research.public_http import PublicHTTPTransport
+from app.services.research.source_markdown import protect_examples, restore_examples
 
 logger = logging.getLogger(__name__)
 
@@ -72,10 +78,12 @@ class ContentExtractor:
         client: httpx.AsyncClient | None = None,
         timeout: float = 20.0,
         max_bytes: int = 5_000_000,
+        resolve_dns: bool = True,
     ) -> None:
         self._client = client
         self._timeout = timeout
         self._max_bytes = max_bytes
+        self._resolve_dns = resolve_dns
 
     # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
     # obsługiwać inne zadania.
@@ -93,28 +101,40 @@ class ContentExtractor:
     async def _download(self, url: str) -> tuple[str, str, int]:
         headers = {"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5"}
         started = time.perf_counter()
-        client = self._client or httpx.AsyncClient(follow_redirects=True)
+        client = self._client or httpx.AsyncClient(transport=PublicHTTPTransport(), trust_env=False)
         try:
-            async with client.stream("GET", url, headers=headers, timeout=self._timeout, follow_redirects=True) as response:
-                logger.info(
-                    "Fetched url=%s status=%d duration=%.2fs",
-                    url, response.status_code, time.perf_counter() - started,
-                )
-                if response.status_code >= 400:
-                    raise ExtractionError(f"HTTP {response.status_code}", http_status=response.status_code)
-                content_type = response.headers.get("content-type", "text/html").lower()
-                if not content_type.startswith(_ALLOWED_CONTENT_TYPES):
-                    raise ExtractionError(
-                        f"Unsupported content type: {content_type.split(';')[0]}",
-                        http_status=response.status_code,
+            for _ in range(6):
+                await self._validate_destination(url)
+                async with client.stream("GET", url, headers=headers, timeout=self._timeout, follow_redirects=False) as response:
+                    logger.info(
+                        "Fetched url=%s status=%d duration=%.2fs",
+                        url, response.status_code, time.perf_counter() - started,
                     )
-                body = bytearray()
-                async for chunk in response.aiter_bytes():
-                    body.extend(chunk)
-                    if len(body) > self._max_bytes:
-                        raise ExtractionError("Page too large", http_status=response.status_code)
-                encoding = response.encoding or "utf-8"
-                return body.decode(encoding, errors="replace"), str(response.url), response.status_code
+                    if response.status_code in (301, 302, 303, 307, 308):
+                        location = response.headers.get("location")
+                        if not location:
+                            raise ExtractionError("Redirect without location", http_status=response.status_code)
+                        try:
+                            url = urljoin(str(response.url), location)
+                        except ValueError as exc:
+                            raise ExtractionError("Invalid redirect URL") from exc
+                        continue
+                    if response.status_code >= 400:
+                        raise ExtractionError(f"HTTP {response.status_code}", http_status=response.status_code)
+                    content_type = response.headers.get("content-type", "text/html").lower()
+                    if not content_type.startswith(_ALLOWED_CONTENT_TYPES):
+                        raise ExtractionError(
+                            f"Unsupported content type: {content_type.split(';')[0]}",
+                            http_status=response.status_code,
+                        )
+                    body = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        body.extend(chunk)
+                        if len(body) > self._max_bytes:
+                            raise ExtractionError("Page too large", http_status=response.status_code)
+                    encoding = response.encoding or "utf-8"
+                    return body.decode(encoding, errors="replace"), str(response.url), response.status_code
+            raise ExtractionError("Too many redirects")
         except httpx.TimeoutException as exc:
             raise ExtractionError("Timeout") from exc
         except httpx.HTTPError as exc:
@@ -122,6 +142,36 @@ class ContentExtractor:
         finally:
             if self._client is None:
                 await client.aclose()
+
+    async def _validate_destination(self, url: str) -> None:
+        try:
+            parsed = urlsplit(url)
+            host = parsed.hostname or ""
+            port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        except ValueError as exc:
+            raise ExtractionError("Invalid source URL") from exc
+        if parsed.scheme not in ("http", "https") or not host or parsed.username or parsed.password:
+            raise ExtractionError("Source must have a public HTTP(S) URL")
+        if host.lower().rstrip('.').endswith(("localhost", ".local", ".internal")):
+            raise ExtractionError("Source must have a public address")
+        try:
+            literal = ipaddress.ip_address(host)
+        except ValueError:
+            literal = None
+        if literal is not None:
+            if not literal.is_global:
+                raise ExtractionError("Source must have a public address")
+            return
+        if self._resolve_dns:
+            try:
+                addresses = await asyncio.wait_for(
+                    asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM),
+                    timeout=self._timeout,
+                )
+            except (OSError, TimeoutError) as exc:
+                raise ExtractionError("Source DNS resolution failed") from exc
+            if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
+                raise ExtractionError("Source must resolve to public addresses")
 
     # Najpierw dedykowany ekstraktor artykułu, potem fallback HTML; brak użytecznej treści daje błąd
     # ekstrakcji.
@@ -132,10 +182,12 @@ class ContentExtractor:
             raise ExtractionError("Empty page")
 
         metadata = _metadata(html, url)
+        prepared_html, examples = protect_examples(html)
         content = trafilatura.extract(
-            html,
+            prepared_html,
             url=url,
-            output_format="txt",
+            output_format="markdown",
+            include_formatting=True,
             include_comments=False,
             include_tables=True,
             include_links=False,
@@ -145,9 +197,10 @@ class ContentExtractor:
         )
         method = "trafilatura"
         if not content or len(content.strip()) < MIN_CONTENT_CHARS:
-            content = _extract_with_bs4(html)
+            content = _extract_with_bs4(prepared_html)
             method = "beautifulsoup"
         content = _strip_trailing_boilerplate(_BLANK_LINES.sub("\n\n", (content or "").strip()))
+        content = restore_examples(content, examples)
         if len(content) < MIN_CONTENT_CHARS:
             raise ExtractionError("No meaningful article content found")
 

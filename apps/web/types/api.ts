@@ -88,9 +88,10 @@ export interface FetchResult {
 }
 
 export interface ClassifyBatchResult {
-  processed: number;
-  classified: number;
-  errors: number;
+  job_ids: string[];
+  enqueued: number;
+  existing: number;
+  skipped_busy: number;
 }
 
 export interface DashboardStats {
@@ -171,8 +172,10 @@ export interface Research {
 
 export type ArticleStatus = "draft" | "review" | "approved" | "rejected";
 export type ArticleLength = "auto" | "short" | "standard" | "long";
+export type ArticleFormat = "news" | "explainer" | "case_study" | "guide" | "comparison";
 
 export interface GenerateArticleRequest {
+  article_format?: ArticleFormat | "auto" | null;
   article_type?: CandidateCategory | null;
   length?: ArticleLength;
   angle?: string | null;
@@ -212,6 +215,7 @@ export interface ArticleSummary {
   status: ArticleStatus;
   title: string;
   article_type: CandidateCategory;
+  article_format: ArticleFormat;
   word_count: number;
   is_edited: boolean;
   estimated_cost_usd: string | null;
@@ -230,6 +234,7 @@ export interface Article extends ArticleSummary {
   meta_description: string;
   angle: string | null;
   brief: {
+    article_format?: ArticleFormat;
     primary_angle: string;
     target_audience: string;
     key_points: string[];
@@ -267,3 +272,43 @@ export interface ModelPricing {
   source_url: string;
   verified_at: string;
 }
+
+// Status zadania pochodzi z bazy. Zamknięcie przeglądarki nie zatrzymuje workera.
+export type JobStatus = "queued" | "running" | "retrying" | "succeeded" | "failed";
+export interface Job {
+  id: string;
+  candidate_id: number;
+  candidate_title?: string | null;
+  kind: "classify" | "research" | "write";
+  status: JobStatus;
+  stage: string | null;
+  attempt_count: number;
+  max_attempts: number;
+  available_at: string;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  result_id: number | null;
+  result_type: string | null;
+  error_code: string | null;
+  error_message: string | null;
+}
+export interface JobPage { items: Job[]; total: number; page: number; page_size: number }
+export interface JobAttempt {
+  number: number;
+  started_at: string;
+  finished_at: string | null;
+  outcome: string;
+  error_message: string | null;
+  llm_calls: { stage: string; finished: boolean; estimated_cost_usd: string | null;
+    usage?: { model: string; input_tokens: number; output_tokens: number; recorded?: boolean } | null }[];
+}
+
+export interface QueueQuery {
+  status?: JobStatus | "all" | "active";
+  kind?: Job["kind"];
+  candidate_id?: number;
+  page?: number;
+  page_size?: number;
+}
+export type JobStats = Record<JobStatus | "total", number>;

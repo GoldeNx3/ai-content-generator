@@ -105,3 +105,14 @@ def get_article_service(
 
 
 ArticleServiceDep = Annotated[ArticleService, Depends(get_article_service)]
+
+
+# Kolejka nie potrzebuje klienta LLM w procesie API.
+from app.services.jobs.service import JobService
+
+
+def get_job_service(session: SessionDep, settings: SettingsDep) -> JobService:
+    return JobService(session, settings)
+
+
+JobServiceDep = Annotated[JobService, Depends(get_job_service)]

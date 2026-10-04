@@ -23,5 +23,5 @@ class OpenAIClassifier:
         )
         # Prywatne metadane tokenów nie należą do schematu odpowiedzi LLM.
         # Wykorzysta je ClassificationService przy zapisywaniu kosztu.
-        parsed._usage = {"model": usage.model, "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens} if usage.recorded else None
+        parsed._usage = {"model": usage.model, "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens, "response_id": usage.response_id} if usage.recorded else None
         return parsed
