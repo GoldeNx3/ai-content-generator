@@ -5,15 +5,36 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, String, case, cast, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Candidate, CandidateStatus
+from app.models import Article, Candidate, CandidateStatus, WordPressPublication
 from app.demo import DEMO_PREFIX
 from app.schemas.candidate import CandidateFilters, SortOrder
 
 INSERT_CHUNK_SIZE = 500
+
+
+def workflow_status_expression():
+    # Use the last verified WordPress state, including while a new send is
+    # queued or has failed. A queued request is never evidence of publication.
+    publication = select(case(
+        (WordPressPublication.wp_status == 'publish', 'published'),
+        (WordPressPublication.wp_status == 'draft', 'draft'),
+        (WordPressPublication.wp_status == 'future', 'scheduled'),
+    )).where(
+        WordPressPublication.candidate_id == Candidate.id,
+        WordPressPublication.wordpress_post_id.is_not(None),
+        WordPressPublication.last_synced_at.is_not(None),
+    ).correlate(Candidate).scalar_subquery()
+    article = select(case((Article.status == 'approved', 'approved'), else_='draft')).where(
+        Article.candidate_id == Candidate.id, Article.is_current.is_(True),
+    ).correlate(Candidate).scalar_subquery()
+    return func.coalesce(publication, case(
+        (Candidate.status == CandidateStatus.IGNORED, 'ignored'),
+        else_=func.coalesce(article, cast(Candidate.status, String)),
+    ))
 
 
 class CandidateRepository:
@@ -25,7 +46,13 @@ class CandidateRepository:
     # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
     # obsługiwać inne zadania.
     async def get(self, candidate_id: int) -> Candidate | None:
-        return await self.session.get(Candidate, candidate_id)
+        row = (await self.session.execute(select(Candidate, workflow_status_expression())
+            .where(Candidate.id == candidate_id))).unique().one_or_none()
+        if row is None:
+            return None
+        candidate, workflow_status = row
+        candidate.workflow_status = workflow_status
+        return candidate
 
     async def existing_urls(self, urls: Iterable[str]) -> set[str]:
         url_list = list(urls)
@@ -51,7 +78,7 @@ class CandidateRepository:
         return inserted
 
     async def search(self, filters: CandidateFilters) -> tuple[Sequence[Candidate], int]:
-        query = self._apply_filters(select(Candidate), filters)
+        query = self._apply_filters(select(Candidate, workflow_status_expression()), filters)
         total = await self.session.scalar(
             self._apply_filters(select(func.count(Candidate.id)), filters)
         )
@@ -63,7 +90,11 @@ class CandidateRepository:
             .offset((filters.page - 1) * filters.page_size)
             .limit(filters.page_size)
         )
-        items = (await self.session.scalars(query)).unique().all()
+        rows = (await self.session.execute(query)).unique().all()
+        items = []
+        for candidate, workflow_status in rows:
+            candidate.workflow_status = workflow_status
+            items.append(candidate)
         return items, total or 0
 
     # „Niesklasyfikowany” oznacza tutaj brak total_score, niezależnie od statusu decyzji redaktora.
@@ -97,6 +128,8 @@ class CandidateRepository:
     def _apply_filters(query: Select[Any], filters: CandidateFilters) -> Select[Any]:
         if filters.status is not None:
             query = query.where(Candidate.status == filters.status)
+        if filters.workflow_status is not None:
+            query = query.where(workflow_status_expression() == filters.workflow_status)
         if filters.category is not None:
             query = query.where(Candidate.category == filters.category)
         if filters.source_id is not None:

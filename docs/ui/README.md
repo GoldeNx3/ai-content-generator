@@ -29,7 +29,9 @@ Auto Fix jest dostępny wyłącznie w etapie „Poprawki i zatwierdzenie”, zgo
 
 ## Statusy i dostępność
 
-Zieleń: sukces/gotowość. Błękit: queued/running. Bursztyn: wymaga działania. Czerwień: błąd/krytyczny problem. Kolor ma także opis tekstowy i ikonę. Raport QA z problemami ma bursztynowy stan mimo zakończenia joba.
+Lista tematów i jej filtr używają wspólnego statusu procesu: Opublikowane, Draft, Zaplanowane, Zatwierdzony, Oczekuje lub Pominięty. Ostatni potwierdzony stan WordPress ma pierwszeństwo. Bez wysyłki do WP status zależy od bieżącej wersji artykułu i decyzji o temacie. Zaliczenie QA nie zatwierdza wersji. Udany, zweryfikowany zapis WordPress oznacza temat jako zatwierdzony w tej samej transakcji co wynik zadania. Nieudana wysyłka nie nadaje statusu publikacji.
+
+Zieleń: zakończony sukces. Etap poprawek po zaliczonym QA czeka na decyzję i jest bursztynowy; staje się zielony po ręcznym zatwierdzeniu. Błękit: queued/running. Bursztyn: wymaga działania. Czerwień: błąd/krytyczny problem. Kolor ma także opis tekstowy i ikonę. Raport QA z problemami ma bursztynowy stan mimo zakończenia joba.
 
 Polski język dokumentu, etykiety formularzy, fokus klawiatury, `aria-current=step`, link pomijający nawigację, zredukowane animacje i responsywne tabele. Panele zadań pokazują status i czas; ID jobów, próby i wywołania są ukryte pod „Szczegóły techniczne”.
 

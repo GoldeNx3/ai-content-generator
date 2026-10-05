@@ -50,3 +50,5 @@ QA i Auto Fix. Test Auto Fix sprawdza też izolację aktywności (QA nie oznacza
 poprawek jako uruchomionych), przyrost sekund i zachowanie licznika po reloadzie.
 Nowa wersja po naprawie czeka na ręczne uruchomienie QA; zatwierdzenie również
 wymaga osobnego kliknięcia.
+
+`candidate-status-ui-check.mjs` sprawdza statusy listy (Opublikowane, Draft, Zatwierdzony, Zaplanowane), odświeżenie po powrocie do karty i filtr oparty na tym samym statusie. API jest mockowane; test nie wykonuje zapisów ani wywołań AI.

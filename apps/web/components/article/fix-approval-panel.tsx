@@ -44,8 +44,10 @@ export function FixApprovalPanel({article, versions, qa, fixes, jobs, error, edi
     finally { setApproving(false); }
   }
   return <WorkflowSection progressJob={jobs.ownActive} number={6} title="Poprawki i zatwierdzenie" paid
-    tone={jobs.ownActive ? "running" : undefined}
-    status={jobs.ownActive ? jobStatusLabel[jobs.ownActive.status] : ARTICLE_STATUS_LABELS[article.status] ?? "Szkic"}
+    tone={jobs.ownActive ? "running" : article.status === "approved" ? "success" :
+      article.status === "rejected" ? "error" :
+      ["ready_for_approval", "needs_changes", "manual_review_required"].includes(article.status) ? "attention" : "neutral"}
+    status={jobs.ownActive ? jobStatusLabel[jobs.ownActive.status] : article.status === "ready_for_approval" ? "Oczekuje na Twoją decyzję" : ARTICLE_STATUS_LABELS[article.status] ?? "Szkic"}
     description={`Poprawki i decyzja redakcyjna dotyczą wersji ${article.version}.`}
     actionTitle="Poprawki i decyzja" actionDescription={article.status === "approved" ? "Ta wersja została zatwierdzona. Poprawka utworzy nową wersję wymagającą osobnego QA i zatwierdzenia." : "Najpierw zastosuj potrzebne poprawki albo zatwierdź tekst w obecnej postaci. Poprawki nie wymagają wcześniejszego zatwierdzenia."}
     actionDetails={<p className="text-sm text-slate-600">Wersja {article.version} · {ARTICLE_STATUS_LABELS[article.status]}</p>}

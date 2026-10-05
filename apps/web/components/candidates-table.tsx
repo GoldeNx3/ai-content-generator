@@ -73,7 +73,7 @@ export function CandidatesTable({ candidates, busyId, onStatusChange, onClassify
                   {timeAgo(candidate.original_published_at)}
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={candidate.status} />
+                  <StatusBadge status={candidate.workflow_status ?? candidate.status} />
                   <span className="mt-1 block text-xs text-muted-foreground">{candidate.total_score === null ? "AI: do oceny" : "AI: oceniono"}</span>
                 </TableCell>
                 <TableCell className="pr-4">

@@ -1,13 +1,17 @@
 import { cn } from "@/lib/utils";
-import type { CandidateStatus } from "@/types/api";
+import type { CandidateWorkflowStatus } from "@/types/api";
+import { CANDIDATE_WORKFLOW_LABELS } from "@/lib/candidate-status";
 
-const STATUS_STYLES: Record<CandidateStatus, string> = {
+const STATUS_STYLES: Record<CandidateWorkflowStatus, string> = {
   pending: "bg-sky-50 text-sky-800 ring-sky-200",
   approved: "bg-emerald-50 text-emerald-800 ring-emerald-200",
   ignored: "bg-zinc-100 text-zinc-500 ring-zinc-200",
+  draft: "bg-amber-50 text-amber-800 ring-amber-200",
+  published: "bg-emerald-100 text-emerald-900 ring-emerald-300",
+  scheduled: "bg-violet-50 text-violet-800 ring-violet-200",
 };
 
-export function StatusBadge({ status }: { status: CandidateStatus }) {
+export function StatusBadge({ status }: { status: CandidateWorkflowStatus }) {
   return (
     <span
       className={cn(
@@ -15,7 +19,7 @@ export function StatusBadge({ status }: { status: CandidateStatus }) {
         STATUS_STYLES[status],
       )}
     >
-      {{pending:"Oczekuje",approved:"Zatwierdzony",ignored:"Pominięty"}[status]}
+      {CANDIDATE_WORKFLOW_LABELS[status]}
     </span>
   );
 }

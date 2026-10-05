@@ -23,8 +23,18 @@ class SortOrder(StrEnum):
     DESC = "desc"
 
 
+class CandidateWorkflowStatus(StrEnum):
+    PENDING = 'pending'
+    APPROVED = 'approved'
+    IGNORED = 'ignored'
+    DRAFT = 'draft'
+    PUBLISHED = 'published'
+    SCHEDULED = 'scheduled'
+
+
 class CandidateFilters(BaseModel):
     status: CandidateStatus | None = None
+    workflow_status: CandidateWorkflowStatus | None = None
     category: CandidateCategory | None = None
     source_id: int | None = None
     min_score: int | None = Field(default=None, ge=0, le=100)
@@ -47,6 +57,7 @@ class CandidateRead(BaseModel):
     summary: str | None
     original_published_at: datetime | None
     status: CandidateStatus
+    workflow_status: CandidateWorkflowStatus | None = None
     relevance_score: int | None
     freshness_score: int | None
     search_potential_score: int | None

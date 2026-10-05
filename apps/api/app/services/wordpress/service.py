@@ -159,6 +159,9 @@ class WordPressPublisherService:
         # Re-check approval/QA under the same candidate lock as approval immediately before mutation.
         await approved_version(self.session,article_version_id,self.settings,lock=True)
         if not p.wordpress_post_id:
+            # A replacement/recovered mapping has not completed our content,
+            # SEO and status verification. An older post's sync cannot certify it.
+            p.last_synced_at=None
             try:
                 current=await self.client.create_post({**payload,'status':'draft'},identity=identity,operation=operation+':create')
             except WordPressError as exc:
@@ -222,6 +225,16 @@ class WordPressPublisherService:
         p.scheduled_at=request.scheduled_at;p.published_at=datetime.now(timezone.utc) if effective_status=='publish' else None
         p.last_synced_at=datetime.now(timezone.utc);p.last_synced_content_hash=wp_content_hash(verify)
         p.error_code=None;p.conflict=None
+        # Confirm the topic only after the remote content and final status were
+        # verified. Persist the decision together with the fenced job result.
+        from sqlalchemy import select
+        from app.models import Candidate, CandidateStatus
+        if self.execution:
+            await self.execution.lock(self.session)
+        with self.session.no_autoflush:
+            candidate=await self.session.scalar(select(Candidate).where(Candidate.id==article.candidate_id)
+                .with_for_update(of=Candidate).execution_options(populate_existing=True))
+        candidate.status=CandidateStatus.APPROVED
         await self.save(p,complete=True)
         return p
     @staticmethod

@@ -373,3 +373,62 @@ async def test_legacy_seo_preview_and_child_inherit_profile_without_mutating_par
     child=(await client.patch(f'/api/articles/{a.id}',json={'content':a.content+'\n\nNowy akapit.'})).json()
     assert child['seo_data']['focus_keyword']=='Claude' and child['seo_data']['tags']==['Claude','Anthropic','Barclays']
     assert child['seo_data']['canonical_url'] is None
+
+
+async def workflow_candidate(client, candidate_id, expected):
+    detail = (await client.get(f'/api/candidates/{candidate_id}')).json()
+    assert detail['workflow_status'] == expected
+    page = (await client.get('/api/candidates', params={'workflow_status': expected})).json()
+    assert candidate_id in [item['id'] for item in page['items']]
+    other = 'published' if expected != 'published' else 'draft'
+    excluded = (await client.get('/api/candidates', params={'workflow_status': other})).json()
+    assert candidate_id not in [item['id'] for item in excluded['items']]
+    return detail
+
+
+async def test_candidate_workflow_tracks_draft_approval_and_wordpress_actions(client, session, execute_job, wordpress):
+    a, _ = await article_fixture(session)
+    await workflow_candidate(client, a.candidate_id, 'draft')
+    await client.post(f'/api/articles/{a.id}/qa')
+    await execute_job({'qa_article': FakeQA()})
+    await workflow_candidate(client, a.candidate_id, 'draft')  # QA does not approve.
+    assert (await client.post(f'/api/article-versions/{a.id}/approve')).status_code == 200
+    await workflow_candidate(client, a.candidate_id, 'approved')
+    for target, expected in [('draft', 'draft'), ('publish', 'published'), ('draft', 'draft')]:
+        job, _ = await publish(client, a, execute_job, {'status': target})
+        assert job['status'] == 'succeeded'
+        detail = await workflow_candidate(client, a.candidate_id, expected)
+        assert detail['status'] == 'approved'
+
+
+async def test_failed_publication_does_not_approve_topic_or_show_published(client, session, execute_job, wordpress):
+    a = await approved(client, session, execute_job)
+    before = (await client.get(f'/api/candidates/{a.candidate_id}')).json()['status']
+    wordpress.error = 401
+    job, _ = await publish(client, a, execute_job, {'status': 'publish'})
+    assert job['status'] == 'failed'
+    detail = await workflow_candidate(client, a.candidate_id, 'approved')
+    assert detail['status'] == before
+
+
+async def test_scheduled_publication_has_separate_workflow_status(client, session, execute_job, wordpress):
+    a = await approved(client, session, execute_job)
+    job, _ = await publish(client, a, execute_job, {
+        'status': 'future', 'scheduled_at': (datetime.now(timezone.utc) + timedelta(days=1)).isoformat()})
+    assert job['status'] == 'succeeded'
+    await workflow_candidate(client, a.candidate_id, 'scheduled')
+
+
+async def test_failed_recreation_does_not_reuse_previous_verification(client, session, execute_job, wordpress, monkeypatch):
+    from app.services.wordpress.errors import WordPressError
+    a = await approved(client, session, execute_job)
+    job, _ = await publish(client, a, execute_job, {'status': 'publish'})
+    assert job['status'] == 'succeeded'
+    await workflow_candidate(client, a.candidate_id, 'published')
+    wordpress.posts[101]['status'] = 'trash'
+    def fail_verification(*args, **kwargs):
+        raise WordPressError('wordpress_verification_failed')
+    monkeypatch.setattr('app.services.wordpress.service.WordPressPublisherService.verify', staticmethod(fail_verification))
+    job, _ = await publish(client, a, execute_job, {'status': 'draft'})
+    assert job['status'] == 'failed'
+    await workflow_candidate(client, a.candidate_id, 'approved')

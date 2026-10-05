@@ -11,15 +11,15 @@ import { FilterSelect } from "@/components/filter-select";
 import { StatsCards } from "@/components/stats-cards";
 import { Button } from "@/components/ui/button";
 import { api, errorText } from "@/lib/api";
+import { CANDIDATE_WORKFLOW_LABELS } from "@/lib/candidate-status";
 import {
   CANDIDATE_CATEGORIES,
-  CANDIDATE_STATUSES,
   type Candidate,
   type CandidateCategory,
   type CandidatePage,
   type CandidateQuery,
   type CandidateSort,
-  type CandidateStatus,
+  type CandidateWorkflowStatus,
   type DashboardStats,
   type Source,
 } from "@/types/api";
@@ -109,7 +109,7 @@ export default function DashboardPage() {
       }
     }
     void poll();
-    const visible = () => { if (document.visibilityState === "visible") { clearTimeout(timer); void poll(); } };
+    const visible = () => { if (document.visibilityState === "visible") { clearTimeout(timer); void load(); void poll(); } };
     document.addEventListener("visibilitychange", visible);
     return () => { disposed = true; clearTimeout(timer); document.removeEventListener("visibilitychange", visible); };
   }, [load]);
@@ -214,9 +214,9 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-center gap-2">
         <FilterSelect
           label="Status"
-          value={query.status}
-          options={CANDIDATE_STATUSES.map((value) => ({ value, label: {pending: "Oczekujące", approved: "Zatwierdzone", ignored: "Pominięte"}[value] }))}
-          onChange={(value) => updateQuery({ status: value as CandidateStatus | undefined })}
+          value={query.workflow_status}
+          options={(Object.entries(CANDIDATE_WORKFLOW_LABELS)).map(([value, label]) => ({ value, label }))}
+          onChange={(value) => updateQuery({ workflow_status: value as CandidateWorkflowStatus | undefined })}
         />
         <FilterSelect
           label="Kategoria"

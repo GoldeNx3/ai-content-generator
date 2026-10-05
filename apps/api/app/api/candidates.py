@@ -75,4 +75,4 @@ async def update_status(
     await session.commit()
     # refresh ponownie odczytuje rekord, w tym wartości nadane przez bazę, np. ID i daty.
     await session.refresh(candidate)
-    return candidate
+    return await _get_or_404(session, candidate_id)

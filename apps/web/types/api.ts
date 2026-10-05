@@ -1,4 +1,5 @@
 export type CandidateStatus = "pending" | "approved" | "ignored";
+export type CandidateWorkflowStatus = CandidateStatus | "draft" | "published" | "scheduled";
 
 export type CandidateCategory =
   | "news"
@@ -42,6 +43,7 @@ export interface Candidate {
   summary: string | null;
   original_published_at: string | null;
   status: CandidateStatus;
+  workflow_status?: CandidateWorkflowStatus | null;
   relevance_score: number | null;
   freshness_score: number | null;
   search_potential_score: number | null;
@@ -69,6 +71,7 @@ export type CandidateSort = "total_score" | "created_at" | "original_published_a
 
 export interface CandidateQuery {
   status?: CandidateStatus;
+  workflow_status?: CandidateWorkflowStatus;
   category?: CandidateCategory;
   source_id?: number;
   min_score?: number;

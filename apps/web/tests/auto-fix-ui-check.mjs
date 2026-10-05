@@ -87,6 +87,7 @@ try {
  await navigation.getByRole('link',{name:'Poprawki i zatwierdzenie',exact:true}).click();
  await page.waitForFunction(()=>Array.from(document.querySelectorAll('[data-workflow-step="6"] button')).some(b=>b.textContent.includes('Popraw automatycznie')&&!b.disabled));
  assert.equal(await fixStep.getByRole('button',{name:'Zatwierdź wersję',exact:true}).isEnabled(),true);
+ assert.equal(await fixStep.getAttribute('data-stage-tone'),'attention','passed QA awaits a manual decision; approval step is not complete');
  assert.equal(await fixStep.getByRole('button',{name:'Popraw automatycznie · płatne',exact:true}).isVisible(),true);
  assert.equal(approveId,null,'optional fix is available without approval');
  assert.equal(posts,0,'reading passed QA starts no stage automatically');
@@ -142,6 +143,7 @@ try {
  await navigation.getByRole('link',{name:'Poprawki i zatwierdzenie',exact:true}).click();
  await fixStep.getByRole('button',{name:'Zatwierdź wersję',exact:true}).click();
  await fixStep.getByText(/Zatwierdzono tę wersję/).waitFor();assert.equal(approveId,2);assert.equal(first.status,'needs_changes');
+ assert.equal(await fixStep.getAttribute('data-stage-tone'),'success','only manual approval completes the approval stage');
  assert.equal(await fixStep.getByText('Zmienione fragmenty · Before / After',{exact:true}).evaluate(e=>e.closest('details').open),true);
  await fixStep.getByText('Usunięto fragment',{exact:true}).waitFor();
  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
@@ -165,8 +167,33 @@ try {
  await confirmation.waitFor();
  assert.equal(await confirmation.evaluate(el=>document.activeElement===el),true,'confirmation receives keyboard focus');
  assert.ok(await confirmation.evaluate(el=>el.getBoundingClientRect().top>=0 && el.getBoundingClientRect().top<innerHeight),'confirmation appears in viewport on mobile');
+ for (const width of [375, 1440]) {
+   await page.setViewportSize({width,height:900});
+   assert.equal(await confirmation.evaluate(el=>{
+     const box=el.getBoundingClientRect();
+     return Array.from(el.querySelectorAll('button')).every(button=>{
+       const rect=button.getBoundingClientRect();
+       return rect.left>=box.left && rect.right<=box.right;
+     });
+   }),true,`confirmation buttons fit their box at ${width}px`);
+ }
  await confirmation.getByRole('button',{name:'Anuluj',exact:true}).click();
  wordpressConflict=false;
+ await wordpress.getByRole('button',{name:'Sprawdź stan WordPress',exact:true}).click();
+ await wordpress.getByRole('button',{name:'Opublikuj teraz',exact:true}).click();
+ await confirmation.getByText('Opublikować tę zatwierdzoną wersję teraz? Wpis stanie się publiczny.',{exact:true}).waitFor();
+ for (const width of [375, 1440]) {
+   await page.setViewportSize({width,height:900});
+   assert.equal(await confirmation.evaluate(el=>{
+     const box=el.getBoundingClientRect();
+     return Array.from(el.querySelectorAll('button')).every(button=>{
+       const rect=button.getBoundingClientRect();
+       return rect.left>=box.left && rect.right<=box.right;
+     });
+   }),true,`publication confirmation buttons fit at ${width}px`);
+   await page.screenshot({path:`/tmp/wordpress-confirmation-${width}.png`});
+ }
+ await confirmation.getByRole('button',{name:'Anuluj',exact:true}).click();
  await page.setViewportSize({width:1440,height:1000});
  await navigation.getByRole('link',{name:'Generowanie',exact:true}).click();
  await workspace.getByRole('button',{name:'Edytuj tekst',exact:true}).click();
