@@ -13,7 +13,7 @@ from sqlalchemy import select
 from app.api.deps import get_current_user
 from app.core.config import get_settings
 from app.models import WordPressConnection, WordPressPublication
-from app.models.enums import WorkspaceRole
+from app.enums import WorkspaceRole
 from app.services.auth.service import CurrentUser
 from app.services.wordpress.client import WordPressClient
 

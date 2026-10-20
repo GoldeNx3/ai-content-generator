@@ -7,11 +7,18 @@ The LLM must never introduce URLs: every reference is matched (after normalisati
 existing ResearchSource; unknown references are dropped.
 """
 
+from __future__ import annotations
+
 import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from app.models import FactBasis, FactImportance, ResearchSource, ResearchSourceType
+from typing import TYPE_CHECKING
+
+from app.enums import FactBasis, FactImportance, ResearchSourceType
+
+if TYPE_CHECKING:
+    from app.models import ResearchSource
 from app.schemas.research import ResearchOutput
 from app.services.research.urls import normalize_url
 

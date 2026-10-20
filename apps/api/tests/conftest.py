@@ -13,7 +13,7 @@ from app.core.db import Base, get_session, get_session_factory
 from app.main import create_app
 from app.api.deps import get_current_user
 from app.models import Source
-from app.models.enums import WorkspaceRole
+from app.enums import WorkspaceRole
 from app.services.auth.service import CurrentUser
 
 

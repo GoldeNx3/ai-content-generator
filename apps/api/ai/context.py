@@ -32,6 +32,20 @@ class TaskContext:
                 self._client = self._providers.get("_client")
         return self._providers
 
+    @property
+    def extractor(self):
+        if self.demo:
+            return self.providers["extractor"]
+        from app.services.research.content_extractor import ContentExtractor
+        return ContentExtractor(timeout=self.settings.page_fetch_timeout_seconds, max_bytes=self.settings.page_max_bytes)
+
+    @property
+    def search(self):
+        if self.demo:
+            return self.providers["search"]
+        from app.services.research.search import get_search_provider
+        return get_search_provider(self.settings)
+
     async def call(self, stage: str, invoke):
         """Wykonuje płatne wywołanie i zapisuje je; przerwane wywołanie zostaje z nieznanym kosztem."""
         self.calls.append({"stage": stage, "finished": False, "estimated_cost_usd": None})

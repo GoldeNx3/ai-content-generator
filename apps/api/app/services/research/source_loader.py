@@ -9,6 +9,7 @@ from app.models import FetchStatus, ResearchSource
 from app.services.research.content_extractor import ContentExtractor, ExtractedDocument, ExtractionError
 from app.services.research.source_scoring import assess_source
 from app.services.research.link_discovery import compact_source_html
+from app.services.research.publisher import clean_publisher  # noqa: F401 (re-eksport)
 
 logger = logging.getLogger(__name__)
 
@@ -68,11 +69,3 @@ class ResearchSourceLoader:
             candidate_id, research_id, source.url, len(extraction.content),
             source.source_type, source.source_score,
         )
-
-
-def clean_publisher(name: str | None) -> str | None:
-    """Czyści nazwy wydawców z metadanych, np. Allen_Ai → Allen Ai."""
-    if not name:
-        return None
-    name = " ".join(name.replace("_", " ").split())[:300]
-    return name[0].upper() + name[1:] if name.islower() else name
