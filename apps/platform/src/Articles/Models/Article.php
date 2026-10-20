@@ -14,7 +14,7 @@ class Article extends Model
 {
     protected $attributes = [
         'status' => 'draft', 'created_by' => 'generated', 'content_hash' => '', 'auto_fix_iteration' => 0,
-        'is_current' => true, 'qa_passed' => false, 'is_edited' => false, 'seo_data' => '{}',
+        'is_current' => true, 'qa_passed' => false, 'is_edited' => false, 'seo_data' => '{}', 'seo_preview' => '{}', 'seo_origin' => 'article',
         'lead_fact_ids' => '[]', 'validation_warnings' => '[]',
     ];
 
@@ -27,6 +27,7 @@ class Article extends Model
             'qa_passed' => 'boolean',
             'is_edited' => 'boolean',
             'seo_data' => 'array',
+            'seo_preview' => 'array',
             'brief' => 'array',
             'sections' => 'array',
             'lead_fact_ids' => 'array',

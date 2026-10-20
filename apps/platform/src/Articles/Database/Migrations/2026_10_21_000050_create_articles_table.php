@@ -37,6 +37,8 @@ return new class extends Migration
             $table->boolean('qa_passed')->default(false);
             $table->boolean('is_edited')->default(false);
             $table->jsonb('seo_data')->default('{}');
+            $table->jsonb('seo_preview')->default('{}');
+            $table->string('seo_origin', 30)->default('article');
             $table->jsonb('brief');
             $table->jsonb('sections');
             $table->jsonb('lead_fact_ids')->default('[]');
