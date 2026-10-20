@@ -8,6 +8,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.job import Job, JobAttempt
+from app.services.jobs.messages import public_error_message
 from app.models import WordPressPublication, ArticleFix, ArticleQA, Research, ResearchStatus
 
 
@@ -69,7 +70,7 @@ class JobRepository:
             job.available_at = now + timedelta(seconds=15 if job.attempt_count == 1 else 60)
             job.finished_at = now if job.status == 'failed' else None
             job.error_code = 'worker_lost'
-            job.error_message = 'Worker został przerwany; poprzednie wywołanie mogło naliczyć koszt.'
+            job.error_message = public_error_message('worker_lost')
             job.lease_token = None
             job.worker_id = None
             job.locked_until = None

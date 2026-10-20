@@ -95,7 +95,7 @@ export default function QueuePage() {
             <TableCell className="max-w-80 whitespace-normal">
               <Link href={`/candidates/${job.candidate_id}`} className="line-clamp-2 font-medium hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">{job.candidate_title ?? `Temat #${job.candidate_id}`}</Link>
               <p className="mt-1 font-mono text-xs text-muted-foreground">{job.id.slice(0, 8)}…</p>
-              {job.error_code && job.status !== "succeeded" && <p className="mt-1 text-xs text-destructive">{job.error_code}</p>}
+              {job.error_code && job.status !== "succeeded" && <p className="mt-1 text-xs text-destructive" title={job.error_code}>{job.error_message ?? job.error_code}</p>}
             </TableCell>
             <TableCell>{KIND_LABELS[job.kind]}</TableCell>
             <TableCell><span className={`rounded-full px-2 py-1 text-xs font-medium ring-1 ${STATUS_STYLES[job.status]}`}>{STATUS_LABELS[job.status]}</span></TableCell>

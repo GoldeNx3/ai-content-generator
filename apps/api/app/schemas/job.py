@@ -3,7 +3,9 @@
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, computed_field
+from pydantic import BaseModel, ConfigDict, ValidationInfo, computed_field, field_validator
+
+from app.services.jobs.messages import readable_error_message
 
 
 class JobRead(BaseModel):
@@ -26,6 +28,12 @@ class JobRead(BaseModel):
     error_code: str | None
     error_message: str | None
 
+    # Starsze wiersze mają w komunikacie tylko surowy kod; pokazujemy aktualny opis.
+    @field_validator('error_message')
+    @classmethod
+    def _readable_error(cls, value, info: ValidationInfo):
+        return readable_error_message(info.data.get('error_code'), value)
+
     @computed_field
     @property
     def result(self) -> dict | None:
@@ -45,6 +53,12 @@ class JobAttemptRead(BaseModel):
     outcome: str
     error_code: str | None
     error_message: str | None
+
+    # Starsze wiersze mają w komunikacie tylko surowy kod; pokazujemy aktualny opis.
+    @field_validator('error_message')
+    @classmethod
+    def _readable_error(cls, value, info: ValidationInfo):
+        return readable_error_message(info.data.get('error_code'), value)
     last_stage: str | None
     llm_calls: list[dict[str, Any]]
 

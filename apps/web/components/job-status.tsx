@@ -50,7 +50,7 @@ export function JobStatus({ jobs, active, error, onRetry }: {
     {job && <>
       <ol className="space-y-5 border-l border-slate-200 pl-5"><li className="relative"><Icon className={`absolute -left-[30px] top-0.5 size-5 bg-white ${color} ${job.status === "running" ? "animate-spin" : ""}`} /><p className={`font-medium ${color}`}>{jobStatusLabel[job.status]}{job.stage && stages[job.stage] && ` · ${stages[job.stage]}`}</p><p className="mt-1 text-xs text-muted-foreground">{formatDate(job.finished_at ?? job.started_at ?? job.created_at)}</p></li></ol>
       {job.status === "retrying" && <p>Ponowienie najwcześniej: {formatDate(job.available_at)}</p>}
-      {job.error_message && job.status !== "succeeded" && <p className="text-destructive">{job.error_message}</p>}
+      {job.error_message && job.status !== "succeeded" && <div role="alert" className="rounded-lg bg-destructive/10 p-3 text-destructive"><p>{job.error_message}</p>{job.error_code && <p className="mt-1 font-mono text-xs opacity-80">Kod błędu: {job.error_code}</p>}</div>}
       {job.status === "failed" && <Button size="sm" variant="outline" disabled={retrying || Boolean(active)} onClick={() => void retry()}>Ponów zadanie · {demo ? "demo · bezpłatne" : "płatne"}</Button>}
       <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)}>{expanded ? "Ukryj" : "Szczegóły techniczne"}</Button>
       {expanded && <div className="space-y-3 text-xs">

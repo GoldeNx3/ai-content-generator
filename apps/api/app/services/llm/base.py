@@ -24,6 +24,9 @@ class LLMError(Exception):
 class LLMNotConfiguredError(LLMError):
     """Raised when the provider is missing required configuration (e.g. API key)."""
 
+    def __init__(self, message: str) -> None:
+        super().__init__(message, code="llm_not_configured")
+
 
 # dataclass generuje m.in. konstruktor z zadeklarowanych pól; frozen blokuje przypisania do pól, slots
 # ogranicza atrybuty.
