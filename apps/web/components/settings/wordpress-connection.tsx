@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError, api, errorText, WORDPRESS_MESSAGES } from "@/lib/api";
+import { ApiError, api, errorText, ERROR_MESSAGES } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { WordPressConnection } from "@/types/api";
 
@@ -58,7 +58,7 @@ export function WordPressConnectionCard() {
             onTest={() => run("test", async () => {
               const result = await api.testWordPressConnection();
               setConnection(result);
-              if (result.last_error) setError(WORDPRESS_MESSAGES[result.last_error] ?? result.last_error);
+              if (result.last_error) setError(ERROR_MESSAGES[result.last_error] ?? result.last_error);
               else toast.success("Połączenie z WordPressem działa");
             })}
             onDefaults={(values) => run("defaults", async () => {
@@ -126,7 +126,7 @@ function ConnectedView({ connection, busy, onTest, onDefaults, onChange, onDisco
           <dt className="text-muted-foreground">Publikowanie</dt><dd>{connection.can_publish ? "dozwolone" : "tylko szkice (brak uprawnienia publish_posts)"}</dd>
           {connection.last_checked_at && <><dt className="text-muted-foreground">Sprawdzono</dt><dd>{formatDate(connection.last_checked_at)}</dd></>}
         </dl>
-        {!ok && <p className="mt-3 text-sm text-amber-900">{WORDPRESS_MESSAGES[connection.last_error ?? ""] ?? connection.last_error}</p>}
+        {!ok && <p className="mt-3 text-sm text-amber-900">{ERROR_MESSAGES[connection.last_error ?? ""] ?? connection.last_error}</p>}
       </div>
 
       <form className="grid gap-4 sm:grid-cols-3" onSubmit={(event) => {

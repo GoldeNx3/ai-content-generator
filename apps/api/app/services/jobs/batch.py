@@ -8,7 +8,8 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.models.job import Job, JobBatch
 from app.repositories.candidate_repository import CandidateRepository
-from app.services.jobs.errors import JobConflict
+from app.services.jobs.errors import JobConflict, JobInputError
+from app.services.usage import ensure_budget
 
 
 async def enqueue_batch(service, limit, key=None, *, workspace_id):
@@ -18,6 +19,8 @@ async def enqueue_batch(service, limit, key=None, *, workspace_id):
     request_hash = hashlib.sha256(f'classify-batch:{workspace_id}:{limit}'.encode()).hexdigest()
     batch = await session.get(JobBatch, key)
     if batch is None:
+        # Nowa partia nie powstaje po wyczerpaniu budżetu (pojedyncze enqueue sprawdza go ponownie).
+        await ensure_budget(session, workspace_id, service.settings)
         ids = await CandidateRepository(session).list_unclassified_ids(limit, workspace_id=workspace_id)
         # Dwie identyczne prośby mogą nadejść jednocześnie. Tylko jedna lista
         # wygrywa INSERT; druga prośba odczytuje zapisaną listę zwycięzcy.
@@ -28,8 +31,8 @@ async def enqueue_batch(service, limit, key=None, *, workspace_id):
     if batch.request_hash != request_hash or batch.workspace_id != workspace_id:
         raise JobConflict('idempotency_conflict')
     ids = list(batch.candidate_ids)
-    result = {'job_ids': [], 'enqueued': 0, 'existing': 0, 'skipped_busy': 0}
-    for candidate_id in ids:
+    result = {'job_ids': [], 'enqueued': 0, 'existing': 0, 'skipped_busy': 0, 'skipped_budget': 0}
+    for index, candidate_id in enumerate(ids):
         # Blokada partii obejmuje decyzję enqueue ALBO skip. Nie wystarczy
         # sam odczyt listy: równoległe powtórzenie mogłoby ją już zmienić.
         batch = await session.scalar(select(JobBatch).where(JobBatch.id == key)
@@ -44,6 +47,13 @@ async def enqueue_batch(service, limit, key=None, *, workspace_id):
             job = await service.enqueue('classify', candidate_id, key=child_key)
             result['job_ids'].append(job.id)
             result['existing' if existed else 'enqueued'] += 1
+        except JobInputError as exc:
+            if exc.status_code != 402:
+                raise
+            # Budżet wyczerpany w trakcie partii: reszta nie trafia do kolejki (ponowienie partii spróbuje znowu).
+            await session.rollback()
+            result['skipped_budget'] = len(ids) - index
+            break
         except JobConflict:
             await session.rollback()
             batch = await session.scalar(select(JobBatch).where(JobBatch.id == key)

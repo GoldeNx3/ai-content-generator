@@ -96,6 +96,16 @@ export interface ClassifyBatchResult {
   enqueued: number;
   existing: number;
   skipped_busy: number;
+  skipped_budget: number;
+}
+
+export interface Usage {
+  period_start: string;
+  spent_usd: string;
+  budget_usd: string | null;
+  remaining_usd: string | null;
+  exceeded: boolean;
+  unknown_cost_calls: number;
 }
 
 export interface DashboardStats {

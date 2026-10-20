@@ -141,7 +141,8 @@ export default function DashboardPage() {
     setClassifySummary(null);
     try {
       const result = await api.classifyPending();
-      setClassifySummary(`W kolejce: ${result.enqueued} nowych zadań · ${result.existing} już zapisanych · ${result.skipped_busy} zajętych tematów`);
+      setClassifySummary(`W kolejce: ${result.enqueued} nowych zadań · ${result.existing} już zapisanych · ${result.skipped_busy} zajętych tematów`
+        + (result.skipped_budget ? ` · ${result.skipped_budget} pominiętych (wyczerpany budżet AI)` : ""));
       toast.success("Ocena tematów zapisana w kolejce");
       await load();
     } catch (error) {

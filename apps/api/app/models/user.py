@@ -2,8 +2,9 @@
 # logowania i próby uwierzytelnienia używane do ograniczania zgadywania haseł.
 
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, String, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -32,6 +33,9 @@ class Workspace(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Miesięczny limit kosztów AI (USD). NULL = DEFAULT_MONTHLY_BUDGET_USD z .env. Ustawia operator
+    # (make set-budget), nie właściciel workspace'u.
+    monthly_budget_usd: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
 
 
 class WorkspaceMember(TimestampMixin, Base):

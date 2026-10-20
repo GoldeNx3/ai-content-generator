@@ -75,6 +75,8 @@ class EnqueuedBatch(BaseModel):
     enqueued: int
     existing: int
     skipped_busy: int
+    # Kandydaci pominięci, bo budżet AI workspace'u wyczerpał się w trakcie partii.
+    skipped_budget: int = 0
 
 
 class JobStats(BaseModel):

@@ -65,7 +65,7 @@ class JobAttempt(Base):
     job_id: Mapped[UUID] = mapped_column(ForeignKey('jobs.id', ondelete='CASCADE'), index=True)
     number: Mapped[int]
     worker_id: Mapped[str] = mapped_column(String(200))
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     outcome: Mapped[str] = mapped_column(String(30), default='running')
     error_code: Mapped[str | None] = mapped_column(String(50))

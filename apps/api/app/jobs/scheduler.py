@@ -6,7 +6,7 @@ import asyncio
 import logging
 from uuid import NAMESPACE_URL, uuid5
 
-from sqlalchemy import text, select
+from sqlalchemy import func, text, select
 
 from app.core.config import get_settings
 from app.core.db import SessionLocal, engine
@@ -15,7 +15,7 @@ from app.demo import DEMO_PREFIX
 from app.models.job import Job
 from app.services.auth.service import AuthService
 from app.services.ingestion_service import IngestionService
-from app.services.jobs.errors import JobConflict
+from app.services.jobs.errors import JobConflict, JobInputError
 from app.services.jobs.service import JobService
 from app.services.rss_fetcher import RssFetcher
 
@@ -42,17 +42,31 @@ async def run_pipeline_once():
                     return
                 # Pomijamy już zlecone klasyfikacje PRZED limitowaniem. Błędne
                 # zadania ponawia użytkownik; nie blokują następnych tematów.
+                # Limit CLASSIFY_BATCH_LIMIT obowiązuje per workspace, aby jeden workspace nie zagłodził innych.
                 prior = select(Job.id).where(Job.candidate_id == Candidate.id, Job.kind == 'classify').exists()
-                ids = (await session.scalars(select(Candidate.id).where(
-                    Candidate.total_score.is_(None), ~Candidate.external_url.startswith(DEMO_PREFIX), ~prior)
-                    .order_by(Candidate.id.desc()).limit(settings.classify_batch_limit))).all()
+                ranked = select(Candidate.id, Candidate.workspace_id, func.row_number().over(
+                    partition_by=Candidate.workspace_id, order_by=Candidate.id.desc()).label('rank')).where(
+                    Candidate.total_score.is_(None), ~Candidate.external_url.startswith(DEMO_PREFIX), ~prior).subquery()
+                rows = (await session.execute(select(ranked.c.id, ranked.c.workspace_id)
+                        .where(ranked.c.rank <= settings.classify_batch_limit)
+                        .order_by(ranked.c.workspace_id, ranked.c.id.desc()))).all()
                 service = JobService(session, settings)
-                for candidate_id in ids:
+                over_budget = set()
+                for candidate_id, workspace_id in rows:
+                    if workspace_id in over_budget:
+                        continue
                     try:
                         key = uuid5(NAMESPACE_URL, f'scheduled-classify:{candidate_id}')
                         await service.enqueue('classify', candidate_id, key=key)
                     except JobConflict:
                         await session.rollback()
+                    except JobInputError as exc:
+                        await session.rollback()
+                        if exc.status_code != 402:
+                            raise
+                        # Budżet workspace'u wyczerpany: bez automatycznej klasyfikacji do końca miesiąca.
+                        logger.info('Scheduler: workspace %s over AI budget, skipping classification', workspace_id)
+                        over_budget.add(workspace_id)
         finally:
             await lock_connection.execute(text('SELECT pg_advisory_unlock(:key)'), {'key': SCHEDULER_LOCK})
 

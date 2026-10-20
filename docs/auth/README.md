@@ -34,7 +34,8 @@ HttpOnly. Next.js nie ma własnej logiki uwierzytelniania.
 COOKIE_DOMAIN=.example.com          # wspólne dla app.example.com i api.example.com
 COOKIE_SECURE=true
 CORS_ORIGINS=https://app.example.com
-ALLOW_REGISTRATION=false            # do czasu budżetów kosztów per workspace
+ALLOW_REGISTRATION=true             # koszty ogranicza DEFAULT_MONTHLY_BUDGET_USD
+DEFAULT_MONTHLY_BUDGET_USD=10
 ```
 
 Pierwsze konto: `make create-user-prod EMAIL=...` (lokalnie `make create-user EMAIL=...`).
@@ -63,13 +64,24 @@ niezaufanych serwisów (np. WordPress); w takim przypadku lepiej dać panelowi o
   utworzyła workspace „Domyślny”. Konto dołącza się do niego przez
   `make create-user EMAIL=... WORKSPACE=<id>`. Seedy przyjmują `WORKSPACE=<id>` (domyślnie najstarszy).
 
+## Budżet AI per workspace
+
+- Zużycie liczone jest z zapisów płatnych wywołań w próbach jobów (`JobAttempt.llm_calls`, `CallRecorder`)
+  od 1. dnia bieżącego miesiąca (UTC); liczą się też ponowienia. Wywołania przerwane przed zapisem kosztu są
+  pokazywane osobno (`unknown_cost_calls`) i nie są wliczane.
+- Budżet: `workspaces.monthly_budget_usd`, a gdy pusty, `DEFAULT_MONTHLY_BUDGET_USD` (puste = bez limitu).
+  Ustawia go operator: `make set-budget WORKSPACE=<id> USD=25` (`USD=default` przywraca domyślny).
+- Po przekroczeniu `JobService.enqueue` odrzuca nowe płatne zadania kodem `402 budget_exceeded`.
+  Publikacja w WordPressie i scenariusze demo są wolne od limitu. Powtórzenie żądania z tym samym
+  `Idempotency-Key` nadal zwraca istniejący job. Zadanie już zlecone może przekroczyć limit o swój koszt.
+- Klasyfikacja zbiorcza zwraca `skipped_budget`. Scheduler stosuje `CLASSIFY_BATCH_LIMIT` per workspace
+  i pomija workspace'y po przekroczeniu budżetu.
+- Panel: Ustawienia → Zużycie AI (`GET /api/usage`).
+
 ## Ograniczenia
 
 - WordPress jest nadal globalny (z `.env`), wspólny dla wszystkich workspace'ów.
-- Wszyscy zużywają wspólny klucz OpenAI i nie ma budżetów per workspace, dlatego w prod
-  `ALLOW_REGISTRATION=false` do czasu limitów kosztów.
-- Scheduler klasyfikuje automatycznie nowych kandydatów wszystkich workspace'ów (limit
-  `CLASSIFY_BATCH_LIMIT` na przebieg jest globalny).
+- Wszyscy korzystają ze wspólnego klucza OpenAI; koszty ogranicza budżet workspace'u (sekcja niżej).
 - Brak weryfikacji emaila, resetu hasła, 2FA, zaproszeń i przełączania workspace'ów.
 
 ## Testy

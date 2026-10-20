@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     job_publish_wordpress_timeout_seconds: float = Field(default=600, gt=0)
     job_prepare_wordpress_timeout_seconds: float = Field(default=300, gt=0)
 
-    @field_validator("wordpress_default_author_id", "wordpress_default_category_id", mode="before")
+    @field_validator("wordpress_default_author_id", "wordpress_default_category_id", "default_monthly_budget_usd", mode="before")
     @classmethod
     def empty_wp_id(cls, value): return None if value == "" else value
 
@@ -99,12 +99,15 @@ class Settings(BaseSettings):
     session_ttl_days: int = Field(default=14, ge=1)
     cookie_domain: str = ""
     cookie_secure: bool = False
-    # Dane są izolowane per workspace, ale klucz OpenAI jest wspólny i bez budżetów: w prod false.
+    # Dane są izolowane per workspace, a koszty AI ogranicza budżet workspace'u (app/services/usage.py).
     allow_registration: bool = True
     auth_max_failures_per_email: int = Field(default=5, ge=1)
     auth_max_failures_per_ip: int = Field(default=20, ge=1)
     auth_window_minutes: int = Field(default=15, ge=1)
     # Limit zakładania kont z jednego IP (udane i nieudane próby) w oknie godzinowym.
+    # Domyślny miesięczny budżet AI workspace'u w USD (puste = bez limitu); per workspace nadpisuje
+    # `make set-budget`. Po przekroczeniu nowe płatne zadania są blokowane do końca miesiąca (UTC).
+    default_monthly_budget_usd: float | None = Field(default=10.0, ge=0)
     auth_max_registrations_per_ip: int = Field(default=5, ge=1)
     auth_registration_window_minutes: int = Field(default=60, ge=1)
 

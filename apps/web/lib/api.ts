@@ -1,7 +1,7 @@
 import type {
   Credentials,
   Me,
-  WordPressState, WordPressProfile, WordPressConnection, WordPressManualConnect,
+  WordPressState, WordPressProfile, WordPressConnection, WordPressManualConnect, Usage,
   ArticleFix,
   ArticleQA,
   QueueQuery,
@@ -76,8 +76,8 @@ export function redirectToLogin() {
   window.location.assign(`/login?next=${encodeURIComponent(next)}`);
 }
 
-// Kody błędów połączenia WordPress (API: app/services/wordpress/connections.py, client.py).
-export const WORDPRESS_MESSAGES: Record<string, string> = {
+// Komunikaty dla kodów błędów API (WordPress: services/wordpress/connections.py, client.py; budżet: services/usage.py).
+export const ERROR_MESSAGES: Record<string, string> = {
   wordpress_invalid_url: "Podaj pełny adres strony, np. https://example.com (bez loginu, parametrów i #).",
   wordpress_not_configured: "WordPress nie jest połączony. Połącz stronę w Ustawieniach.",
   wordpress_not_wordpress: "Pod tym adresem nie odpowiada REST API WordPressa.",
@@ -90,6 +90,7 @@ export const WORDPRESS_MESSAGES: Record<string, string> = {
   wordpress_http_403: "Konto WordPress nie ma wymaganych uprawnień (edycja wpisów).",
   wordpress_http_404: "Brak wtyczki Content Engine Bridge albo REST API jest wyłączone. Zainstaluj i aktywuj wtyczkę.",
   wordpress_invalid_json: "WordPress zwrócił nieoczekiwaną odpowiedź (sprawdź adres i wtyczki blokujące REST API).",
+  budget_exceeded: "Wyczerpano miesięczny budżet AI tego workspace'u. Płatne kroki (ocena, research, pisanie, QA, poprawki) wrócą od 1. dnia miesiąca albo po zwiększeniu budżetu przez administratora.",
   secrets_key_missing: "Serwer nie ma skonfigurowanego klucza SECRETS_KEY. Skontaktuj się z administratorem.",
 };
 
@@ -103,7 +104,7 @@ const AUTH_MESSAGES: Record<string, string> = {
   not_authenticated: "Sesja wygasła. Zaloguj się ponownie.",
   not_found: "Nie znaleziono zasobu.",
   owner_required: "Tę zmianę może wykonać tylko właściciel workspace'u.",
-  ...WORDPRESS_MESSAGES,
+  ...ERROR_MESSAGES,
 };
 
 async function errorMessage(response: Response): Promise<{ message: string; detail?: { code?: string; job_id?: string } }> {
@@ -111,7 +112,7 @@ async function errorMessage(response: Response): Promise<{ message: string; deta
     const body: unknown = await response.json();
     if (body && typeof body === "object" && "detail" in body) {
       const detail = (body as { detail: unknown }).detail;
-      if (typeof detail === "string") return { message: WORDPRESS_MESSAGES[detail] ?? detail };
+      if (typeof detail === "string") return { message: ERROR_MESSAGES[detail] ?? detail };
       if (detail && typeof detail === "object" && "code" in detail) {
         const conflict = detail as { code: string; job_id?: string };
         const message = conflict.code === "candidate_busy" ? "Dla tego tematu trwa już inne zadanie." : AUTH_MESSAGES[conflict.code] ?? conflict.code;
@@ -197,6 +198,7 @@ export const api = {
   setWordPressSettings: (id:number, data:Partial<WordPressProfile>) => patch<WordPressState>(`/article-versions/${id}/wordpress/settings`,data),
   publishWordPress: (id:number, body:{status:"draft"|"future"|"publish";scheduled_at?:string}) => enqueue<Job>(`/article-versions/${id}/wordpress`,body),
   syncWordPress: (id:number, body:{expected_wp_hash?:string}={}) => enqueue<Job>(`/article-versions/${id}/wordpress/sync`,body),
+  usage: () => request<Usage>("/usage"),
   wordpressConnection: () => request<WordPressConnection | null>("/wordpress/connection"),
   connectWordPress: (body: WordPressManualConnect) => post<WordPressConnection>("/wordpress/connection", body),
   authorizeWordPress: (body: { site_url: string; api_url?: string | null }) =>

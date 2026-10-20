@@ -20,6 +20,7 @@ from app.services.article.context import build_article_context
 from app.services.article.editorial import recent_structures
 from app.services.jobs.errors import JobConflict, JobInputError
 from app.services.llm.base import CandidateInput
+from app.services.usage import FREE_KINDS, ensure_budget
 
 
 class JobService:
@@ -93,6 +94,9 @@ class JobService:
             raise JobConflict(code, active.id)
         if kind not in ('publish_wordpress','prepare_wordpress') and not self.settings.openai_api_key and not is_demo_candidate(candidate):
             raise JobInputError('OPENAI_API_KEY is not set', 503)
+        # Powtórzenie z tym samym kluczem zwróciło istniejący job wyżej; budżet dotyczy tylko nowych zadań.
+        if kind not in FREE_KINDS and not is_demo_candidate(candidate):
+            await ensure_budget(self.session, candidate.workspace_id, self.settings)
         payload = await self._payload(kind, candidate, options)
         job = Job(id=uuid4(), kind=kind, candidate_id=candidate_id, workspace_id=candidate.workspace_id, payload=payload,
                   idempotency_key=key, request_hash=request_hash,

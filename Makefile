@@ -45,6 +45,12 @@ create-user:
 wordpress-import-env:
 	docker compose exec api python -m app.jobs.wordpress_import_env $(if $(WORKSPACE),--workspace $(WORKSPACE))
 
+# Budżet AI workspace'u: make set-budget WORKSPACE=<id> USD=25 (USD=default -> DEFAULT_MONTHLY_BUDGET_USD).
+.PHONY: set-budget
+set-budget:
+	@test -n "$(WORKSPACE)" -a -n "$(USD)" || { echo "Podaj WORKSPACE=<id> USD=<kwota|default>"; exit 1; }
+	docker compose exec api python -m app.jobs.set_budget --workspace $(WORKSPACE) $(if $(filter default,$(USD)),--default,--usd $(USD))
+
 # Syntetyczne scenariusze + interaktywny pipeline bez wywołań AI.
 .PHONY: seed-demo
 seed-demo:
@@ -57,7 +63,7 @@ BRANCH ?= main
 PROD_DIR ?= /srv/content-engine
 DC_PROD := docker compose -f docker-compose.prod.yml
 
-.PHONY: deploy-init deploy build-prod up-prod down-prod restart-prod logs-prod ps-prod migrate-prod seed-prod create-user-prod wordpress-import-env-prod
+.PHONY: deploy-init deploy build-prod up-prod down-prod restart-prod logs-prod ps-prod migrate-prod seed-prod create-user-prod wordpress-import-env-prod set-budget-prod
 deploy-init:
 	@if [ -d "$(PROD_DIR)/.git" ]; then \
 		echo "$(PROD_DIR) już istnieje, pomijam clone."; \
@@ -111,3 +117,7 @@ create-user-prod:
 
 wordpress-import-env-prod:
 	$(DC_PROD) exec api python -m app.jobs.wordpress_import_env $(if $(WORKSPACE),--workspace $(WORKSPACE))
+
+set-budget-prod:
+	@test -n "$(WORKSPACE)" -a -n "$(USD)" || { echo "Podaj WORKSPACE=<id> USD=<kwota|default>"; exit 1; }
+	$(DC_PROD) exec api python -m app.jobs.set_budget --workspace $(WORKSPACE) $(if $(filter default,$(USD)),--default,--usd $(USD))

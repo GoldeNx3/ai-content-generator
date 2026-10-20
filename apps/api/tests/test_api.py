@@ -90,4 +90,4 @@ async def test_classify_endpoint_uses_provider(
     assert (await client.get(f"/api/candidates/{candidate.id}")).json()["total_score"] == 79
 
     batch = (await client.post("/api/candidates/classify-pending")).json()
-    assert batch == {"job_ids": [], "enqueued": 0, "existing": 0, "skipped_busy": 0}
+    assert batch == {"job_ids": [], "enqueued": 0, "existing": 0, "skipped_busy": 0, "skipped_budget": 0}

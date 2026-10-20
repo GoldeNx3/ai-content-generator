@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { api, errorText, WORDPRESS_MESSAGES } from "@/lib/api";
+import { api, errorText, ERROR_MESSAGES } from "@/lib/api";
 import { useCandidateJobs } from "@/hooks/use-candidate-jobs";
 import { WorkflowSection } from "@/components/workflow-section";
 import { UsageSummary } from "@/components/usage-summary";
@@ -110,7 +110,7 @@ export function WordPressPanel({article,onSelectVersion,editing}:{article:Articl
       {confirm&&<div ref={confirmationRef} tabIndex={-1} role="alertdialog" aria-modal="false" aria-label="Potwierdź operację WordPress" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm space-y-3"><p>{confirm==="publish"?"Opublikować tę zatwierdzoną wersję teraz? Wpis stanie się publiczny.":"Nadpisać obecną treść WordPress zatwierdzoną wersją? Kolejna zmiana w WP ponownie zablokuje sync."}</p><div className="grid min-w-0 grid-cols-1 gap-2"><Button disabled={blocked} onClick={()=>void act(async()=>{if(confirm==="publish")await send("publish");else{await saveSettings();setJob(await api.syncWordPress(article.id,{expected_wp_hash:state.conflict!.current_hash}));await load();}})}>Potwierdź</Button><Button variant="outline" onClick={()=>setConfirm(null)}>Anuluj</Button></div></div>}
       </> : <><Button disabled>Utwórz szkic w WordPressie</Button><Button variant="outline" disabled>Opublikuj teraz</Button><Button variant="outline" disabled>Zaplanuj publikację</Button></>}
       <div className="action-group">
-<Button variant="outline" disabled={active} onClick={()=>void act(async()=>{const result=await api.testWordPressConnection();if(result.last_error)throw new Error(WORDPRESS_MESSAGES[result.last_error]??result.last_error);toast.success(`Połączenie OK · ${result.site_url}`);})}>Sprawdź połączenie</Button>
+<Button variant="outline" disabled={active} onClick={()=>void act(async()=>{const result=await api.testWordPressConnection();if(result.last_error)throw new Error(ERROR_MESSAGES[result.last_error]??result.last_error);toast.success(`Połączenie OK · ${result.site_url}`);})}>Sprawdź połączenie</Button>
         <Button variant="outline" disabled={active} onClick={()=>void act(async()=>{setState(await api.getWordPress(article.id));})}>Sprawdź stan WordPress</Button>
       </div>
     </>}

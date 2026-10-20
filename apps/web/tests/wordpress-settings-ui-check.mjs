@@ -23,7 +23,8 @@ try {
   const method = route.request().method(); const path = url.pathname;
   let status = 200; let body = null;
   if (method !== 'GET' && method !== 'OPTIONS') calls.push([method, path, route.request().postDataJSON?.() ?? null]);
-  if (path === '/api/wordpress/connection' && method === 'GET') body = connection;
+  if (path === '/api/usage') body = {period_start:'2026-10-01T00:00:00Z',spent_usd:'10.42',budget_usd:'10.00',remaining_usd:'0',exceeded:true,unknown_cost_calls:1};
+  else if (path === '/api/wordpress/connection' && method === 'GET') body = connection;
   else if (path === '/api/wordpress/connection/authorize') body = {authorize_url:'https://blog.example/wp-admin/authorize-application.php?app_name=Content+Engine'};
   else if (path === '/api/wordpress/connection/authorize/complete') { connection = connected; body = connected; }
   else if (path === '/api/wordpress/connection' && method === 'POST') {
@@ -41,6 +42,10 @@ try {
  // 1. Brak połączenia: formularz, start autoryzacji przenosi do WordPressa.
  await page.goto(`${web}/settings`);
  await page.getByRole('heading', {name:'WordPress'}).waitFor();
+ // Zużycie AI: kwota, pasek i blokada po wyczerpaniu budżetu.
+ await page.getByText('$10.42').waitFor();
+ assert.equal(await page.getByRole('progressbar', {name:'Wykorzystanie budżetu AI'}).getAttribute('aria-valuenow'), '100');
+ await page.getByText('Budżet wyczerpany').waitFor();
  await page.getByLabel('Adres strony WordPress').fill('https://blog.example');
  await page.getByRole('button', {name:'Połącz z WordPressem'}).click();
  await page.waitForURL(/blog\.example\/wp-admin\/authorize-application\.php/);
@@ -82,7 +87,7 @@ try {
  // 5. Telefon: bez poziomego przewijania.
  await page.setViewportSize({width:375,height:800});
  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'brak poziomego scrolla');
- console.log('PASS: authorize redirect, callback strips password and completes, reject, disconnect, manual connect (401 + success), mobile. All API mocked.');
+ console.log('PASS: usage card (exceeded budget), authorize redirect, callback strips password and completes, reject, disconnect, manual connect (401 + success), mobile. All API mocked.');
 } finally {
  await browser.close();
 }
