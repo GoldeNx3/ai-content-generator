@@ -389,6 +389,30 @@ export interface WordPressState {
   checks: {name:string; status:string; value?:string|number}[];
   categories: string[]; qa_ok: boolean; newer_approved_version_id: number | null;
   conflict: {current_hash:string;post_id:number} | null; wordpress_admin_url: string | null;
+  wordpress_connected: boolean;
+}
+
+export interface WordPressConnection {
+  site_url: string;
+  api_url: string | null;
+  username: string;
+  seo_plugin: "yoast" | "rankmath" | "none";
+  default_status: "draft" | "future" | "publish";
+  default_author_id: number | null;
+  default_category_id: number | null;
+  wp_user_id: number | null;
+  wp_user_name: string | null;
+  can_publish: boolean;
+  last_checked_at: string | null;
+  last_error: string | null;
+}
+
+export interface WordPressManualConnect {
+  site_url: string;
+  api_url?: string | null;
+  username: string;
+  app_password: string;
+  confirm_site_change?: boolean;
 }
 
 export type WorkspaceRole = "owner" | "member";

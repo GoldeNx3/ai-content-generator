@@ -7,6 +7,7 @@ from app.schemas.wordpress import SEOData
 from app.services.llm.base import LLMUsage
 from app.services.llm.client import OpenAIClient
 from app.services.wordpress.client import WordPressClient
+from app.services.wordpress.connections import settings_for_workspace
 from app.services.wordpress.service import WordPressPublisherService
 from app.services.wordpress.preparation import seo_profile,slugify
 from app.services.wordpress.api_helpers import approved_version,publication_for
@@ -43,7 +44,8 @@ async def prepare_profile(article,profile,recorder,settings):
     return seo_profile(article,generated)
 
 async def handle(job,session,execution,providers,recorder,settings):
-    environment=get_settings()
+    # Połączenie WordPress workspace'u joba; brak połączenia -> wordpress_not_configured (bez ponowień).
+    environment=await settings_for_workspace(session,job.workspace_id,get_settings())
     client=WordPressClient(environment)
     service=WordPressPublisherService(session,client,execution,environment)
     try:

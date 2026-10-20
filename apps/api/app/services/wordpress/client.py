@@ -1,6 +1,7 @@
 """WordPress transport. The durable worker owns retries, not this client."""
 from urllib.parse import urlsplit
 import httpx
+from app.services.research.public_http import PublicHTTPTransport
 from app.services.wordpress.errors import WordPressError
 
 class WordPressClient:
@@ -8,7 +9,10 @@ class WordPressClient:
         self.settings=settings
         self.base=settings.wordpress_url.rstrip('/')
         self.transport_base=(settings.wordpress_api_url or self.base).rstrip('/')
-        self.http=http or httpx.AsyncClient(timeout=settings.wordpress_timeout_seconds,follow_redirects=False)
+        # Adresy podaje użytkownik panelu: domyślnie łączymy się wyłącznie z publicznymi IP (ochrona SSRF
+        # przed siecią wewnętrzną). WORDPRESS_ALLOW_PRIVATE_URLS=true dla lokalnego WP w Dockerze.
+        transport=None if settings.wordpress_allow_private_urls else PublicHTTPTransport()
+        self.http=http or httpx.AsyncClient(timeout=settings.wordpress_timeout_seconds,follow_redirects=False,transport=transport)
         self.owns_http=http is None
     async def close(self):
         if self.owns_http: await self.http.aclose()
@@ -22,9 +26,10 @@ class WordPressClient:
         # Public host preserves WP routing/permalinks with Docker's internal transport.
         headers={'Host':urlsplit(self.base).netloc} if self.transport_base!=self.base else {}
         headers.update(kwargs.pop('headers',{}))
+        auth=(self.settings.wordpress_username,self.settings.wordpress_app_password) if kwargs.pop('auth',True) else None
         try:
             response=await self.http.request(method,self.transport_base+'/wp-json/'+path,
-                auth=(self.settings.wordpress_username,self.settings.wordpress_app_password),headers=headers,**kwargs)
+                auth=auth,headers=headers,**kwargs)
         except (httpx.TimeoutException,httpx.NetworkError) as exc:
             raise WordPressError('wordpress_timeout' if isinstance(exc,httpx.TimeoutException) else 'wordpress_connection',True) from None
         if response.status_code>=300:
@@ -68,4 +73,4 @@ class WordPressClient:
         user=await self.get_user('me')
         await self.request('GET','wp/v2/posts',params={'context':'edit','per_page':1})
         caps=await self.capabilities()
-        return {'ok':True,'url':self.base,'user_id':user['id'],'capabilities':caps}
+        return {'ok':True,'url':self.base,'user_id':user['id'],'user_name':user.get('name'),'capabilities':caps}

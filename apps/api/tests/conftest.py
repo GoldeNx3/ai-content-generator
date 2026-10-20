@@ -43,6 +43,10 @@ async def session_factory(engine: AsyncEngine) -> AsyncIterator[async_sessionmak
         # Workspace 1 = TEST_USER (fixture client), 2 = obcy workspace do testów izolacji.
         await connection.execute(text("INSERT INTO workspaces (id, name) VALUES (1, 'test'), (2, 'obcy')"))
         await connection.execute(text("SELECT setval('workspaces_id_seq', 2)"))
+        # Rekord TEST_USER (id 1, owner workspace'u 1) dla tabel z FK do users.
+        await connection.execute(text("INSERT INTO users (id, email, is_active) VALUES (1, 'test@example.com', true)"))
+        await connection.execute(text("SELECT setval('users_id_seq', 1)"))
+        await connection.execute(text("INSERT INTO workspace_members (workspace_id, user_id, role) VALUES (1, 1, 'owner')"))
     yield async_sessionmaker(engine, expire_on_commit=False)
 
 

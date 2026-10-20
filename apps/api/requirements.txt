@@ -12,6 +12,7 @@ openai==2.1.0
 trafilatura==2.3.0
 beautifulsoup4==4.15.0
 argon2-cffi==25.1.0
+cryptography==46.0.3
 
 # tests
 pytest==8.4.2

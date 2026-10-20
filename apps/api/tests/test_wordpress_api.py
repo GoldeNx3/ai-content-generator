@@ -66,9 +66,16 @@ class WPHTTP:
         return httpx.Response(200,json=[])
 
 @pytest.fixture
-async def wordpress(monkeypatch):
+async def wordpress(monkeypatch,session):
     from app.core.config import get_settings
-    from app.api.deps import get_settings as dep_settings
+    from app.core.secrets import encrypt_secret
+    from app.models import WordPressConnection
+    from cryptography.fernet import Fernet
+    # Połączenie WordPress pochodzi z bazy (workspace 1 = TEST_USER), hasło zaszyfrowane SECRETS_KEY.
+    monkeypatch.setattr(get_settings(),'secrets_key',get_settings().secrets_key or Fernet.generate_key().decode())
+    session.add(WordPressConnection(workspace_id=1,site_url='https://wp.example/blog',username='editor',
+        app_password_encrypted=encrypt_secret(get_settings(),'test-secret'),instance_id='test-instance',seo_plugin='yoast'))
+    await session.commit()
     config=get_settings().model_copy(update={'wordpress_url':'https://wp.example/blog','wordpress_username':'editor','wordpress_app_password':'test-secret'})
     monkeypatch.setattr('app.services.wordpress.service.get_settings',lambda:config)
     # Endpoint settings dependency is overridden by client; give model defaults here.

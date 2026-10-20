@@ -10,6 +10,7 @@ from app.services.wordpress.api_helpers import approved_version,publication_for,
 from app.services.wordpress.preparation import seo_profile,readiness,CATEGORIES
 from app.services.wordpress.client import WordPressClient
 from app.services.wordpress.errors import WordPressError
+from app.services.wordpress.connections import get_connection,settings_for_candidate
 from app.services.jobs.errors import JobInputError
 router=APIRouter(tags=['wordpress'])
 
@@ -27,7 +28,8 @@ async def sync(version_id:int,body:SyncRequest,service:JobServiceDep,response:Re
         article=await approved_version(service.session,version_id)
         publication=await publication_for(service.session,article)
         if not publication or not publication.wordpress_post_id:raise JobInputError('Najpierw utwórz draft WordPress.')
-        client=WordPressClient(get_settings())
+        try:client=WordPressClient(await settings_for_candidate(service.session,article.candidate_id,get_settings()))
+        except WordPressError as exc:raise JobInputError(exc.code,503) from None
         try:remote=await client.get_post(publication.wordpress_post_id)
         except WordPressError as exc:
             if exc.code=='wordpress_http_404':remote={'status':'draft'}
@@ -57,8 +59,12 @@ async def get_state(version_id:int,session:SessionDep):
     profile=seo_profile(article,{**resolved,**overrides})
     current=await session.scalar(select(Article).where(Article.candidate_id==article.candidate_id,Article.status=='approved'))
     remote_status=None
-    if publication and publication.wordpress_post_id:
-        client=WordPressClient(get_settings())
+    try:wp_settings=await settings_for_candidate(session,article.candidate_id,get_settings())
+    except WordPressError:wp_settings=None
+    linked=bool(publication and publication.wordpress_post_id and wp_settings
+                and publication.wordpress_instance_id==wp_settings.wordpress_instance_id)
+    if linked:
+        client=WordPressClient(wp_settings)
         try:remote_status=(await client.get_post(publication.wordpress_post_id))['status']
         except WordPressError as exc:remote_status='missing' if exc.code=='wordpress_http_404' else 'unknown'
         finally:await client.close()
@@ -66,7 +72,8 @@ async def get_state(version_id:int,session:SessionDep):
         'remote_status':remote_status,'checks':readiness(article,profile,publication,qa_ok),'categories':CATEGORIES,'qa_ok':qa_ok,
         'newer_approved_version_id':current.id if publication and current and current.id!=publication.article_version_id else None,
         'conflict':publication.conflict if publication and remote_status not in ('missing','trash') else None,
-        'wordpress_admin_url':f'{get_settings().wordpress_url.rstrip("/")}/wp-admin/post.php?post={publication.wordpress_post_id}&action=edit' if publication and publication.wordpress_post_id else None}
+        'wordpress_connected':wp_settings is not None,
+        'wordpress_admin_url':f'{wp_settings.wordpress_url.rstrip("/")}/wp-admin/post.php?post={publication.wordpress_post_id}&action=edit' if linked else None}
 
 @router.patch('/article-versions/{version_id}/wordpress/settings')
 async def settings(version_id:int,body:SEOData,session:SessionDep):
@@ -85,10 +92,3 @@ async def settings(version_id:int,body:SEOData,session:SessionDep):
         await session.commit()
         return await get_state(version_id,session)
     except JobInputError as exc:raise HTTPException(exc.status_code,str(exc)) from exc
-
-@router.post('/wordpress/test-connection')
-async def test_connection():
-    client=WordPressClient(get_settings())
-    try:return await client.test_connection()
-    except WordPressError as exc:raise HTTPException(503,{'code':exc.code}) from None
-    finally:await client.close()

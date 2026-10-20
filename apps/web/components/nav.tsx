@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/", label: "Tematy" },
   { href: "/sources", label: "Źródła" },
   { href: "/queue", label: "Kolejka" },
+  { href: "/settings", label: "Ustawienia" },
 ];
 
 const AUTH_PATHS = ["/login", "/register"];
@@ -31,7 +32,7 @@ export function Nav() {
             href={link.href}
             aria-current={pathname === link.href ? "page" : undefined}
             className={cn(
-              "inline-flex min-h-10 items-center rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-3",
+              "inline-flex min-h-10 shrink-0 items-center rounded-md px-1.5 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-3",
               active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -64,7 +65,7 @@ function UserMenu() {
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-2 border-l pl-2">
+    <div className="flex shrink-0 items-center gap-1 border-l pl-1 sm:gap-2 sm:pl-2">
       {email && <span className="hidden max-w-48 truncate text-sm text-muted-foreground md:inline" title={email}>{email}</span>}
       <button type="button" onClick={logout} disabled={leaving} aria-label="Wyloguj"
         className="inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50">

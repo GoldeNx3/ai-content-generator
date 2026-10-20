@@ -1,5 +1,5 @@
 # Produkcja: samodzielny plik (nie łączyć z docker-compose.yml). Uruchamiany przez `make deploy`.
-# Wymaga w .env: POSTGRES_PASSWORD, NEXT_PUBLIC_API_URL, CORS_ORIGINS i kluczy API.
+# Wymaga w .env: POSTGRES_PASSWORD, NEXT_PUBLIC_API_URL, CORS_ORIGINS, SECRETS_KEY, PUBLIC_WEB_URL i kluczy API.
 # Osobna nazwa projektu izoluje kontenery i wolumen bazy od środowiska dev.
 name: content-engine-prod
 

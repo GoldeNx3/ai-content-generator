@@ -145,7 +145,7 @@ class JobService:
     async def _payload(self, kind, candidate, options) -> dict:
         # Snapshot zawiera ustawienia wykonania, ale nigdy klucze ani URL bazy.
         settings = self.settings.model_dump(exclude={
-            'wordpress_username', 'wordpress_app_password', 'openai_api_key', 'tavily_api_key', 'database_url', 'test_database_url', 'cors_origins',
+            'wordpress_username', 'wordpress_app_password', 'secrets_key', 'openai_api_key', 'tavily_api_key', 'database_url', 'test_database_url', 'cors_origins',
         })
         if is_demo_candidate(candidate):
             settings = demo_settings(settings)

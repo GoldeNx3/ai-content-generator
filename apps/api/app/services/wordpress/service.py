@@ -131,6 +131,11 @@ class WordPressPublisherService:
         # Preserve initial expectations across retries after partial remote updates.
         original=self.cached('wp_original')
         current=None
+        if p.wordpress_post_id and p.wordpress_instance_id!=self.settings.wordpress_instance_id:
+            # Post istnieje na innej stronie (zmiana połączenia workspace'u): tutaj powstaje nowy draft.
+            p.wordpress_post_id=None;p.wordpress_instance_id=None;p.last_synced_content_hash=None;p.conflict=None
+            original=None
+            await self.save(p,{'wp_original':None})
         if p.wordpress_post_id:
             try:current=await self.client.get_post(p.wordpress_post_id)
             except WordPressError as exc:
@@ -169,13 +174,13 @@ class WordPressPublisherService:
                 # Recover the link, but require explicit consent before replacing its content.
                 if exc.code=='wordpress_conflict' and isinstance(exc.details,dict) and isinstance(exc.details.get('post_id'),int):
                     remote=await self.client.get_post(exc.details['post_id'])
-                    p.wordpress_post_id=remote['id'];p.wp_status=remote['status']
+                    p.wordpress_post_id=remote['id'];p.wp_status=remote['status'];p.wordpress_instance_id=self.settings.wordpress_instance_id
                     p.wordpress_url=remote.get('ce_permalink') or remote.get('link')
                     p.conflict={'current_hash':wp_content_hash(remote),'post_id':remote['id']}
                     p.error_code='wordpress_conflict'
                     await self.save(p)
                 raise
-            p.wordpress_post_id=current['id'];p.wp_status=current['status']
+            p.wordpress_post_id=current['id'];p.wp_status=current['status'];p.wordpress_instance_id=self.settings.wordpress_instance_id
             p.wordpress_url=current.get('ce_permalink') or current['link']
             await self.save(p,{'wp_created':p.wordpress_post_id})
         else:

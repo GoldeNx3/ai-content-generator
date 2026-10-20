@@ -59,3 +59,7 @@ błędne hasło, powrót na `next`, ponowne logowanie po `401`, ochronę przed o
 link do rejestracji. Pozostałe mockowane checki logują się przez `authenticate(page)` z
 `fixtures/auth.mjs`, a live checki (`demo-live-check.mjs`, `candidate-navigation-live-check.mjs`)
 wymagają `UI_TEST_EMAIL` i `UI_TEST_PASSWORD` konta utworzonego przez `make create-user`.
+
+`wordpress-settings-ui-check.mjs` sprawdza Ustawienia → WordPress z mockowanym API: przekierowanie do ekranu
+autoryzacji WP, powrót na callback (hasło aplikacji usunięte z adresu i przekazane do API), odrzucenie,
+rozłączenie, połączenie ręczne (błędne i poprawne hasło aplikacji) oraz szerokość telefonu.

@@ -1,7 +1,7 @@
 export function wordpressState(qaOk = false) {
   return {
     remote_status: null, publication: null, qa_ok: qaOk, categories: ['Technologia'],
-    checks: [], conflict: null, newer_approved_version_id: null, wordpress_admin_url: null,
+    checks: [], conflict: null, newer_approved_version_id: null, wordpress_admin_url: null, wordpress_connected: true,
     profile: {
       title: 'Artykuł testowy', slug: 'artykul-testowy', seo_title: 'Artykuł testowy',
       meta_description: 'Opis artykułu', excerpt: 'Zajawka', canonical_url: null,

@@ -1,7 +1,7 @@
 import type {
   Credentials,
   Me,
-  WordPressState, WordPressProfile,
+  WordPressState, WordPressProfile, WordPressConnection, WordPressManualConnect,
   ArticleFix,
   ArticleQA,
   QueueQuery,
@@ -76,6 +76,23 @@ export function redirectToLogin() {
   window.location.assign(`/login?next=${encodeURIComponent(next)}`);
 }
 
+// Kody błędów połączenia WordPress (API: app/services/wordpress/connections.py, client.py).
+export const WORDPRESS_MESSAGES: Record<string, string> = {
+  wordpress_invalid_url: "Podaj pełny adres strony, np. https://example.com (bez loginu, parametrów i #).",
+  wordpress_not_configured: "WordPress nie jest połączony. Połącz stronę w Ustawieniach.",
+  wordpress_not_wordpress: "Pod tym adresem nie odpowiada REST API WordPressa.",
+  wordpress_app_passwords_unavailable: "Ta strona nie udostępnia haseł aplikacji (wymagany WordPress 5.6+ i HTTPS). Użyj połączenia ręcznego albo włącz hasła aplikacji.",
+  wordpress_auth_state_invalid: "Autoryzacja wygasła lub pochodzi z innej sesji. Zacznij łączenie od nowa.",
+  wordpress_site_change_requires_confirmation: "Ten workspace ma wpisy opublikowane na obecnej stronie. Potwierdź zmianę strony.",
+  wordpress_connection: "Nie udało się połączyć ze stroną (adres niedostępny albo w sieci prywatnej).",
+  wordpress_timeout: "Strona WordPress nie odpowiedziała na czas.",
+  wordpress_http_401: "WordPress odrzucił login lub hasło aplikacji.",
+  wordpress_http_403: "Konto WordPress nie ma wymaganych uprawnień (edycja wpisów).",
+  wordpress_http_404: "Brak wtyczki Content Engine Bridge albo REST API jest wyłączone. Zainstaluj i aktywuj wtyczkę.",
+  wordpress_invalid_json: "WordPress zwrócił nieoczekiwaną odpowiedź (sprawdź adres i wtyczki blokujące REST API).",
+  secrets_key_missing: "Serwer nie ma skonfigurowanego klucza SECRETS_KEY. Skontaktuj się z administratorem.",
+};
+
 const AUTH_MESSAGES: Record<string, string> = {
   invalid_credentials: "Nieprawidłowy email lub hasło.",
   email_taken: "Konto z tym adresem już istnieje.",
@@ -84,6 +101,9 @@ const AUTH_MESSAGES: Record<string, string> = {
   registration_disabled: "Rejestracja jest wyłączona.",
   origin_not_allowed: "Żądanie z niedozwolonej domeny.",
   not_authenticated: "Sesja wygasła. Zaloguj się ponownie.",
+  not_found: "Nie znaleziono zasobu.",
+  owner_required: "Tę zmianę może wykonać tylko właściciel workspace'u.",
+  ...WORDPRESS_MESSAGES,
 };
 
 async function errorMessage(response: Response): Promise<{ message: string; detail?: { code?: string; job_id?: string } }> {
@@ -91,7 +111,7 @@ async function errorMessage(response: Response): Promise<{ message: string; deta
     const body: unknown = await response.json();
     if (body && typeof body === "object" && "detail" in body) {
       const detail = (body as { detail: unknown }).detail;
-      if (typeof detail === "string") return { message: detail };
+      if (typeof detail === "string") return { message: WORDPRESS_MESSAGES[detail] ?? detail };
       if (detail && typeof detail === "object" && "code" in detail) {
         const conflict = detail as { code: string; job_id?: string };
         const message = conflict.code === "candidate_busy" ? "Dla tego tematu trwa już inne zadanie." : AUTH_MESSAGES[conflict.code] ?? conflict.code;
@@ -177,7 +197,16 @@ export const api = {
   setWordPressSettings: (id:number, data:Partial<WordPressProfile>) => patch<WordPressState>(`/article-versions/${id}/wordpress/settings`,data),
   publishWordPress: (id:number, body:{status:"draft"|"future"|"publish";scheduled_at?:string}) => enqueue<Job>(`/article-versions/${id}/wordpress`,body),
   syncWordPress: (id:number, body:{expected_wp_hash?:string}={}) => enqueue<Job>(`/article-versions/${id}/wordpress/sync`,body),
-  testWordPress: () => post<{ok:boolean;user_id:number;capabilities:{seo_plugin:string;timezone:string}}>("/wordpress/test-connection"),
+  wordpressConnection: () => request<WordPressConnection | null>("/wordpress/connection"),
+  connectWordPress: (body: WordPressManualConnect) => post<WordPressConnection>("/wordpress/connection", body),
+  authorizeWordPress: (body: { site_url: string; api_url?: string | null }) =>
+    post<{ authorize_url: string }>("/wordpress/connection/authorize", body),
+  completeWordPress: (body: { state: string; user_login: string; password: string; confirm_site_change?: boolean }) =>
+    post<WordPressConnection>("/wordpress/connection/authorize/complete", body),
+  testWordPressConnection: () => post<WordPressConnection>("/wordpress/connection/test"),
+  updateWordPressDefaults: (body: Partial<Pick<WordPressConnection, "default_status" | "default_author_id" | "default_category_id">>) =>
+    patch<WordPressConnection>("/wordpress/connection", body),
+  disconnectWordPress: () => request<void>("/wordpress/connection", { method: "DELETE" }),
   getJob: (id: string) => request<Job>(`/jobs/${id}`),
   listJobs: (candidateId: number) => request<JobPage>(`/candidates/${candidateId}/jobs`),
   queueStats: () => request<JobStats>("/jobs/stats"),

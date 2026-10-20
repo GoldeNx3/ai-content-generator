@@ -40,6 +40,11 @@ create-user:
 	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
 	docker compose exec api python -m app.jobs.create_user $(EMAIL) $(if $(WORKSPACE),--workspace $(WORKSPACE))
 
+# Jednorazowo: dawna konfiguracja WORDPRESS_* z .env -> połączenie workspace'u (zachowuje publikacje).
+.PHONY: wordpress-import-env
+wordpress-import-env:
+	docker compose exec api python -m app.jobs.wordpress_import_env $(if $(WORKSPACE),--workspace $(WORKSPACE))
+
 # Syntetyczne scenariusze + interaktywny pipeline bez wywołań AI.
 .PHONY: seed-demo
 seed-demo:
@@ -52,7 +57,7 @@ BRANCH ?= main
 PROD_DIR ?= /srv/content-engine
 DC_PROD := docker compose -f docker-compose.prod.yml
 
-.PHONY: deploy-init deploy build-prod up-prod down-prod restart-prod logs-prod ps-prod migrate-prod seed-prod create-user-prod
+.PHONY: deploy-init deploy build-prod up-prod down-prod restart-prod logs-prod ps-prod migrate-prod seed-prod create-user-prod wordpress-import-env-prod
 deploy-init:
 	@if [ -d "$(PROD_DIR)/.git" ]; then \
 		echo "$(PROD_DIR) już istnieje, pomijam clone."; \
@@ -103,3 +108,6 @@ seed-prod:
 create-user-prod:
 	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
 	$(DC_PROD) exec api python -m app.jobs.create_user $(EMAIL) $(if $(WORKSPACE),--workspace $(WORKSPACE))
+
+wordpress-import-env-prod:
+	$(DC_PROD) exec api python -m app.jobs.wordpress_import_env $(if $(WORKSPACE),--workspace $(WORKSPACE))

@@ -31,7 +31,13 @@ async def publication_for(session, article, create=False):
 
 async def enqueue_wordpress(service, version_id, options, key=None, kind='publish_wordpress', retry_of=None):
     from app.services.wordpress.client import WordPressClient
-    settings=get_settings()
+    from app.services.wordpress.connections import settings_for_candidate
+    from app.services.wordpress.errors import WordPressError
+    article=await service.session.get(Article,version_id)
+    if not article:raise JobInputError('Article version not found',404)
+    # Połączenie WordPress workspace'u tematu (nie globalne .env).
+    try:settings=await settings_for_candidate(service.session,article.candidate_id,get_settings())
+    except WordPressError as exc:raise JobInputError(exc.code,503) from None
     client=WordPressClient(settings)
     try:client.configured()
     except Exception as exc:

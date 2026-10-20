@@ -25,6 +25,14 @@ DEFAULT_LLM_PRICING: dict[str, dict[str, float]] = {
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # Klucz Fernet do szyfrowania sekretów w bazie (hasła aplikacji WordPress per workspace).
+    secrets_key: str = ""
+    # Publiczny adres panelu: WordPress wraca tu po autoryzacji aplikacji. Puste = pierwszy CORS_ORIGINS.
+    public_web_url: str = ""
+
+    # Połączenie WordPress pochodzi z bazy (per workspace, app/services/wordpress/connections.py).
+    # Te pola są nośnikiem dla WordPressClient; z .env czyta je tylko jednorazowy import
+    # (make wordpress-import-env). Timeouty, limity obrazów i asset root pozostają globalne.
     wordpress_url: str = ""
     wordpress_api_url: str = ""
     wordpress_username: str = ""
@@ -34,6 +42,8 @@ class Settings(BaseSettings):
     wordpress_default_category_id: int | None = None
     wordpress_seo_plugin: str = "yoast"
     wordpress_timeout_seconds: float = Field(default=30, gt=0)
+    # true tylko lokalnie (WP w sieci Dockera); w prod adresy WP muszą być publiczne (ochrona SSRF).
+    wordpress_allow_private_urls: bool = False
     wordpress_asset_root: str = "/app/assets"
     wordpress_max_image_bytes: int = 10_000_000
     wordpress_instance_id: str = "content-engine"
@@ -162,6 +172,10 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def web_url(self) -> str:
+        return (self.public_web_url or (self.cors_origin_list or ["http://localhost:3000"])[0]).rstrip("/")
 
 
 # lru_cache zachowuje wynik wywołania; konfiguracja jest współdzielona, zamiast czytana od nowa przy

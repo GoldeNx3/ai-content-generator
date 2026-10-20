@@ -27,10 +27,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col bg-zinc-50">
         <a href="#main-content" className="sr-only fixed left-4 top-2 z-50 rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background focus:not-sr-only focus:outline-2 focus:outline-offset-2 focus:outline-ring">Przejdź do treści</a>
         <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur">
-          <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
+          <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-4 sm:px-6">
             <span className="flex shrink-0 items-center gap-2 text-sm font-semibold tracking-tight sm:text-base">
               <span className="inline-block size-2.5 rounded-sm bg-emerald-600" />
-              Content Engine
+              {/* Na telefonie tylko znak: nawigacja z czterema linkami i wylogowaniem musi się zmieścić. */}
+              <span className="hidden sm:inline">Content Engine</span>
             </span>
             <Nav />
           </div>

@@ -4,11 +4,14 @@ Publikacja jest zadaniem kolejki, domyślnie tworzy **draft**. Wymaga zatwierdzo
 
 ## Uruchomienie
 
-1. Ustaw zmienne z `.env.example`. Credentials przechowuj wyłącznie w env/secret storage. `WORDPRESS_APP_PASSWORD` to Application Password, nie hasło logowania. Konto musi mieć uprawnienia do edycji wpisów, taksonomii i opcjonalnie mediów; publikowanie wymaga osobnego uprawnienia.
+1. Połączenie jest **per workspace** i zakłada się je w panelu: **Ustawienia → WordPress** (`app/services/wordpress/connections.py`, `/api/wordpress/connection`). Domyślnie przez ekran WordPressa „Autoryzuj aplikację” (`wp-admin/authorize-application.php`, WP 5.6+, HTTPS albo środowisko `local`): panel zapisuje oczekujące żądanie z jednorazowym `state`, WordPress wraca na `/settings/wordpress/callback` z loginem i hasłem aplikacji, frontend usuwa je z adresu i przekazuje do API. Adres strony pochodzi z zapisanego żądania, nie z parametrów powrotu. Zapasowo: formularz ręczny (login + Application Password). Przed zapisem API testuje `users/me`, `posts` i capabilities Bridge, wykrywa wtyczkę SEO. Hasło aplikacji jest szyfrowane w bazie kluczem `SECRETS_KEY` (Fernet) i nigdy nie wraca w odpowiedziach. Zmiany wykonuje tylko owner workspace'u. Konto WP musi mieć uprawnienia do edycji wpisów, taksonomii i opcjonalnie mediów; publikowanie wymaga osobnego uprawnienia.
+   - Adresy WP podaje użytkownik, więc klient łączy się tylko z publicznymi IP (`PublicHTTPTransport`, ochrona SSRF). Dla lokalnego WP w Dockerze: `WORDPRESS_ALLOW_PRIVATE_URLS=true`.
+   - Zmiana strony przy istniejących publikacjach wymaga potwierdzenia: publikacje są odpinane (`wordpress_instance_id`), a połączenie dostaje nowy `instance_id`; artykuły trafią na nową stronę jako nowe drafty.
+   - Dawna konfiguracja `WORDPRESS_*` z `.env`: `make wordpress-import-env WORKSPACE=<id>` przenosi ją jednorazowo, zachowując `WORDPRESS_INSTANCE_ID` (migracja `0011` przypisała go istniejącym publikacjom).
 2. Zainstaluj i aktywuj `integrations/wordpress/content-engine-bridge` jako plugin WordPress. Bridge jest wymagany do trwałej idempotencji i ochrony przed konfliktami. Nie zmienia core WP. Jego tabele oraz wp_posts muszą używać InnoDB.
 3. Uruchom migrację `alembic upgrade head` w kontenerze API. Przebuduj API/worker po zmianie requirements.
 4. Dla lokalnego GoldenDEV: `docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.wordpress.yml up -d --build`. Publiczny URL: `http://localhost:8080/blog`; wewnętrzny API URL: `http://goldendev-wordpress-wordpress-1/blog`. Zewnętrzna sieć `goldendev-wordpress_default` musi istnieć. `WORDPRESS_INSTANCE_ID` musi być stabilny i unikalny dla tej instalacji silnika.
-5. Sprawdź `POST /api/wordpress/test-connection`, następnie otwórz zatwierdzony artykuł → krok 4 → zakładka SEO, a po QA i approval → WordPress → Create Draft.
+5. Sprawdź połączenie w Ustawieniach (`POST /api/wordpress/connection/test`), następnie otwórz zatwierdzony artykuł → krok 4 → zakładka SEO, a po QA i approval → WordPress → Create Draft.
 
 ## Dane i bezpieczeństwo publikacji
 
@@ -39,7 +42,9 @@ Featured image jest opcjonalny. Upload mediów deduplikuje zawartość; lokalny 
 - POST `.../wordpress/sync` — aktualizacja istniejącego posta, zachowuje aktualny status WP, o ile nie wybrano innego.
 - POST `.../wordpress/prepare` — generowanie brakujących SEO w workerze.
 - PATCH `.../wordpress/settings` — wybór kategorii, tagów, autora, schema i pozostałych danych.
-- POST `/api/wordpress/test-connection` — users/me, posts oraz capabilities Bridge.
+- GET/POST/PATCH/DELETE `/api/wordpress/connection` — połączenie workspace'u (ręczne, domyślny status/autor/kategoria, rozłączenie).
+- POST `/api/wordpress/connection/authorize` → `authorize_url`; POST `.../authorize/complete` — autoryzacja aplikacji przez WP.
+- POST `/api/wordpress/connection/test` — users/me, posts oraz capabilities Bridge.
 
 Po zapisie publisher pobiera post i sprawdza title, slug, raw HTML, status, category, tags, author, featured image i dostępne SEO metadata.
 
