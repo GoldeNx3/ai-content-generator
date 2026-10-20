@@ -2,11 +2,13 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+import { loginLive } from './fixtures/auth.mjs';
 const browser=await chromium.launch({headless:true,executablePath:'/usr/bin/google-chrome',args:['--no-sandbox']});
 try {
  const page=await browser.newPage({viewport:{width:1440,height:1000}});let writes=0;const errors=[];
  page.on('request',r=>{if(!['GET','HEAD'].includes(r.method())&&r.url().includes('/api/'))writes++;});
  page.on('pageerror',e=>errors.push(e.message));
+ await loginLive(page);
  await page.goto(`http://localhost:${process.env.UI_TEST_PORT || '3000'}/candidates/${process.env.UI_TEST_CANDIDATE || '259'}`);
  const nav=page.getByRole('navigation',{name:'Nawigacja po temacie i artykule'});
  await nav.getByRole('link',{name:'Temat',exact:true}).waitFor();

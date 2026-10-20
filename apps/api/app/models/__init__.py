@@ -45,3 +45,5 @@ from app.models.qa import ArticleQA, ArticleQAIssue
 from app.models.auto_fix import ArticleFix, ArticleFixIssue
 
 from app.models.wordpress import WordPressPublication
+
+from app.models.user import AuthAttempt, User, UserSession, Workspace, WorkspaceMember

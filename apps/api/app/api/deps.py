@@ -3,13 +3,14 @@
 
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings, get_settings
 from app.demo import is_demo_candidate
 from app.models import Candidate
 from app.core.db import get_session, get_session_factory
+from app.services.auth.service import AuthService, CurrentUser
 from app.services.ingestion_service import IngestionService
 from app.services.article.write import ArticleService
 from app.services.article.factory import article_llm_or_placeholder
@@ -127,3 +128,15 @@ def get_job_service(session: SessionDep, settings: SettingsDep) -> JobService:
 
 
 JobServiceDep = Annotated[JobService, Depends(get_job_service)]
+
+
+# Uwierzytelnienie: token z ciasteczka sesji -> CurrentUser; brak ważnej sesji daje 401.
+async def get_current_user(request: Request, session: SessionDep, settings: SettingsDep) -> CurrentUser:
+    token = request.cookies.get(settings.session_cookie_name)
+    current = await AuthService(session, settings).resolve(token) if token else None
+    if current is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail={"code": "not_authenticated"})
+    return current
+
+
+CurrentUserDep = Annotated[CurrentUser, Depends(get_current_user)]

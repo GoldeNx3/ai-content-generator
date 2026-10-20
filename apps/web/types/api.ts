@@ -390,3 +390,15 @@ export interface WordPressState {
   categories: string[]; qa_ok: boolean; newer_approved_version_id: number | null;
   conflict: {current_hash:string;post_id:number} | null; wordpress_admin_url: string | null;
 }
+
+export type WorkspaceRole = "owner" | "member";
+
+export interface Credentials {
+  email: string;
+  password: string;
+}
+
+export interface Me {
+  user: { id: number; email: string };
+  workspace: { id: number; name: string; role: WorkspaceRole };
+}

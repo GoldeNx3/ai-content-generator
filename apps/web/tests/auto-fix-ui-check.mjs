@@ -1,6 +1,7 @@
 import { wordpressState } from './fixtures/wordpress-state.mjs';
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
+import { authenticate, corsHeaders } from './fixtures/auth.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const port=process.env.UI_TEST_PORT||'3000';
@@ -48,8 +49,9 @@ try {
    approveId=2;body=versions.find(v=>v.id===2);body.status='approved';body.approved_at=stamp;
   }else if(/^\/api\/jobs\/.*\/attempts$/.test(path))body=[];
   else throw new Error('Unexpected API '+method+' '+path);
-  await route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify(body)});
+  await route.fulfill({status,contentType:'application/json',headers:corsHeaders(route),body:JSON.stringify(body)});
  });
+ await authenticate(page);
  await page.goto(`http://localhost:${port}/candidates/1`);
  assert.equal(await page.locator('html').getAttribute('lang'),'pl');
  const navigation=page.getByRole('navigation',{name:'Nawigacja po temacie i artykule',exact:true});

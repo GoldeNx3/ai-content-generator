@@ -11,7 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.core.config import get_settings
 from app.core.db import Base, get_session, get_session_factory
 from app.main import create_app
+from app.api.deps import get_current_user
 from app.models import Source
+from app.models.enums import WorkspaceRole
+from app.services.auth.service import CurrentUser
 
 
 # Fixture odtwarza tabele w test_database_url; dlatego musi wskazywać wydzieloną bazę testową.
@@ -36,7 +39,7 @@ async def engine() -> AsyncIterator[AsyncEngine]:
 @pytest.fixture
 async def session_factory(engine: AsyncEngine) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     async with engine.begin() as connection:
-        await connection.execute(text("TRUNCATE job_batches, research_fact_sources, research_facts, research_sources, researches, candidates, sources RESTART IDENTITY CASCADE"))
+        await connection.execute(text("TRUNCATE auth_attempts, user_sessions, workspace_members, workspaces, users, job_batches, research_fact_sources, research_facts, research_sources, researches, candidates, sources RESTART IDENTITY CASCADE"))
     yield async_sessionmaker(engine, expire_on_commit=False)
 
 
@@ -57,9 +60,28 @@ async def source(session: AsyncSession) -> Source:
 
 
 # Overrides zastępują produkcyjne zależności bazy; ASGITransport wywołuje API lokalnie w procesie testu.
+TEST_USER = CurrentUser(user_id=1, email="test@example.com", workspace_id=1, workspace_name="test",
+                        role=WorkspaceRole.OWNER)
+
+
+# client działa jako zalogowany użytkownik (nadpisana zależność sesji), więc testy zasobów nie muszą się
+# logować; anon_client sprawdza prawdziwe uwierzytelnianie przez ciasteczko.
 @pytest.fixture
 async def client(session_factory: async_sessionmaker[AsyncSession]) -> AsyncIterator[httpx.AsyncClient]:
+    async for test_client in _client(session_factory, authenticated=True):
+        yield test_client
+
+
+@pytest.fixture
+async def anon_client(session_factory: async_sessionmaker[AsyncSession]) -> AsyncIterator[httpx.AsyncClient]:
+    async for test_client in _client(session_factory, authenticated=False):
+        yield test_client
+
+
+async def _client(session_factory, *, authenticated: bool) -> AsyncIterator[httpx.AsyncClient]:
     app = create_app()
+    if authenticated:
+        app.dependency_overrides[get_current_user] = lambda: TEST_USER
     app.dependency_overrides[get_settings] = lambda: get_settings().model_copy(update={"openai_api_key": "sk-test"})
 
     async def override_session() -> AsyncIterator[AsyncSession]:

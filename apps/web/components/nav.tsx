@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { CheckIcon, AlertCircleIcon, Loader2Icon } from "lucide-react";
+import { CheckIcon, AlertCircleIcon, Loader2Icon, LogOutIcon } from "lucide-react";
 import { PipelineStateProvider, usePipelineState } from "@/components/pipeline-state";
+import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -14,9 +15,13 @@ const LINKS = [
   { href: "/queue", label: "Kolejka" },
 ];
 
+const AUTH_PATHS = ["/login", "/register"];
+
 export function Nav() {
   const pathname = usePathname();
+  if (AUTH_PATHS.includes(pathname)) return null;
   return (
+    <div className="flex min-w-0 items-center gap-2">
     <nav aria-label="Nawigacja główna" className="flex min-w-0 gap-1">
       {LINKS.map((link) => {
         const active = link.href === "/" ? pathname === "/" || pathname.startsWith("/candidates") : pathname.startsWith(link.href);
@@ -35,6 +40,38 @@ export function Nav() {
         );
       })}
     </nav>
+    <UserMenu />
+    </div>
+  );
+}
+
+function UserMenu() {
+  const [email, setEmail] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  useEffect(() => {
+    api.me().then((me) => setEmail(me.user.email), () => undefined);
+  }, []);
+
+  async function logout() {
+    setLeaving(true);
+    try {
+      await api.logout();
+    } finally {
+      // Celowo pełne przeładowanie: zrzuca stan klienta (polling, cache) po zmianie sesji.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign("/login");
+    }
+  }
+
+  return (
+    <div className="flex shrink-0 items-center gap-2 border-l pl-2">
+      {email && <span className="hidden max-w-48 truncate text-sm text-muted-foreground md:inline" title={email}>{email}</span>}
+      <button type="button" onClick={logout} disabled={leaving} aria-label="Wyloguj"
+        className="inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50">
+        <LogOutIcon className="size-4" />
+        <span className="hidden sm:inline">Wyloguj</span>
+      </button>
+    </div>
   );
 }
 

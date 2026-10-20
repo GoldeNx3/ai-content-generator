@@ -3,6 +3,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 import assert from 'node:assert/strict';
+import { authenticate, corsHeaders } from './fixtures/auth.mjs';
 (async () => {
  const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
  const page = await browser.newPage({viewport:{width:1440,height:1000}});
@@ -79,8 +80,9 @@ import assert from 'node:assert/strict';
    if (route.request().method() === 'POST') {research={...report,status:'running',completed_at:null};body=job('research','running');status=202;}
    else if (research) body=research; else {status=404;body={detail:'No research'};}
   } else throw new Error('Unexpected request '+path);
-  await route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify(body)});
+  await route.fulfill({status,contentType:'application/json',headers:corsHeaders(route),body:JSON.stringify(body)});
  });
+ await authenticate(page);
  await page.goto(`http://localhost:${uiPort}`);
  await page.getByText('Testowy temat',{exact:true,includeHidden:true}).waitFor();
  await page.getByRole('button',{name:'Pobierz RSS',exact:true,includeHidden:true}).click();

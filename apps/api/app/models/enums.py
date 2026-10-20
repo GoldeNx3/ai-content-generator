@@ -73,3 +73,13 @@ class FactImportance(StrEnum):
     CRITICAL = "critical"
     IMPORTANT = "important"
     SUPPORTING = "supporting"
+
+
+class AuthAttemptKind(StrEnum):
+    LOGIN = "login"
+    REGISTER = "register"
+
+
+class WorkspaceRole(StrEnum):
+    OWNER = "owner"
+    MEMBER = "member"

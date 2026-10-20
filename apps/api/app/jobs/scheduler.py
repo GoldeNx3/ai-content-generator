@@ -13,6 +13,7 @@ from app.core.db import SessionLocal, engine
 from app.models import Candidate
 from app.demo import DEMO_PREFIX
 from app.models.job import Job
+from app.services.auth.service import AuthService
 from app.services.ingestion_service import IngestionService
 from app.services.jobs.errors import JobConflict
 from app.services.jobs.service import JobService
@@ -32,6 +33,8 @@ async def run_pipeline_once():
             return
         try:
             async with SessionLocal() as session:
+                # Sprzątanie wygasłych sesji i starych prób logowania (niezależne od pobierania RSS).
+                await AuthService(session, settings).purge_expired()
                 result = await IngestionService(session, RssFetcher(timeout=settings.http_timeout_seconds),
                                                 max_age_days=settings.fetch_max_age_days).fetch_all_active()
                 logger.info('Scheduled fetch: %s', result.model_dump())

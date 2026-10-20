@@ -1,0 +1,100 @@
+# Produkcja: samodzielny plik (nie łączyć z docker-compose.yml). Uruchamiany przez `make deploy`.
+# Wymaga w .env: POSTGRES_PASSWORD, NEXT_PUBLIC_API_URL, CORS_ORIGINS i kluczy API.
+# Osobna nazwa projektu izoluje kontenery i wolumen bazy od środowiska dev.
+name: content-engine-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-backend: &backend
+  image: content-engine-api:prod
+  build: ./apps/api
+  env_file: .env
+  environment:
+    # Jedno źródło danych logowania: URL bazy składamy z POSTGRES_*, nadpisując DATABASE_URL z .env.
+    DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-content}:${POSTGRES_PASSWORD:?ustaw POSTGRES_PASSWORD w .env}@db:5432/${POSTGRES_DB:-content}
+  logging: *logging
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-content}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ustaw POSTGRES_PASSWORD w .env}
+      POSTGRES_DB: ${POSTGRES_DB:-content}
+    # Bez publikowanego portu: baza dostępna tylko w sieci compose.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    # --proxy-headers: IP klienta z X-Forwarded-For reverse proxy (limit prób logowania per IP).
+    # Ufamy nagłówkom tylko z FORWARDED_ALLOW_IPS (domyślnie każdy: port API jest bindowany na localhost).
+    # (environment nie nadpisujemy tutaj: zastąpiłoby DATABASE_URL z x-backend).
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "${FORWARDED_ALLOW_IPS:-*}"]
+    restart: unless-stopped
+    # Domyślnie tylko localhost: publiczny ruch przez reverse proxy (nginx/Caddy) z TLS.
+    ports:
+      - "${API_BIND:-127.0.0.1:8000}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.workers.main"]
+    restart: unless-stopped
+    stop_grace_period: 40s
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,time; from pathlib import Path; p=Path('/tmp/worker-health.json'); assert p.exists() and time.time()-json.loads(p.read_text())['time']<30"]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 3
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  scheduler:
+    <<: *backend
+    command: ["python", "-m", "app.jobs.scheduler"]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    image: content-engine-web:prod
+    build:
+      context: ./apps/web
+      target: runner
+      args:
+        # Wkompilowany w bundle: musi być publicznym adresem API widzianym z przeglądarki.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?ustaw publiczny NEXT_PUBLIC_API_URL w .env}
+    restart: unless-stopped
+    ports:
+      - "${WEB_BIND:-127.0.0.1:3000}:3000"
+    depends_on:
+      - api
+    logging: *logging
+
+volumes:
+  pgdata:

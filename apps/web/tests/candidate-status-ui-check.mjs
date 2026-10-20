@@ -1,5 +1,6 @@
 import {createRequire} from 'node:module';
 import assert from 'node:assert/strict';
+import { authenticate, corsHeaders } from './fixtures/auth.mjs';
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const port=process.env.UI_TEST_PORT||'3001';
@@ -22,8 +23,9 @@ try {
   else if(url.pathname==='/api/jobs')body={items:[],total:0,page:1,page_size:100};
   else throw new Error('Unexpected request '+url.pathname);
   assert.equal(route.request().method(),'GET','status checks never publish or invoke an agent');
-  await route.fulfill({contentType:'application/json',body:JSON.stringify(body)});
+  await route.fulfill({contentType:'application/json',headers:corsHeaders(route),body:JSON.stringify(body)});
  });
+ await authenticate(page);
  await page.goto(`http://localhost:${port}/`);
  const table=page.getByRole('table',{name:'Lista tematów',exact:true});
  for(const [status,label] of [['published','Opublikowane'],['draft','Draft'],['approved','Zatwierdzony'],['scheduled','Zaplanowane']]){

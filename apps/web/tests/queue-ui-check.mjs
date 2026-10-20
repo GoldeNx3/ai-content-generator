@@ -1,6 +1,7 @@
 // Panel kolejki z całkowicie lokalnym API: żadnych żądań OpenAI ani realnego retry.
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
+import { authenticate, corsHeaders } from './fixtures/auth.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const port = process.env.UI_TEST_PORT || '3000';
@@ -56,8 +57,9 @@ try {
    }
   } else if (url.pathname.startsWith('/api/jobs/')) body=jobs.find(job=>job.id===url.pathname.split('/')[3]);
   else throw new Error(`Unexpected request ${url.pathname}`);
-  await route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify(body)});
+  await route.fulfill({status,contentType:'application/json',headers:corsHeaders(route),body:JSON.stringify(body)});
  });
+ await authenticate(page);
  await page.goto(`http://localhost:${port}/queue`);
  await page.getByRole('heading',{name:'Kolejka zadań',exact:true}).waitFor();
  await page.getByText('27 zadań · strona 1/2',{exact:true}).waitFor();

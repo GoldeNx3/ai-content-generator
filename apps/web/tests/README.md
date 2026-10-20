@@ -52,3 +52,10 @@ Nowa wersja po naprawie czeka na ręczne uruchomienie QA; zatwierdzenie równie�
 wymaga osobnego kliknięcia.
 
 `candidate-status-ui-check.mjs` sprawdza statusy listy (Opublikowane, Draft, Zatwierdzony, Zaplanowane), odświeżenie po powrocie do karty i filtr oparty na tym samym statusie. API jest mockowane; test nie wykonuje zapisów ani wywołań AI.
+
+
+`auth-ui-check.mjs` sprawdza logowanie z mockowanym API: przekierowanie na `/login?next=` bez sesji,
+błędne hasło, powrót na `next`, ponowne logowanie po `401`, ochronę przed open redirect, wylogowanie i
+link do rejestracji. Pozostałe mockowane checki logują się przez `authenticate(page)` z
+`fixtures/auth.mjs`, a live checki (`demo-live-check.mjs`, `candidate-navigation-live-check.mjs`)
+wymagają `UI_TEST_EMAIL` i `UI_TEST_PASSWORD` konta utworzonego przez `make create-user`.

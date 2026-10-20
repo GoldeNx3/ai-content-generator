@@ -1,4 +1,6 @@
 import type {
+  Credentials,
+  Me,
   WordPressState, WordPressProfile,
   ArticleFix,
   ArticleQA,
@@ -45,11 +47,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       // Content-Type only with a body: a JSON header on GET forces a CORS preflight on every poll.
       headers: init.body ? { "Content-Type": "application/json", ...init.headers } : init.headers,
       cache: "no-store",
+      // Ciasteczko sesji (HttpOnly) ustawia API; bez tego przeglądarka nie wyśle go cross-origin.
+      credentials: "include",
     });
   } catch {
     throw new ApiError(`Cannot reach API at ${API_URL}`, 0);
   }
 
+  // Wygasła/unieważniona sesja: wracamy na logowanie z powrotem na bieżącą stronę.
+  // /auth/* obsługuje 401 samodzielnie (np. błędne hasło).
+  if (response.status === 401 && !path.startsWith("/auth/") && typeof window !== "undefined") {
+    redirectToLogin();
+  }
   if (!response.ok) {
     const parsed = await errorMessage(response);
     throw new ApiError(parsed.message, response.status, parsed.detail);
@@ -60,6 +69,23 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
+export function redirectToLogin() {
+  const next = window.location.pathname + window.location.search + window.location.hash;
+  // Celowo pełne przeładowanie: zrzuca stan klienta (polling, cache) po zmianie sesji.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+  window.location.assign(`/login?next=${encodeURIComponent(next)}`);
+}
+
+const AUTH_MESSAGES: Record<string, string> = {
+  invalid_credentials: "Nieprawidłowy email lub hasło.",
+  email_taken: "Konto z tym adresem już istnieje.",
+  too_many_attempts: "Zbyt wiele nieudanych logowań. Spróbuj ponownie za kilkanaście minut.",
+  too_many_registrations: "Z tego adresu IP założono już limit kont na tę godzinę. Spróbuj później.",
+  registration_disabled: "Rejestracja jest wyłączona.",
+  origin_not_allowed: "Żądanie z niedozwolonej domeny.",
+  not_authenticated: "Sesja wygasła. Zaloguj się ponownie.",
+};
+
 async function errorMessage(response: Response): Promise<{ message: string; detail?: { code?: string; job_id?: string } }> {
   try {
     const body: unknown = await response.json();
@@ -68,7 +94,8 @@ async function errorMessage(response: Response): Promise<{ message: string; deta
       if (typeof detail === "string") return { message: detail };
       if (detail && typeof detail === "object" && "code" in detail) {
         const conflict = detail as { code: string; job_id?: string };
-        return { message: conflict.code === "candidate_busy" ? "Dla tego tematu trwa już inne zadanie." : conflict.code, detail: conflict };
+        const message = conflict.code === "candidate_busy" ? "Dla tego tematu trwa już inne zadanie." : AUTH_MESSAGES[conflict.code] ?? conflict.code;
+        return { message, detail: conflict };
       }
       if (Array.isArray(detail)) {
         return { message: detail
@@ -126,7 +153,25 @@ async function enqueue<T>(path: string, body?: unknown): Promise<T> {
   }
 }
 
+// Klucze idempotencji należą do sesji użytkownika; po wylogowaniu nie mogą przejść na kolejne konto.
+function clearPendingRequests() {
+  pendingKeys.clear();
+  for (const key of Object.keys(sessionStorage)) {
+    if (key.startsWith("content-engine:request:")) sessionStorage.removeItem(key);
+  }
+}
+
 export const api = {
+  me: () => request<Me>("/auth/me"),
+  login: (body: Credentials) => post<Me>("/auth/login", body),
+  register: (body: Credentials) => post<Me>("/auth/register", body),
+  logout: async () => {
+    try {
+      await post<void>("/auth/logout");
+    } finally {
+      clearPendingRequests();
+    }
+  },
   getWordPress: (id:number) => request<WordPressState>(`/article-versions/${id}/wordpress`),
   prepareWordPress: (id:number) => enqueue<Job>(`/article-versions/${id}/wordpress/prepare`),
   setWordPressSettings: (id:number, data:Partial<WordPressProfile>) => patch<WordPressState>(`/article-versions/${id}/wordpress/settings`,data),

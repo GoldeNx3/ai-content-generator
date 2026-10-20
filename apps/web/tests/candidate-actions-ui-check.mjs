@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 import assert from 'node:assert/strict';
+import { authenticate, corsHeaders } from './fixtures/auth.mjs';
 (async () => {
  const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
  try {
@@ -36,13 +37,14 @@ import assert from 'node:assert/strict';
    if (route.request().method() === 'POST') {research={...report,status:'running',completed_at:null};body=job('research','running');status=202;}
    else if (research) body=research; else {status=404;body={detail:'No research'};}
   } else throw new Error('Unexpected request '+path);
-  await route.fulfill({status,contentType:'application/json',headers:{'Access-Control-Allow-Origin':'*'},body:JSON.stringify(body)});
+  await route.fulfill({status,contentType:'application/json',headers:corsHeaders(route),body:JSON.stringify(body)});
  });
 
  const go = async n => {
    if(page.viewportSize().width < 1024) await page.getByRole('combobox',{name:'Wybierz etap pipeline'}).selectOption(`#workflow-step-${n}`);
    else await page.locator(`nav a[href="#workflow-step-${n}"]`).click();
  };
+ await authenticate(page);
  await page.goto(`http://localhost:${uiPort}/candidates/1`);
  await go(2);
  await page.getByRole('button',{name:'Przejdź do researchu',exact:true}).waitFor();

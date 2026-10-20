@@ -83,6 +83,21 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:3000,http://localhost:3001"
 
+    # Logowanie: sesja w PostgreSQL, token w ciasteczku HttpOnly. COOKIE_DOMAIN puste = host API
+    # (dev); w prod np. ".example.com", aby web na app.example.com widział ciasteczko w proxy.ts.
+    session_cookie_name: str = "ce_session"
+    session_ttl_days: int = Field(default=14, ge=1)
+    cookie_domain: str = ""
+    cookie_secure: bool = False
+    # Do czasu izolacji danych per workspace każdy zarejestrowany użytkownik widzi wszystkie dane.
+    allow_registration: bool = True
+    auth_max_failures_per_email: int = Field(default=5, ge=1)
+    auth_max_failures_per_ip: int = Field(default=20, ge=1)
+    auth_window_minutes: int = Field(default=15, ge=1)
+    # Limit zakładania kont z jednego IP (udane i nieudane próby) w oknie godzinowym.
+    auth_max_registrations_per_ip: int = Field(default=5, ge=1)
+    auth_registration_window_minutes: int = Field(default=60, ge=1)
+
     http_timeout_seconds: float = 15.0
     fetch_interval_minutes: int = 30
     # Entries published earlier than this are skipped (0 = no limit). Entries without a date are kept.
