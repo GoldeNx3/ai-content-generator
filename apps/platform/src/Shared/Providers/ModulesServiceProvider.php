@@ -2,12 +2,15 @@
 
 namespace Modules\Shared\Providers;
 
+use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
+use Modules\Shared\Routing\WorkspaceBindings;
 
 final class ModulesServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
+        $this->app->make(WorkspaceBindings::class)->register($this->app->make(Router::class));
         $this->loadMigrationsFrom(glob(base_path('src/*/Database/Migrations'), GLOB_ONLYDIR) ?: []);
 
         if ($this->app->runningInConsole()) {

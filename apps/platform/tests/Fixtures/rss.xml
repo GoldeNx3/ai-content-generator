@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Example</title>
+    <link>https://example.com</link>
+    <description>Example feed</description>
+    <item>
+      <title>OpenAI releases a new model</title>
+      <link>https://example.com/posts/1</link>
+      <description>&lt;p&gt;Big &lt;b&gt;release&lt;/b&gt; today.&lt;/p&gt;</description>
+      <pubDate>Wed, 01 Oct 2025 10:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Entry without date and summary</title>
+      <link>https://example.com/posts/2</link>
+    </item>
+    <item>
+      <title>Duplicate inside the same feed</title>
+      <link>https://example.com/posts/1</link>
+    </item>
+  </channel>
+</rss>
