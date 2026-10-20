@@ -15,11 +15,11 @@ MANUAL = "https://techcrunch.com/gpt-6"
 # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
 # inne zadania.
 async def test_research_endpoints(client: httpx.AsyncClient, session: AsyncSession, execute_job) -> None:
-    source = Source(name="OpenAI", url="https://openai.com/news/rss.xml")
+    source = Source(workspace_id=1, name="OpenAI", url="https://openai.com/news/rss.xml")
     session.add(source)
     # flush wysyła zmiany do bazy (np. nadaje ID), ale nie zatwierdza jeszcze transakcji jak commit.
     await session.flush()
-    candidate = Candidate(source_id=source.id, external_url=ORIGINAL, title="GPT-6 API")
+    candidate = Candidate(workspace_id=1, source_id=source.id, external_url=ORIGINAL, title="GPT-6 API")
     session.add(candidate)
     # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
     # trwałego zapisu.

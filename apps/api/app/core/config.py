@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     session_ttl_days: int = Field(default=14, ge=1)
     cookie_domain: str = ""
     cookie_secure: bool = False
-    # Do czasu izolacji danych per workspace każdy zarejestrowany użytkownik widzi wszystkie dane.
+    # Dane są izolowane per workspace, ale klucz OpenAI jest wspólny i bez budżetów: w prod false.
     allow_registration: bool = True
     auth_max_failures_per_email: int = Field(default=5, ge=1)
     auth_max_failures_per_ip: int = Field(default=20, ge=1)

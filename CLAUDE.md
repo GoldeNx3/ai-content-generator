@@ -16,10 +16,10 @@ Everything runs in Docker (`docker compose`); see `Makefile`.
 make up            # db, migrate, api (:8000, Swagger /docs), worker, scheduler, web (:3000) – production web build
 make dev           # same, but web runs `next dev` with apps/web mounted (hot reload)
 make migrate       # alembic upgrade head (also runs automatically via the `migrate` service)
-make seed          # sample RSS sources (apps/api/app/jobs/seed.py)
+make seed          # sample RSS sources (apps/api/app/jobs/seed.py); WORKSPACE=<id>, default = oldest workspace
 make seed-demo     # synthetic pipeline scenarios using zero-cost demo providers (no AI calls)
 make wipe          # backs up DB to /tmp, then truncates app data + queue (scripts/wipe.py)
-make create-user EMAIL=...   # account without public registration (create-user-prod on server)
+make create-user EMAIL=... [WORKSPACE=<id>]   # account without public registration; WORKSPACE joins an existing one as owner (create-user-prod on server)
 make test          # backend tests: docker compose exec api pytest -q (needs running stack; no Python linter configured)
 make fetch / make classify
 make deploy        # server only (inside PROD_DIR): git reset --hard origin/$BRANCH, build, migrate, up
@@ -63,7 +63,9 @@ Layers in `apps/api/app/`:
 
 ### Auth
 
-Session auth owned by the API (`docs/auth/README.md`): `api/auth.py` + `services/auth/`, sessions in PostgreSQL, token in HttpOnly cookie `ce_session`. Every router except `/auth` is mounted under a router with `Depends(get_current_user)` in `api/router.py`, so new routers are protected by default. An Origin-check middleware in `main.py` rejects state-changing requests from origins outside `CORS_ORIGINS`. `Workspace`/`WorkspaceMember` exist, but domain data is **not yet scoped per workspace**. Tests: fixture `client` is pre-authenticated, `anon_client` is not. Frontend: `proxy.ts` (optimistic cookie check → `/login`), `lib/api.ts` uses `credentials: "include"` and redirects on 401. Mocked UI checks need `authenticate(page)` and `corsHeaders(route)` from `tests/fixtures/auth.mjs` (wildcard CORS fails with credentials).
+Session auth owned by the API (`docs/auth/README.md`): `api/auth.py` + `services/auth/`, sessions in PostgreSQL, token in HttpOnly cookie `ce_session`. Every router except `/auth` is mounted under a router with `Depends(get_current_user)` in `api/router.py`, so new routers are protected by default. An Origin-check middleware in `main.py` rejects state-changing requests from origins outside `CORS_ORIGINS`.
+
+**Workspace isolation**: `workspace_id` on `sources`, `candidates`, `jobs`, `job_batches` (composite FKs keep candidate/source/job workspaces consistent; everything else belongs via `candidate_id`). `enforce_workspace` in `api/access.py` (router dependency) 404s any foreign ID in the path (`OWNERSHIP` maps param name → owner query; a new ID param name must be added there or `test_workspace_isolation.py` fails). Lists/aggregates must filter by `current.workspace_id` explicitly (`CurrentUserDep`); creation sets it (sources from the user, candidates from their source, jobs from their candidate). Worker/scheduler are system-wide. WordPress config is still global. Tests: fixture `client` is pre-authenticated as workspace 1, `anon_client` is not; workspaces 1 and 2 exist in every test, test data needs `workspace_id=1`. Frontend: `proxy.ts` (optimistic cookie check → `/login`), `lib/api.ts` uses `credentials: "include"` and redirects on 401. Mocked UI checks need `authenticate(page)` and `corsHeaders(route)` from `tests/fixtures/auth.mjs` (wildcard CORS fails with credentials).
 
 ### Durable job queue (central concept)
 

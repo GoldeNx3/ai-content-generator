@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 
-from app.api.deps import JobServiceDep, SessionDep
+from app.api.deps import CurrentUserDep, JobServiceDep, SessionDep
 from app.api.jobs import IdempotencyKey, enqueue_call
 from app.schemas.job import JobRead, EnqueuedBatch
 from app.core.config import get_settings
@@ -30,9 +30,9 @@ async def _get_or_404(session: SessionDep, candidate_id: int) -> Candidate:
 # fabryki.
 @router.get("", response_model=CandidatePage)
 async def list_candidates(
-    session: SessionDep, filters: Annotated[CandidateFilters, Depends()]
+    session: SessionDep, current: CurrentUserDep, filters: Annotated[CandidateFilters, Depends()]
 ) -> CandidatePage:
-    items, total = await CandidateRepository(session).search(filters)
+    items, total = await CandidateRepository(session).search(filters, current.workspace_id)
     return CandidatePage(
         items=[CandidateRead.model_validate(item) for item in items],
         total=total,
@@ -42,11 +42,13 @@ async def list_candidates(
 
 
 @router.post("/classify-pending", response_model=EnqueuedBatch, status_code=202)
-async def classify_pending(service: JobServiceDep, response: Response, key: IdempotencyKey = None,
+async def classify_pending(service: JobServiceDep, response: Response, current: CurrentUserDep,
+    key: IdempotencyKey = None,
     limit: Annotated[int | None, Query(ge=1, le=1000)] = None) -> dict:
     from app.services.jobs.errors import JobInputError, JobConflict
     try:
-        return await service.batch(limit or get_settings().classify_batch_limit, key)
+        return await service.batch(limit or get_settings().classify_batch_limit, key,
+                                   workspace_id=current.workspace_id)
     except JobConflict as exc:
         raise HTTPException(409, detail={'code': exc.code, 'job_id': str(exc.job_id) if exc.job_id else None}) from exc
     except JobInputError as exc:

@@ -6,7 +6,7 @@ from tests.test_classification import FakeProvider
 
 
 async def test_jobs_api_returns_safe_status_and_history(client, session, source, execute_job):
-    candidate = Candidate(source_id=source.id, external_url='https://example.com/api-job', title='Test')
+    candidate = Candidate(workspace_id=1, source_id=source.id, external_url='https://example.com/api-job', title='Test')
     session.add(candidate)
     await session.commit()
     path = f'/api/candidates/{candidate.id}/classify'
@@ -35,7 +35,7 @@ async def test_jobs_api_returns_safe_status_and_history(client, session, source,
 
 
 async def test_request_hash_rejects_changed_options(client, session, source):
-    candidate = Candidate(source_id=source.id, external_url='https://example.com/hash', title='Test')
+    candidate = Candidate(workspace_id=1, source_id=source.id, external_url='https://example.com/hash', title='Test')
     session.add(candidate)
     await session.commit()
     key = {'Idempotency-Key': str(uuid4())}
@@ -47,7 +47,7 @@ async def test_request_hash_rejects_changed_options(client, session, source):
 
 
 async def test_batch_key_is_bound_to_limit(client, session, source):
-    candidate = Candidate(source_id=source.id, external_url='https://example.com/batch', title='Batch')
+    candidate = Candidate(workspace_id=1, source_id=source.id, external_url='https://example.com/batch', title='Batch')
     session.add(candidate)
     await session.commit()
     key = {'Idempotency-Key': str(uuid4())}
@@ -62,8 +62,8 @@ async def test_batch_key_is_bound_to_limit(client, session, source):
 
 
 async def test_global_queue_filters_history_and_counts(client, session, source, execute_job):
-    first = Candidate(source_id=source.id, external_url='https://example.com/global-one', title='Pierwszy temat')
-    second = Candidate(source_id=source.id, external_url='https://example.com/global-two', title='Drugi temat')
+    first = Candidate(workspace_id=1, source_id=source.id, external_url='https://example.com/global-one', title='Pierwszy temat')
+    second = Candidate(workspace_id=1, source_id=source.id, external_url='https://example.com/global-two', title='Drugi temat')
     session.add_all([first, second])
     await session.commit()
     succeeded = (await client.post(f'/api/candidates/{first.id}/classify')).json()

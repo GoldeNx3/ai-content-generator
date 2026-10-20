@@ -16,7 +16,7 @@ migrate:
 	docker compose run --rm migrate
 
 seed:
-	docker compose exec api python -m app.jobs.seed
+	docker compose exec api python -m app.jobs.seed $(if $(WORKSPACE),--workspace $(WORKSPACE))
 
 wipe:
 	python3 scripts/wipe.py
@@ -34,15 +34,16 @@ classify:
 	curl -s -X POST http://localhost:8000/api/candidates/classify-pending; echo
 
 # Konto bez publicznej rejestracji: make create-user EMAIL=jan@example.com (hasło pyta interaktywnie).
+# WORKSPACE=<id> dołącza konto jako owner istniejącego workspace'u (np. „Domyślny” po migracji 0010).
 .PHONY: create-user
 create-user:
 	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
-	docker compose exec api python -m app.jobs.create_user $(EMAIL)
+	docker compose exec api python -m app.jobs.create_user $(EMAIL) $(if $(WORKSPACE),--workspace $(WORKSPACE))
 
 # Syntetyczne scenariusze + interaktywny pipeline bez wywołań AI.
 .PHONY: seed-demo
 seed-demo:
-	docker compose exec -T api python -m app.jobs.seed_demo
+	docker compose exec -T api python -m app.jobs.seed_demo $(if $(WORKSPACE),--workspace $(WORKSPACE))
 
 # Produkcja (docker-compose.prod.yml) - uruchamiaj NA serwerze, wewnątrz $(PROD_DIR) (lub przez deploy-init).
 # Wymaga gotowego .env z produkcyjnymi wartościami. `git reset --hard` usuwa lokalne zmiany.
@@ -97,8 +98,8 @@ migrate-prod:
 	$(DC_PROD) run --rm migrate
 
 seed-prod:
-	$(DC_PROD) exec -T api python -m app.jobs.seed
+	$(DC_PROD) exec -T api python -m app.jobs.seed $(if $(WORKSPACE),--workspace $(WORKSPACE))
 
 create-user-prod:
 	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
-	$(DC_PROD) exec api python -m app.jobs.create_user $(EMAIL)
+	$(DC_PROD) exec api python -m app.jobs.create_user $(EMAIL) $(if $(WORKSPACE),--workspace $(WORKSPACE))

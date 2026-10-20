@@ -29,11 +29,11 @@ from app.services.llm.base import ArticleContext, BriefResult, LLMError, LLMUsag
 async def research_fixture(
     session: AsyncSession, status: ResearchStatus = ResearchStatus.COMPLETED
 ) -> tuple[Candidate, Research]:
-    feed = Source(name="Anthropic", url="https://anthropic.example/rss.xml")
+    feed = Source(workspace_id=1, name="Anthropic", url="https://anthropic.example/rss.xml")
     session.add(feed)
     # flush wysyła zmiany do bazy (np. nadaje ID), ale nie zatwierdza jeszcze transakcji jak commit.
     await session.flush()
-    candidate = Candidate(
+    candidate = Candidate(workspace_id=1, 
         source_id=feed.id,
         external_url="https://www.anthropic.com/news/barclays",
         title="Barclays scales Claude",

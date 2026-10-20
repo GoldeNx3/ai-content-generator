@@ -54,11 +54,12 @@ class CandidateRepository:
         candidate.workflow_status = workflow_status
         return candidate
 
-    async def existing_urls(self, urls: Iterable[str]) -> set[str]:
+    async def existing_urls(self, urls: Iterable[str], workspace_id: int) -> set[str]:
         url_list = list(urls)
         if not url_list:
             return set()
-        query = select(Candidate.external_url).where(Candidate.external_url.in_(url_list))
+        query = select(Candidate.external_url).where(
+            Candidate.workspace_id == workspace_id, Candidate.external_url.in_(url_list))
         return set((await self.session.scalars(query)).all())
 
     # Zapis porcjami ogranicza rozmiar zapytania; RETURNING zwraca ID tylko rekordów rzeczywiście dodanych.
@@ -71,16 +72,16 @@ class CandidateRepository:
             statement = (
                 insert(Candidate)
                 .values(rows[start : start + INSERT_CHUNK_SIZE])
-                .on_conflict_do_nothing(index_elements=[Candidate.external_url])
+                .on_conflict_do_nothing(index_elements=[Candidate.workspace_id, Candidate.external_url])
                 .returning(Candidate.id)
             )
             inserted += len((await self.session.execute(statement)).all())
         return inserted
 
-    async def search(self, filters: CandidateFilters) -> tuple[Sequence[Candidate], int]:
-        query = self._apply_filters(select(Candidate, workflow_status_expression()), filters)
+    async def search(self, filters: CandidateFilters, workspace_id: int) -> tuple[Sequence[Candidate], int]:
+        query = self._apply_filters(select(Candidate, workflow_status_expression()), filters, workspace_id)
         total = await self.session.scalar(
-            self._apply_filters(select(func.count(Candidate.id)), filters)
+            self._apply_filters(select(func.count(Candidate.id)), filters, workspace_id)
         )
 
         column = getattr(Candidate, filters.sort.value)
@@ -98,26 +99,30 @@ class CandidateRepository:
         return items, total or 0
 
     # „Niesklasyfikowany” oznacza tutaj brak total_score, niezależnie od statusu decyzji redaktora.
-    async def list_unclassified_ids(self, limit: int | None = None) -> list[int]:
+    async def list_unclassified_ids(self, limit: int | None = None, workspace_id: int | None = None) -> list[int]:
         query = (
             select(Candidate.id)
             .where(Candidate.total_score.is_(None), ~Candidate.external_url.startswith(DEMO_PREFIX))
             .order_by(Candidate.original_published_at.desc().nulls_last(), Candidate.id.desc())
             .limit(limit)
         )
+        if workspace_id is not None:
+            query = query.where(Candidate.workspace_id == workspace_id)
         return list((await self.session.scalars(query)).all())
 
     async def count(self, *conditions: Any) -> int:
         return await self.session.scalar(select(func.count(Candidate.id)).where(*conditions)) or 0
 
-    async def average_score(self) -> float | None:
+    async def average_score(self, workspace_id: int) -> float | None:
         value = await self.session.scalar(
-            select(func.avg(Candidate.total_score)).where(Candidate.total_score.is_not(None))
+            select(func.avg(Candidate.total_score)).where(
+                Candidate.total_score.is_not(None), Candidate.workspace_id == workspace_id)
         )
         return round(float(value), 1) if value is not None else None
 
-    async def count_created_since(self, since: datetime, status: CandidateStatus | None = None) -> int:
-        conditions = [Candidate.created_at >= since]
+    async def count_created_since(self, since: datetime, workspace_id: int,
+                                  status: CandidateStatus | None = None) -> int:
+        conditions = [Candidate.created_at >= since, Candidate.workspace_id == workspace_id]
         if status is not None:
             conditions.append(Candidate.status == status)
         return await self.count(*conditions)
@@ -125,7 +130,8 @@ class CandidateRepository:
     # Kolejne where zawężają zapytanie; sprawdzamy is not None, bo zero jest prawidłową granicą punktacji.
     # staticmethod nie dostaje automatycznie self; to funkcja pomocnicza umieszczona w przestrzeni nazw klasy.
     @staticmethod
-    def _apply_filters(query: Select[Any], filters: CandidateFilters) -> Select[Any]:
+    def _apply_filters(query: Select[Any], filters: CandidateFilters, workspace_id: int) -> Select[Any]:
+        query = query.where(Candidate.workspace_id == workspace_id)
         if filters.status is not None:
             query = query.where(Candidate.status == filters.status)
         if filters.workflow_status is not None:

@@ -11,20 +11,21 @@ from app.repositories.candidate_repository import CandidateRepository
 from app.services.jobs.errors import JobConflict
 
 
-async def enqueue_batch(service, limit, key=None):
+async def enqueue_batch(service, limit, key=None, *, workspace_id):
     session = service.session
     key = key or uuid4()
-    request_hash = hashlib.sha256(f'classify-batch:{limit}'.encode()).hexdigest()
+    # Workspace w hashu: ten sam klucz z innego workspace'u to konflikt, nie odczyt cudzej partii.
+    request_hash = hashlib.sha256(f'classify-batch:{workspace_id}:{limit}'.encode()).hexdigest()
     batch = await session.get(JobBatch, key)
     if batch is None:
-        ids = await CandidateRepository(session).list_unclassified_ids(limit)
+        ids = await CandidateRepository(session).list_unclassified_ids(limit, workspace_id=workspace_id)
         # Dwie identyczne prośby mogą nadejść jednocześnie. Tylko jedna lista
         # wygrywa INSERT; druga prośba odczytuje zapisaną listę zwycięzcy.
-        await session.execute(insert(JobBatch).values(id=key, request_hash=request_hash,
+        await session.execute(insert(JobBatch).values(id=key, workspace_id=workspace_id, request_hash=request_hash,
             candidate_ids=ids, skipped_ids=[]).on_conflict_do_nothing(index_elements=['id']))
         await session.commit()
         batch = await session.get(JobBatch, key, populate_existing=True)
-    if batch.request_hash != request_hash:
+    if batch.request_hash != request_hash or batch.workspace_id != workspace_id:
         raise JobConflict('idempotency_conflict')
     ids = list(batch.candidate_ids)
     result = {'job_ids': [], 'enqueued': 0, 'existing': 0, 'skipped_busy': 0}

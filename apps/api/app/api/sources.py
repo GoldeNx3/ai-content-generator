@@ -3,7 +3,7 @@
 
 from fastapi import APIRouter, HTTPException, Response, status
 
-from app.api.deps import IngestionDep, SessionDep
+from app.api.deps import CurrentUserDep, IngestionDep, SessionDep
 from app.models import Source
 from app.repositories.source_repository import SourceRepository
 from app.schemas.source import FetchResult, SourceCreate, SourceRead, SourceUpdate
@@ -22,18 +22,19 @@ async def _get_or_404(repo: SourceRepository, source_id: int) -> Source:
 
 
 @router.get("", response_model=list[SourceRead])
-async def list_sources(session: SessionDep) -> list[Source]:
-    return list(await SourceRepository(session).list_all())
+async def list_sources(session: SessionDep, current: CurrentUserDep) -> list[Source]:
+    return list(await SourceRepository(session).list_all(workspace_id=current.workspace_id))
 
 
 @router.post("", response_model=SourceRead, status_code=status.HTTP_201_CREATED)
-async def create_source(payload: SourceCreate, session: SessionDep) -> Source:
+async def create_source(payload: SourceCreate, session: SessionDep, current: CurrentUserDep) -> Source:
     repo = SourceRepository(session)
     url = str(payload.url)
-    if await repo.get_by_url(url):
+    if await repo.get_by_url(url, current.workspace_id):
         raise HTTPException(status.HTTP_409_CONFLICT, detail="Source with this URL already exists")
     source = await repo.add(
-        Source(name=payload.name.strip(), url=url, type=payload.type, active=payload.active)
+        Source(workspace_id=current.workspace_id, name=payload.name.strip(), url=url, type=payload.type,
+               active=payload.active)
     )
     # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
     # trwałego zapisu.
@@ -44,14 +45,14 @@ async def create_source(payload: SourceCreate, session: SessionDep) -> Source:
 
 
 @router.patch("/{source_id}", response_model=SourceRead)
-async def update_source(source_id: int, payload: SourceUpdate, session: SessionDep) -> Source:
+async def update_source(source_id: int, payload: SourceUpdate, session: SessionDep, current: CurrentUserDep) -> Source:
     repo = SourceRepository(session)
     source = await _get_or_404(repo, source_id)
     if payload.name is not None:
         source.name = payload.name.strip()
     if payload.url is not None:
         url = str(payload.url)
-        existing = await repo.get_by_url(url)
+        existing = await repo.get_by_url(url, current.workspace_id)
         if existing and existing.id != source.id:
             raise HTTPException(status.HTTP_409_CONFLICT, detail="Source with this URL already exists")
         source.url = url
@@ -78,8 +79,8 @@ async def delete_source(source_id: int, session: SessionDep) -> Response:
 
 
 @router.post("/fetch", response_model=FetchResult)
-async def fetch_all_sources(ingestion: IngestionDep) -> FetchResult:
-    return await ingestion.fetch_all_active()
+async def fetch_all_sources(ingestion: IngestionDep, current: CurrentUserDep) -> FetchResult:
+    return await ingestion.fetch_all_active(workspace_id=current.workspace_id)
 
 
 @router.post("/{source_id}/fetch", response_model=FetchResult)

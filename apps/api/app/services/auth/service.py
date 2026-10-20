@@ -44,8 +44,10 @@ class AuthService:
         self.settings = settings
         self.repo = UserRepository(session)
 
-    # ip=None (komenda CLI) pomija limit rejestracji per IP.
-    async def register(self, email: str, password: str, *, ip: str | None = None) -> User:
+    # ip=None (komenda CLI) pomija limit rejestracji per IP. workspace_id (tylko CLI) dołącza konto jako
+    # owner istniejącego workspace'u zamiast tworzyć nowy.
+    async def register(self, email: str, password: str, *, ip: str | None = None,
+                       workspace_id: int | None = None) -> User:
         if ip is not None:
             since = datetime.now(UTC) - timedelta(minutes=self.settings.auth_registration_window_minutes)
             count = await self.repo.count_attempts(AuthAttemptKind.REGISTER, ip=ip, since=since)
@@ -56,7 +58,10 @@ class AuthService:
             self.session.add(attempt)
             await self.session.commit()
         user = User(email=email, password_hash=hash_password(password), is_active=True)
-        workspace = Workspace(name=email.split("@", 1)[0][:200] or email)
+        workspace = (await self.session.get(Workspace, workspace_id) if workspace_id is not None
+                     else Workspace(name=email.split("@", 1)[0][:200] or email))
+        if workspace is None:
+            raise AuthError("workspace_not_found")
         self.session.add_all([user, workspace])
         try:
             await self.session.flush()

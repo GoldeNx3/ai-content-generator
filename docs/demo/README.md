@@ -6,7 +6,7 @@ make migrate
 make seed-demo
 ```
 
-Seeder zapisuje syntetyczne dane Nexa w tej samej bazie co aplikacja. Nie korzysta z AI, sieci ani kluczy API. `make seed` nadal dodaje normalne źródła RSS. `make seed-demo` tworzy osobne, nieaktywne źródło `[DEMO] Scenariusze pipeline — 0 kosztów AI`. Na liście tematów wybierz je w filtrze **Źródło**. Seeder wypisuje także bezpośrednie linki do wszystkich przypadków.
+Seeder zapisuje syntetyczne dane Nexa w tej samej bazie co aplikacja. Nie korzysta z AI, sieci ani kluczy API. `make seed` nadal dodaje normalne źródła RSS. `make seed-demo` tworzy osobne, nieaktywne źródło `[DEMO] Scenariusze pipeline — 0 kosztów AI`. Na liście tematów wybierz je w filtrze **Źródło**. Seeder wypisuje także bezpośrednie linki do wszystkich przypadków. Dane trafiają do najstarszego workspace'u, a `make seed-demo WORKSPACE=<id>` wybiera inny.
 
 Uruchamiaj demo z aktualnym API i workerem. Po aktualizacji kodu uruchom `docker compose restart api worker scheduler`, aby procesy załadowały obsługę demo. Pierwsze uruchomienie zapisuje brakujące przypadki atomowo; kolejne zachowują prawdziwe dane i zmiany wykonane przez użytkownika. Seeder nie resetuje scenariuszy.
 

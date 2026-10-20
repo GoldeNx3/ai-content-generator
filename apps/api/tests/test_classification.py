@@ -35,7 +35,7 @@ class FakeProvider:
 
 
 async def add_candidate(session: AsyncSession, source: Source, title: str, **fields: object) -> Candidate:
-    candidate = Candidate(
+    candidate = Candidate(workspace_id=1, 
         source_id=source.id, external_url=f"https://example.com/{title}", title=title, **fields
     )
     session.add(candidate)

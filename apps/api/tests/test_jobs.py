@@ -17,7 +17,7 @@ from app.services.jobs.service import JobService
 
 
 async def candidate_for(session, source):
-    candidate = Candidate(source_id=source.id, external_url='https://example.com/job', title='Job')
+    candidate = Candidate(workspace_id=1, source_id=source.id, external_url='https://example.com/job', title='Job')
     session.add(candidate)
     await session.commit()
     return candidate
@@ -298,27 +298,27 @@ async def test_batch_replay_does_not_enqueue_next_paid_batch(session, session_fa
     from app.workers.worker import Worker
     from tests.test_classification import FakeProvider
     await candidate_for(session, source)
-    other = Candidate(source_id=source.id, external_url='https://example.com/second', title='Second')
+    other = Candidate(workspace_id=1, source_id=source.id, external_url='https://example.com/second', title='Second')
     session.add(other)
     await session.commit()
     key = uuid4()
     service = JobService(session, Settings(openai_api_key='test'))
-    initial = await service.batch(1, key)
+    initial = await service.batch(1, key, workspace_id=1)
     await Worker(session_factory, providers={'classify': FakeProvider()}).run_once()
-    repeated = await service.batch(1, key)
+    repeated = await service.batch(1, key, workspace_id=1)
     assert repeated['job_ids'] == initial['job_ids']
     assert repeated['enqueued'] == 0
     assert repeated['existing'] == 1
     assert len((await session.scalars(select(Job))).all()) == 1
     with pytest.raises(JobConflict):
-        await service.batch(2, key)
+        await service.batch(2, key, workspace_id=1)
 
 
 async def test_scheduler_skips_failed_history_before_limit(session, session_factory, source, engine, monkeypatch):
     from types import SimpleNamespace
     from app.jobs import scheduler
     older = await candidate_for(session, source)
-    newer = Candidate(source_id=source.id, external_url='https://example.com/newer', title='Newer')
+    newer = Candidate(workspace_id=1, source_id=source.id, external_url='https://example.com/newer', title='Newer')
     session.add(newer)
     await session.commit()
     settings = Settings(openai_api_key='test', classify_batch_limit=1)
@@ -390,15 +390,15 @@ async def test_parallel_batch_skip_cannot_hide_enqueued_child(session, session_f
             released.set()
             await asyncio.wait_for(other_done.wait(), timeout=3)
         monkeypatch.setattr(first_db, 'rollback', pause_after_rollback)
-        first = asyncio.create_task(JobService(first_db, settings).batch(1, key))
+        first = asyncio.create_task(JobService(first_db, settings).batch(1, key, workspace_id=1))
         await asyncio.wait_for(released.wait(), timeout=3)
         unrelated.status = 'failed'
         await session.commit()
         async with session_factory() as second_db:
-            second = await JobService(second_db, settings).batch(1, key)
+            second = await JobService(second_db, settings).batch(1, key, workspace_id=1)
         other_done.set()
         original = await first
     assert original['job_ids'] == second['job_ids']
-    replay = await JobService(session, settings).batch(1, key)
+    replay = await JobService(session, settings).batch(1, key, workspace_id=1)
     assert replay['job_ids'] == second['job_ids']
     assert replay['skipped_busy'] == 0

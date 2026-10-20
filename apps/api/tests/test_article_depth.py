@@ -153,10 +153,10 @@ async def test_writer_budget_preserves_original_after_manual_sources_on_rerun(se
 async def test_manual_research_fetches_linked_documents_without_paid_query_generation(session):
     original = 'https://svelte.dev/blog/kit'
     docs = 'https://svelte.dev/docs/migration'
-    feed = Source(name='Svelte', url='https://svelte.dev/rss.xml')
+    feed = Source(workspace_id=1, name='Svelte', url='https://svelte.dev/rss.xml')
     session.add(feed)
     await session.flush()
-    candidate = Candidate(source_id=feed.id, title='SvelteKit migration', external_url=original)
+    candidate = Candidate(workspace_id=1, source_id=feed.id, title='SvelteKit migration', external_url=original)
     session.add(candidate)
     await session.commit()
     page = html_response('SvelteKit migration')

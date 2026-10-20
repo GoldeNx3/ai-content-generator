@@ -5,7 +5,7 @@ from app.jobs.seed_demo import seed_demo,CASES
 from app.demo import DEMO_PREFIX
 
 async def test_demo_seed_idempotent_and_preserves_real_data(session):
-    real=Source(name='Prawdziwe źródło',url='https://example.com/rss');session.add(real);await session.commit()
+    real=Source(workspace_id=1, name='Prawdziwe źródło',url='https://example.com/rss');session.add(real);await session.commit()
     first=await seed_demo(session)
     second=await seed_demo(session)
     assert len(first)==len(CASES) and [c['candidate_id'] for c in first]==[c['candidate_id'] for c in second]

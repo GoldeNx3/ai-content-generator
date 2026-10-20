@@ -79,7 +79,7 @@ async def test_requires_completed_research(session: AsyncSession) -> None:
 async def test_requires_research(session: AsyncSession, source) -> None:  # type: ignore[no-untyped-def]
     from app.models import Candidate
 
-    candidate = Candidate(source_id=source.id, external_url="https://x.example/a", title="No research")
+    candidate = Candidate(workspace_id=1, source_id=source.id, external_url="https://x.example/a", title="No research")
     session.add(candidate)
     # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
     # trwałego zapisu.

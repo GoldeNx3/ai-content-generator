@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,10 +25,15 @@ class Job(Base):
               postgresql_where=text("status IN ('queued','retrying')")),
         Index('ix_jobs_expired', 'locked_until', postgresql_where=text("status='running'")),
         Index('ix_jobs_candidate_history', 'candidate_id', 'created_at'),
+        Index('ix_jobs_workspace_created', 'workspace_id', 'created_at'),
+        # Job należy do workspace'u swojego kandydata; złożony FK nie pozwala na rozjazd.
+        ForeignKeyConstraint(['candidate_id', 'workspace_id'], ['candidates.id', 'candidates.workspace_id'],
+                             name='fk_jobs_candidate_workspace', ondelete='RESTRICT'),
     )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     kind: Mapped[str] = mapped_column(String(20))
-    candidate_id: Mapped[int] = mapped_column(ForeignKey('candidates.id', ondelete='RESTRICT'))
+    workspace_id: Mapped[int] = mapped_column(ForeignKey('workspaces.id', name='fk_jobs_workspace', ondelete='RESTRICT'))
+    candidate_id: Mapped[int]
     article_id: Mapped[int | None] = mapped_column(ForeignKey('articles.id', name='fk_jobs_article', use_alter=True, ondelete='RESTRICT'))
     status: Mapped[str] = mapped_column(String(20), default='queued')
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
@@ -74,6 +79,7 @@ class JobBatch(Base):
     # utraconej odpowiedzi nie może wybrać kolejnych płatnych kandydatów.
     __tablename__ = 'job_batches'
     id: Mapped[UUID] = mapped_column(primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey('workspaces.id', name='fk_job_batches_workspace', ondelete='CASCADE'))
     request_hash: Mapped[str] = mapped_column(String(64))
     candidate_ids: Mapped[list[int]] = mapped_column(JSONB)
     skipped_ids: Mapped[list[int]] = mapped_column(JSONB, default=list)

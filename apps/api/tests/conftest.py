@@ -40,6 +40,9 @@ async def engine() -> AsyncIterator[AsyncEngine]:
 async def session_factory(engine: AsyncEngine) -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     async with engine.begin() as connection:
         await connection.execute(text("TRUNCATE auth_attempts, user_sessions, workspace_members, workspaces, users, job_batches, research_fact_sources, research_facts, research_sources, researches, candidates, sources RESTART IDENTITY CASCADE"))
+        # Workspace 1 = TEST_USER (fixture client), 2 = obcy workspace do testów izolacji.
+        await connection.execute(text("INSERT INTO workspaces (id, name) VALUES (1, 'test'), (2, 'obcy')"))
+        await connection.execute(text("SELECT setval('workspaces_id_seq', 2)"))
     yield async_sessionmaker(engine, expire_on_commit=False)
 
 
@@ -51,7 +54,7 @@ async def session(session_factory: async_sessionmaker[AsyncSession]) -> AsyncIte
 
 @pytest.fixture
 async def source(session: AsyncSession) -> Source:
-    item = Source(name="Test Feed", url="https://example.com/feed.xml")
+    item = Source(workspace_id=1, name="Test Feed", url="https://example.com/feed.xml")
     session.add(item)
     # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
     # trwałego zapisu.

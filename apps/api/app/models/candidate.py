@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import UUID
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, ForeignKeyConstraint, Index, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
@@ -19,6 +19,15 @@ def enum_values(enum_cls: type) -> list[str]:
 
 class Candidate(TimestampMixin, Base):
     __tablename__ = "candidates"
+    # workspace_id jest kopią z źródła; złożony FK gwarantuje zgodność, a (id, workspace_id) jest celem
+    # złożonego FK z jobs. Ten sam URL może istnieć w różnych workspace'ach.
+    __table_args__ = (
+        ForeignKeyConstraint(["source_id", "workspace_id"], ["sources.id", "sources.workspace_id"],
+                             name="fk_candidates_source_workspace", ondelete="CASCADE"),
+        UniqueConstraint("workspace_id", "external_url", name="uq_candidates_workspace_url"),
+        UniqueConstraint("id", "workspace_id", name="uq_candidates_id_workspace"),
+        Index("ix_candidates_workspace_created", "workspace_id", "created_at"),
+    )
 
     # Powiązanie wyniku z zadaniem; stare dane mogą nie mieć tego pola.
     classification_job_id: Mapped[UUID | None] = mapped_column(
@@ -29,10 +38,9 @@ class Candidate(TimestampMixin, Base):
     # Mapped[T] opisuje typ pola ORM; mapped_column definiuje kolumnę SQL, a relationship relację między
     # obiektami.
     id: Mapped[int] = mapped_column(primary_key=True)
-    source_id: Mapped[int] = mapped_column(
-        ForeignKey("sources.id", ondelete="CASCADE"), index=True, nullable=False
-    )
-    external_url: Mapped[str] = mapped_column(String(2048), unique=True, nullable=False)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id", name="fk_candidates_workspace", ondelete="CASCADE"), nullable=False)
+    source_id: Mapped[int] = mapped_column(index=True, nullable=False)
+    external_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     title: Mapped[str] = mapped_column(String(1000), nullable=False)
     summary: Mapped[str | None] = mapped_column(Text)
     original_published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

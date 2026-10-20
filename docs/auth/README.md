@@ -34,7 +34,7 @@ HttpOnly. Next.js nie ma własnej logiki uwierzytelniania.
 COOKIE_DOMAIN=.example.com          # wspólne dla app.example.com i api.example.com
 COOKIE_SECURE=true
 CORS_ORIGINS=https://app.example.com
-ALLOW_REGISTRATION=false            # do czasu izolacji danych (etap 2)
+ALLOW_REGISTRATION=false            # do czasu budżetów kosztów per workspace
 ```
 
 Pierwsze konto: `make create-user-prod EMAIL=...` (lokalnie `make create-user EMAIL=...`).
@@ -44,16 +44,38 @@ API w prod działa z `--proxy-headers`: IP klienta pochodzi z `X-Forwarded-For` 
 Ciasteczko z `Domain=.example.com` trafia do każdej subdomeny. Na tej domenie nie powinno być
 niezaufanych serwisów (np. WordPress); w takim przypadku lepiej dać panelowi osobną domenę.
 
-## Ograniczenia etapu 1
+## Izolacja danych (etap 2)
 
-- **Brak izolacji danych:** każdy zalogowany widzi wszystkie źródła i tematy i może zlecać płatne joby.
-  Model `Workspace`/`WorkspaceMember` jest gotowy pod etap 2 (`workspace_id` na `sources`/`candidates`,
-  konfiguracja WordPress per workspace, zaproszenia).
-- Brak weryfikacji emaila, resetu hasła i 2FA.
+- `workspace_id` jest na `sources`, `candidates`, `jobs` i `job_batches`. Reszta łańcucha (research,
+  wersje artykułów, QA, fixy, publikacje WP) należy do workspace'u przez kandydata.
+- Złożone FK w bazie: kandydat ma workspace swojego źródła, a job ma workspace swojego kandydata.
+- URL źródła i kandydata jest unikalny w obrębie workspace'u. Ten sam RSS w dwóch workspace'ach daje
+  osobnych kandydatów.
+- **Trasy z ID:** `app/api/access.py` (`enforce_workspace`, zależność routera chronionego) sprawdza
+  `candidate_id`, `source_id`, `article_id`, `version_id`, `fix_id` i `job_id` w ścieżce. Obcy albo
+  nieistniejący zasób daje `404 {"code": "not_found"}`. Nowa nazwa ID w ścieżce musi trafić do `OWNERSHIP`,
+  inaczej `test_every_path_parameter_is_covered_by_ownership_check` się nie powiedzie.
+- **Listy i agregaty** (`/sources`, `/candidates`, `/jobs`, `/jobs/stats`, `/stats`, `classify-pending`,
+  `sources/fetch`) filtrują jawnie po `current.workspace_id`. Nowa lista musi robić to samo.
+- Worker i scheduler działają systemowo, ponad workspace'ami: nowi kandydaci dziedziczą workspace ze
+  źródła, a joby z kandydata.
+- Migracja `0010` przypisała istniejące dane do najstarszego workspace'u. Gdy były dane, a nie było kont,
+  utworzyła workspace „Domyślny”. Konto dołącza się do niego przez
+  `make create-user EMAIL=... WORKSPACE=<id>`. Seedy przyjmują `WORKSPACE=<id>` (domyślnie najstarszy).
+
+## Ograniczenia
+
+- WordPress jest nadal globalny (z `.env`), wspólny dla wszystkich workspace'ów.
+- Wszyscy zużywają wspólny klucz OpenAI i nie ma budżetów per workspace, dlatego w prod
+  `ALLOW_REGISTRATION=false` do czasu limitów kosztów.
+- Scheduler klasyfikuje automatycznie nowych kandydatów wszystkich workspace'ów (limit
+  `CLASSIFY_BATCH_LIMIT` na przebieg jest globalny).
+- Brak weryfikacji emaila, resetu hasła, 2FA, zaproszeń i przełączania workspace'ów.
 
 ## Testy
 
-- Backend: `tests/test_auth.py`. Fixture `client` jest zalogowany (nadpisany `get_current_user`),
+- Backend: `tests/test_auth.py`, `tests/test_workspace_isolation.py` (każda chroniona trasa z ID dla
+  zasobu obcego workspace'u zwraca 404 i niczego nie zapisuje; listy, unikalności, złożone FK). Fixture `client` jest zalogowany (nadpisany `get_current_user`),
   `anon_client` używa prawdziwego ciasteczka.
 - UI: `tests/auth-ui-check.mjs` (mockowane API). Mockowane checki używają `tests/fixtures/auth.mjs`
   (`authenticate`, `corsHeaders`). Live checki wymagają `UI_TEST_EMAIL` i `UI_TEST_PASSWORD`.

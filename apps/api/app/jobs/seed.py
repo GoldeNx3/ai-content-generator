@@ -3,12 +3,15 @@
 
 """Idempotent seed of example RSS sources: python -m app.jobs.seed"""
 
+import argparse
 import asyncio
+import sys
 import logging
 
 from app.core.db import SessionLocal
 from app.core.logging import setup_logging
 from app.models import Source
+from app.jobs.workspace_arg import WorkspaceNotFound, resolve_workspace, workspace_argument
 from app.repositories.source_repository import SourceRepository
 
 logger = logging.getLogger(__name__)
@@ -76,20 +79,27 @@ SEED_SOURCES: list[tuple[str, str]] = [
 
 # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń obsługiwać
 # inne zadania.
-async def seed() -> None:
+async def seed(workspace_id: int | None = None) -> None:
     async with SessionLocal() as session:
+        workspace_id = await resolve_workspace(session, workspace_id)
         repo = SourceRepository(session)
         created = 0
         for name, url in SEED_SOURCES:
-            if await repo.get_by_url(url) is None:
-                await repo.add(Source(name=name, url=url))
+            if await repo.get_by_url(url, workspace_id) is None:
+                await repo.add(Source(workspace_id=workspace_id, name=name, url=url))
                 created += 1
         # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
         # trwałego zapisu.
         await session.commit()
-    logger.info("Seed finished: %d new sources (%d total in seed list)", created, len(SEED_SOURCES))
+    logger.info("Seed finished: %d new sources (%d total in seed list) in workspace %d",
+                created, len(SEED_SOURCES), workspace_id)
 
 
 if __name__ == "__main__":
     setup_logging()
-    asyncio.run(seed())
+    parser = argparse.ArgumentParser(description="Przykładowe źródła RSS")
+    workspace_argument(parser)
+    try:
+        asyncio.run(seed(parser.parse_args().workspace))
+    except WorkspaceNotFound as exc:
+        sys.exit(str(exc))

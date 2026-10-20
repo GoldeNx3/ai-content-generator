@@ -94,7 +94,7 @@ class JobService:
         if kind not in ('publish_wordpress','prepare_wordpress') and not self.settings.openai_api_key and not is_demo_candidate(candidate):
             raise JobInputError('OPENAI_API_KEY is not set', 503)
         payload = await self._payload(kind, candidate, options)
-        job = Job(id=uuid4(), kind=kind, candidate_id=candidate_id, payload=payload,
+        job = Job(id=uuid4(), kind=kind, candidate_id=candidate_id, workspace_id=candidate.workspace_id, payload=payload,
                   idempotency_key=key, request_hash=request_hash,
                   max_attempts=self.settings.job_max_attempts, retry_of_job_id=retry_of)
         self.session.add(job)
@@ -213,6 +213,6 @@ class JobService:
             })
         return await self.enqueue('write', article.candidate_id, {**options.model_dump(mode='json'), 'parent_version_id': article.id}, key)
 
-    async def batch(self, limit: int, key: UUID | None = None) -> dict:
+    async def batch(self, limit: int, key: UUID | None = None, *, workspace_id: int) -> dict:
         from app.services.jobs.batch import enqueue_batch
-        return await enqueue_batch(self, limit, key)
+        return await enqueue_batch(self, limit, key, workspace_id=workspace_id)

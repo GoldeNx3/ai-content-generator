@@ -29,9 +29,10 @@ class IngestionService:
 
     # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
     # obsługiwać inne zadania.
-    async def fetch_all_active(self) -> FetchResult:
+    # workspace_id=None: wszystkie workspace'y (scheduler); endpoint podaje workspace użytkownika.
+    async def fetch_all_active(self, workspace_id: int | None = None) -> FetchResult:
         total = FetchResult()
-        for source in await self.sources.list_all(active_only=True):
+        for source in await self.sources.list_all(active_only=True, workspace_id=workspace_id):
             total.add(await self.fetch_source(source))
         return total
 
@@ -84,9 +85,10 @@ class IngestionService:
         unique: dict[str, FeedEntry] = {}
         for entry in entries:
             unique.setdefault(entry.url, entry)
-        existing = await self.candidates.existing_urls(unique.keys())
+        existing = await self.candidates.existing_urls(unique.keys(), source.workspace_id)
         rows = [
             {
+                "workspace_id": source.workspace_id,
                 "source_id": source.id,
                 "external_url": entry.url,
                 "title": entry.title,

@@ -12,6 +12,8 @@ from app.schemas.qa import QAOutput
 from app.services.article.versions import content_hash
 from app.services.qa.context import build_qa_payload, input_hash
 from app.services.qa.validation import calculate_scores, validate_output, validate_references
+import argparse, sys
+from app.jobs.workspace_arg import WorkspaceNotFound, resolve_workspace, workspace_argument
 
 # slug, title, explanation; stable URLs make repeated invocations non-destructive.
 CASES = [
@@ -145,7 +147,7 @@ async def _qa(session, article, types=(), status='completed', job=None):
 
 async def _job(session,candidate,kind,status,article=None,stage=None):
     now=datetime.now(timezone.utc); future=datetime(2100,1,1,tzinfo=timezone.utc)
-    job=Job(id=uuid4(),candidate_id=candidate.id,article_id=article.id if article else None,kind=kind,status=status,
+    job=Job(id=uuid4(),candidate_id=candidate.id,workspace_id=candidate.workspace_id,article_id=article.id if article else None,kind=kind,status=status,
         payload={'demo':True,'demo_snapshot':True,'options':{'article_id':article.id} if article else {},'settings':{}},request_hash=input_hash([candidate.id,kind,status]),
         stage=stage or {'research':'extracting_sources','write':'writing_article','qa_article':'evaluating_qa','auto_fix_article':'fixing_article'}.get(kind),
         available_at=future,attempt_count=0 if status=='queued' else 1,max_attempts=3,
@@ -227,19 +229,20 @@ async def _populate(session,candidate,slug):
         a.meta_description+=' Zmieniony opis po starym QA.';a.qa_passed=False;a.status='draft'
         a.content_hash=content_hash({field:getattr(a,field) for field in ('title','slug','lead','content','meta_title','meta_description')})
 
-async def seed_demo(session):
+async def seed_demo(session, workspace_id=None):
     """Insert missing cases atomically. Existing demo edits and real content survive."""
     await session.execute(text('SELECT pg_advisory_xact_lock(7642107)'))
-    source=await session.scalar(select(Source).where(Source.url==DEMO_PREFIX+'feed.xml'))
+    workspace_id=await resolve_workspace(session,workspace_id)
+    source=await session.scalar(select(Source).where(Source.url==DEMO_PREFIX+'feed.xml',Source.workspace_id==workspace_id))
     if source is None:
-        source=Source(name='[DEMO] Scenariusze pipeline — 0 kosztów AI',url=DEMO_PREFIX+'feed.xml',active=False)
+        source=Source(workspace_id=workspace_id,name='[DEMO] Scenariusze pipeline — 0 kosztów AI',url=DEMO_PREFIX+'feed.xml',active=False)
         session.add(source);await session.flush()
     catalog=[]
     for index,(slug,title,description) in enumerate(CASES,1):
         url=DEMO_PREFIX+'cases/'+slug
-        candidate=await session.scalar(select(Candidate).where(Candidate.external_url==url))
+        candidate=await session.scalar(select(Candidate).where(Candidate.external_url==url,Candidate.workspace_id==workspace_id))
         if candidate is None:
-            candidate=Candidate(source_id=source.id,external_url=url,title=f'[DEMO {index:02}] {title}',summary=description,
+            candidate=Candidate(workspace_id=workspace_id,source_id=source.id,external_url=url,title=f'[DEMO {index:02}] {title}',summary=description,
                 original_published_at=datetime.now(timezone.utc),status='ignored' if slug=='ignored' else 'pending',
                 category=None if slug=='discovered' else 'news',total_score=None if slug=='discovered' else 90,
                 relevance_score=None if slug=='discovered' else 90,freshness_score=None if slug=='discovered' else 90,search_potential_score=None if slug=='discovered' else 90,commercial_potential_score=None if slug=='discovered' else 90,
@@ -255,8 +258,10 @@ async def seed_demo(session):
     await session.commit();return catalog
 
 async def main():
+    parser=argparse.ArgumentParser(description='Scenariusze demo bez wywołań AI');workspace_argument(parser)
     async with SessionLocal() as session:
-        catalog=await seed_demo(session)
+        try: catalog=await seed_demo(session,parser.parse_args().workspace)
+        except WorkspaceNotFound as exc: sys.exit(str(exc))
     print('DEMO: bez wywołań AI. Istniejące dane zachowane. Instrukcja: docs/demo/README.md')
     for c in catalog: print(f"{c['candidate_id']:>5}  {c['slug']:<22} http://localhost:3000{c['url']}")
 

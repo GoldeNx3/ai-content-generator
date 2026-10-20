@@ -67,9 +67,9 @@ async def test_deduplicates_by_url(session: AsyncSession, source: Source) -> Non
 async def test_failing_source_does_not_stop_others(session: AsyncSession) -> None:
     session.add_all(
         [
-            Source(name="Broken", url="https://example.com/missing.xml"),
-            Source(name="Atom", url="https://example.com/atom.xml"),
-            Source(name="Inactive", url="https://example.com/feed.xml", active=False),
+            Source(workspace_id=1, name="Broken", url="https://example.com/missing.xml"),
+            Source(workspace_id=1, name="Atom", url="https://example.com/atom.xml"),
+            Source(workspace_id=1, name="Inactive", url="https://example.com/feed.xml", active=False),
         ]
     )
     # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze

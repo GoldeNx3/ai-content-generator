@@ -19,10 +19,10 @@ async def test_demo_full_queue_flow_never_constructs_network_client(session, ses
         raise AssertionError('Demo must not construct external providers')
     monkeypatch.setattr('app.workers.providers.OpenAIClient', forbidden)
     monkeypatch.setattr('httpx.AsyncClient', forbidden)
-    source = Source(name='Demo', url=PREFIX + 'feed', active=False)
+    source = Source(workspace_id=1, name='Demo', url=PREFIX + 'feed', active=False)
     session.add(source)
     await session.flush()
-    candidate = Candidate(source_id=source.id, title='Nexa Studio', external_url=PREFIX + 'interactive')
+    candidate = Candidate(workspace_id=1, source_id=source.id, title='Nexa Studio', external_url=PREFIX + 'interactive')
     session.add(candidate)
     await session.commit()
     settings = Settings(openai_api_key='', tavily_api_key='')
@@ -62,15 +62,15 @@ async def test_demo_full_queue_flow_never_constructs_network_client(session, ses
     assert clean.issues == []
 
 async def test_real_candidate_cannot_bypass_key_by_demo_option(session, source):
-    candidate = Candidate(source_id=source.id, title='Real', external_url='https://example.com/real')
+    candidate = Candidate(workspace_id=1, source_id=source.id, title='Real', external_url='https://example.com/real')
     session.add(candidate)
     await session.commit()
     with pytest.raises(JobInputError, match='OPENAI_API_KEY'):
         await JobService(session, Settings(openai_api_key='')).enqueue('classify', candidate.id, {'demo': True})
 
 async def test_demo_unclassified_excluded_from_automatic_batch(session, source):
-    demo = Candidate(source_id=source.id, title='Demo', external_url=PREFIX + 'pending')
-    real = Candidate(source_id=source.id, title='Real', external_url='https://example.com/pending')
+    demo = Candidate(workspace_id=1, source_id=source.id, title='Demo', external_url=PREFIX + 'pending')
+    real = Candidate(workspace_id=1, source_id=source.id, title='Real', external_url='https://example.com/pending')
     session.add_all([demo, real])
     await session.commit()
     assert await CandidateRepository(session).list_unclassified_ids() == [real.id]
@@ -79,15 +79,15 @@ async def test_snapshot_jobs_are_not_claimed_or_recovered(session, source):
     from datetime import UTC, datetime, timedelta
     from uuid import uuid4
     from app.repositories.job_repository import JobRepository
-    candidate = Candidate(source_id=source.id, title='Snapshot', external_url=PREFIX + 'snapshot')
+    candidate = Candidate(workspace_id=1, source_id=source.id, title='Snapshot', external_url=PREFIX + 'snapshot')
     session.add(candidate)
     await session.flush()
     now = datetime.now(UTC)
-    queued = Job(id=uuid4(), candidate_id=candidate.id, kind='classify', payload={'demo_snapshot': True},
+    queued = Job(workspace_id=1, id=uuid4(), candidate_id=candidate.id, kind='classify', payload={'demo_snapshot': True},
         idempotency_key=uuid4(), request_hash='queued', status='queued', available_at=now-timedelta(seconds=10))
-    running = Job(id=uuid4(), candidate_id=candidate.id, kind='research', payload={'demo_snapshot': True},
+    running = Job(workspace_id=1, id=uuid4(), candidate_id=candidate.id, kind='research', payload={'demo_snapshot': True},
         idempotency_key=uuid4(), request_hash='running', status='running', locked_until=now-timedelta(seconds=10))
-    other = Candidate(source_id=source.id, title='Running snapshot', external_url=PREFIX + 'running')
+    other = Candidate(workspace_id=1, source_id=source.id, title='Running snapshot', external_url=PREFIX + 'running')
     session.add(other)
     await session.flush()
     running.candidate_id = other.id
@@ -120,7 +120,7 @@ async def test_worker_ignores_forged_demo_flag_on_real_candidate(session, sessio
     class RealProviderSelected(Exception): pass
     def real_providers(settings): raise RealProviderSelected()
     monkeypatch.setattr('app.workers.worker.providers_for', real_providers)
-    candidate = Candidate(source_id=source.id, title='Real', external_url='https://example.com/real-selection')
+    candidate = Candidate(workspace_id=1, source_id=source.id, title='Real', external_url='https://example.com/real-selection')
     session.add(candidate)
     await session.commit()
     job = await JobService(session, Settings(openai_api_key='dummy')).enqueue('classify', candidate.id)
@@ -133,7 +133,7 @@ async def test_worker_ignores_forged_demo_flag_on_real_candidate(session, sessio
 
 async def test_demo_manual_source_api_never_constructs_external_client(session, client, source, monkeypatch):
     def forbidden(*args, **kwargs): raise AssertionError('External provider created for demo source')
-    candidate = Candidate(source_id=source.id, title='Local manual source', external_url=PREFIX + 'manual')
+    candidate = Candidate(workspace_id=1, source_id=source.id, title='Local manual source', external_url=PREFIX + 'manual')
     session.add(candidate)
     await session.commit()
     monkeypatch.setattr('app.services.llm.factory.OpenAIClient', forbidden)

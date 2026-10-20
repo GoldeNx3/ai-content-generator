@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Header, HTTPException, Query, Response
 from sqlalchemy import func, select
 
-from app.api.deps import JobServiceDep, SessionDep
+from app.api.deps import CurrentUserDep, JobServiceDep, SessionDep
 from app.models import Candidate
 from app.models.job import ACTIVE_STATUSES, Job, JobAttempt
 from app.schemas.job import JobRead, JobAttemptRead, JobPage, JobStats
@@ -27,7 +27,7 @@ async def enqueue_call(response: Response, action):
 
 
 @router.get('/jobs', response_model=JobPage)
-async def queue_jobs(session: SessionDep,
+async def queue_jobs(session: SessionDep, current: CurrentUserDep,
                      status: str = 'active',
                      kind: Literal['classify', 'research', 'write', 'qa_article', 'auto_fix_article', 'prepare_wordpress', 'publish_wordpress'] | None = None,
                      candidate_id: Annotated[int | None, Query(ge=1)] = None,
@@ -35,7 +35,7 @@ async def queue_jobs(session: SessionDep,
                      page_size: Annotated[int, Query(ge=1, le=100)] = 25):
     # Domyślne active zachowuje dotychczasowy kontrakt dashboardu.
     # Panel kolejki używa all albo konkretnego statusu, również zakończonego.
-    conditions = []
+    conditions = [Job.workspace_id == current.workspace_id]
     if status == 'active':
         conditions.append(Job.status.in_(ACTIVE_STATUSES))
     elif status != 'all':
@@ -56,8 +56,9 @@ async def queue_jobs(session: SessionDep,
 
 # Trasa statyczna musi występować przed /jobs/{job_id}, żeby stats nie był UUID.
 @router.get('/jobs/stats', response_model=JobStats)
-async def queue_stats(session: SessionDep):
-    counts = dict((await session.execute(select(Job.status, func.count(Job.id)).group_by(Job.status))).all())
+async def queue_stats(session: SessionDep, current: CurrentUserDep):
+    counts = dict((await session.execute(select(Job.status, func.count(Job.id))
+                                         .where(Job.workspace_id == current.workspace_id).group_by(Job.status))).all())
     return JobStats(**counts, total=sum(counts.values()))
 
 

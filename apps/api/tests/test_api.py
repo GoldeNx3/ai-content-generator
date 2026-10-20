@@ -35,11 +35,11 @@ async def test_candidate_list_filters_sorting_and_status(
 ) -> None:
     session.add_all(
         [
-            Candidate(source_id=source.id, external_url="https://e.com/a", title="A", total_score=90,
+            Candidate(workspace_id=1, source_id=source.id, external_url="https://e.com/a", title="A", total_score=90,
                       category=CandidateCategory.RELEASE),
-            Candidate(source_id=source.id, external_url="https://e.com/b", title="B", total_score=40,
+            Candidate(workspace_id=1, source_id=source.id, external_url="https://e.com/b", title="B", total_score=40,
                       category=CandidateCategory.NEWS),
-            Candidate(source_id=source.id, external_url="https://e.com/c", title="C"),
+            Candidate(workspace_id=1, source_id=source.id, external_url="https://e.com/c", title="C"),
         ]
     )
     # commit zatwierdza transakcję; samo zmienienie obiektu ORM lub session.add nie oznacza jeszcze
@@ -75,7 +75,7 @@ async def test_candidate_list_filters_sorting_and_status(
 async def test_classify_endpoint_uses_provider(
     client: httpx.AsyncClient, session: AsyncSession, source: Source, execute_job
 ) -> None:
-    candidate = Candidate(source_id=source.id, external_url="https://e.com/x", title="X")
+    candidate = Candidate(workspace_id=1, source_id=source.id, external_url="https://e.com/x", title="X")
     session.add(candidate)
     await session.commit()
 

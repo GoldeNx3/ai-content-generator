@@ -10,7 +10,7 @@ from app.models import Source
 from app.services.rss_fetcher import FeedFetchError, RssFetcher
 from tests.feeds import ATOM_FEED, BROKEN_FEED, RSS_FEED
 
-SOURCE = Source(name="Example", url="https://example.com/feed.xml")
+SOURCE = Source(workspace_id=1, name="Example", url="https://example.com/feed.xml")
 
 
 # MockTransport przechwytuje HTTP i zwraca odpowiedź z lokalnej funkcji; to wywołanie nie trafia do Internetu.
