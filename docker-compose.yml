@@ -1,9 +1,20 @@
-x-backend: &backend
-  image: content-enginge-api
-  build: ./apps/api
-  env_file: .env
+x-platform: &platform
+  image: content-engine-platform-dev
+  build:
+    context: ./apps
+    dockerfile: platform/Dockerfile
+    target: base
+  environment:
+    DB_HOST: db
+    REDIS_HOST: redis
   volumes:
-    - ./apps/api:/app
+    - ./apps/platform:/srv/platform
+    - ./apps/api:/srv/ai
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
 
 services:
   db:
@@ -23,40 +34,44 @@ services:
       timeout: 3s
       retries: 20
 
-  migrate:
-    <<: *backend
-    command: ["alembic", "upgrade", "head"]
-    depends_on:
-      db:
-        condition: service_healthy
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
 
-  api:
-    <<: *backend
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+  migrate:
+    <<: *platform
+    command: ["sh", "-c", "composer install --no-interaction --prefer-dist && php artisan migrate --force"]
+    restart: "no"
+
+  platform:
+    <<: *platform
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+    environment:
+      DB_HOST: db
+      REDIS_HOST: redis
+      PHP_CLI_SERVER_WORKERS: "8"
     ports:
       - "8000:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
 
-  worker:
-    <<: *backend
-    command: ["python", "-m", "app.workers.main"]
+  queue:
+    <<: *platform
+    command: ["php", "artisan", "queue:work", "redis", "--queue=pipeline,default", "--sleep=1", "--timeout=1800", "--tries=0"]
     restart: unless-stopped
-    stop_grace_period: 40s
-    healthcheck:
-      test: ["CMD", "python", "-c", "import json,time; from pathlib import Path; p=Path('/tmp/worker-health.json'); assert p.exists() and time.time()-json.loads(p.read_text())['time']<30"]
-      interval: 10s
-      timeout: 3s
-      start_period: 20s
-      retries: 3
+    stop_grace_period: 60s
     depends_on:
       migrate:
         condition: service_completed_successfully
 
   scheduler:
-    <<: *backend
-    command: ["python", "-m", "app.jobs.scheduler"]
+    <<: *platform
+    command: ["php", "artisan", "schedule:work"]
     restart: unless-stopped
     depends_on:
       migrate:
@@ -70,7 +85,7 @@ services:
     ports:
       - "3000:3000"
     depends_on:
-      - api
+      - platform
 
 volumes:
   pgdata:

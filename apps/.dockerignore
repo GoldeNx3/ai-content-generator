@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/__pycache__
+**/.pytest_cache
+platform/vendor
+platform/storage/logs/*
+platform/storage/framework/cache/*
+platform/storage/framework/sessions/*
+platform/storage/framework/views/*
+platform/.env
+platform/database/database.sqlite
+web
