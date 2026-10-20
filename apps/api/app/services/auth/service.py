@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models import AuthAttempt, User, UserSession, Workspace, WorkspaceMember
-from app.models.enums import AuthAttemptKind, WorkspaceRole
+from app.enums import AuthAttemptKind, WorkspaceRole
 from app.repositories.user_repository import UserRepository
 from app.services.auth.passwords import hash_password, needs_rehash, verify_password
 

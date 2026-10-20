@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
-from app.models.enums import SourceType
+from app.enums import SourceType
 
 
 class SourceCreate(BaseModel):

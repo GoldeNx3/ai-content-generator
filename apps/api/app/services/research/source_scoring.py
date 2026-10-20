@@ -9,7 +9,7 @@ Note: number of sources is never treated as proof - this only ranks individual s
 
 from dataclasses import dataclass
 
-from app.models import ResearchSourceType
+from app.enums import ResearchSourceType
 from app.services.research.urls import hostname, registered_domain
 
 SCORE_OFFICIAL = 100

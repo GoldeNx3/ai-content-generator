@@ -2,7 +2,7 @@
 
 from app.models.article import Article
 from app.models.candidate import Candidate
-from app.models.enums import (
+from app.enums import (
     ArticleStatus,
     CandidateCategory,
     CandidateStatus,

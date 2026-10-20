@@ -8,7 +8,7 @@ from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, Numeric, Stri
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
-from app.models.enums import AuthAttemptKind, WorkspaceRole
+from app.enums import AuthAttemptKind, WorkspaceRole
 from app.models.mixins import TimestampMixin
 
 

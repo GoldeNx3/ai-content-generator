@@ -5,7 +5,7 @@
 from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.deps import CurrentUserDep, SessionDep, SettingsDep
-from app.models.enums import WorkspaceRole
+from app.enums import WorkspaceRole
 from app.schemas.wordpress_connection import (
     AuthorizeComplete,
     AuthorizeStart,

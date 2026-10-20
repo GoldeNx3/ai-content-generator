@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from app.models import CandidateCategory
+from app.enums import CandidateCategory
 from app.schemas.article import ArticleFormat, ArticleLength, GenerateArticleRequest
 
 # Editorial targets describe depth, not a conversion from fact count to prose.

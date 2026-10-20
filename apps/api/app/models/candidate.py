@@ -8,7 +8,7 @@ from sqlalchemy import DateTime, Enum, ForeignKey, ForeignKeyConstraint, Index, 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
-from app.models.enums import CandidateCategory, CandidateStatus
+from app.enums import CandidateCategory, CandidateStatus
 from app.models.mixins import TimestampMixin
 from app.models.source import Source
 

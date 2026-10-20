@@ -1,0 +1,80 @@
+<?php
+
+namespace Modules\Classification\Services;
+
+use Illuminate\Support\Str;
+use Modules\Candidates\Models\Candidate;
+use Modules\Classification\Commands\BatchCommand;
+use Modules\Classification\Queries\UnclassifiedCandidatesQuery;
+use Modules\Pipeline\Data\EnqueuedBatchData;
+use Modules\Pipeline\Enums\JobKind;
+use Modules\Pipeline\Exceptions\JobConflictException;
+use Modules\Pipeline\Exceptions\JobInputException;
+use Modules\Pipeline\Models\PipelineJob;
+use Modules\Pipeline\Queries\FindJobByKeyQuery;
+use Modules\Pipeline\Services\EnqueueService;
+use Modules\Usage\Services\BudgetService;
+use Ramsey\Uuid\Uuid;
+
+final class ClassificationService
+{
+    public function __construct(
+        private readonly EnqueueService $enqueue,
+        private readonly UnclassifiedCandidatesQuery $unclassified,
+        private readonly BatchCommand $batches,
+        private readonly FindJobByKeyQuery $byKey,
+        private readonly BudgetService $budget,
+    ) {}
+
+    public function classify(Candidate $candidate, ?string $key): PipelineJob
+    {
+        return $this->enqueue->enqueue(JobKind::Classify, $candidate->id, [], $key);
+    }
+
+    public function classifyPending(int $workspaceId, int $limit, ?string $key): EnqueuedBatchData
+    {
+        $key ??= (string) Str::uuid();
+        $hash = hash('sha256', "classify-batch:{$workspaceId}:{$limit}");
+        $batch = $this->batches->find($key);
+        if ($batch === null) {
+            $this->budget->ensureAvailable($workspaceId);
+            $batch = $this->batches->create($key, $workspaceId, $hash, $this->unclassified->execute($workspaceId, $limit));
+        }
+        if ($batch->request_hash !== $hash || $batch->workspace_id !== $workspaceId) {
+            throw new JobConflictException('idempotency_conflict');
+        }
+        $result = new EnqueuedBatchData;
+        $ids = $batch->candidate_ids;
+        foreach ($ids as $index => $candidateId) {
+            if (in_array($candidateId, $this->batches->find($key)->skipped_ids, true)) {
+                $result->skipped_busy++;
+
+                continue;
+            }
+            $childKey = Uuid::uuid5($key, (string) $candidateId)->toString();
+            $existed = $this->byKey->execute($childKey) !== null;
+            try {
+                $job = $this->enqueue->enqueue(JobKind::Classify, $candidateId, [], $childKey);
+                $result->job_ids[] = $job->id;
+                $existed ? $result->existing++ : $result->enqueued++;
+            } catch (JobInputException $exception) {
+                if ($exception->status !== 402) {
+                    throw $exception;
+                }
+                $result->skipped_budget = count($ids) - $index;
+                break;
+            } catch (JobConflictException) {
+                $child = $this->byKey->execute($childKey);
+                if ($child !== null) {
+                    $result->job_ids[] = $child->id;
+                    $result->existing++;
+                } else {
+                    $this->batches->markSkipped($key, $candidateId);
+                    $result->skipped_busy++;
+                }
+            }
+        }
+
+        return $result;
+    }
+}

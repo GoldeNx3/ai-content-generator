@@ -7,7 +7,7 @@ from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import CandidateCategory, CandidateStatus
+from app.enums import CandidateCategory, CandidateStatus
 
 
 # Field dodaje walidację Pydantic: ge/le to granice liczb, a default/default_factory określają wartość

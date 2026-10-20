@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
-from app.models.enums import (
+from app.enums import (
     FactBasis,
     FactImportance,
     FetchStatus,

@@ -1,0 +1,74 @@
+<?php
+
+namespace Modules\Pipeline\Services;
+
+use Illuminate\Support\Facades\DB;
+use Modules\Ai\Exceptions\AiTaskException;
+use Modules\Ai\Services\AiRunner;
+use Modules\Pipeline\Commands\FinishJobCommand;
+use Modules\Pipeline\Commands\UpdateRunningJobCommand;
+use Modules\Pipeline\Data\StageResult;
+use Modules\Pipeline\Models\PipelineJob;
+use Modules\Pipeline\Models\PipelineJobAttempt;
+
+final class JobRunContext
+{
+    public function __construct(
+        public readonly PipelineJob $job,
+        private readonly UpdateRunningJobCommand $update,
+        private readonly FinishJobCommand $finish,
+        private readonly AiRunner $ai,
+        private readonly int $timeoutSeconds,
+    ) {}
+
+    public function stage(string $stage): void
+    {
+        $this->update->stage($this->job, $stage);
+    }
+
+    public function checkpoint(string $key, mixed $value): void
+    {
+        $this->update->checkpoint($this->job, $key, $value);
+    }
+
+    public function checkpointValue(string $key): mixed
+    {
+        return $this->job->checkpoint($key);
+    }
+
+    public function ai(string $step, string $task, array $input): array
+    {
+        $cached = $this->checkpointValue('ai:'.$step);
+        if ($cached !== null) {
+            return $cached;
+        }
+        try {
+            $response = $this->ai->run($task, $input, (bool) ($this->job->payload['demo'] ?? false), $this->timeoutSeconds);
+        } catch (AiTaskException $exception) {
+            $this->update->calls($this->job, $exception->calls);
+            throw $exception;
+        }
+        $this->update->fenced($this->job, function (PipelineJob $locked, PipelineJobAttempt $attempt) use ($step, $response): void {
+            $attempt->forceFill(['llm_calls' => [...($attempt->llm_calls ?? []), ...$response->calls]])->save();
+            $checkpoint = ['result' => $response->result, 'calls' => $response->calls];
+            $locked->forceFill(['checkpoints' => [...($locked->checkpoints ?? []), 'ai:'.$step => $checkpoint]])->save();
+        });
+        $checkpoint = ['result' => $response->result, 'calls' => $response->calls];
+        $this->job->checkpoints = [...($this->job->checkpoints ?? []), 'ai:'.$step => $checkpoint];
+
+        return $checkpoint;
+    }
+
+    public function finish(callable $persist): void
+    {
+        $this->update->fenced($this->job, function (PipelineJob $locked, PipelineJobAttempt $attempt) use ($persist): void {
+            $result = $persist() ?? new StageResult;
+            $this->finish->succeed($locked, $attempt, $result);
+        });
+    }
+
+    public function transaction(callable $write): mixed
+    {
+        return $this->update->fenced($this->job, fn () => DB::transaction($write));
+    }
+}

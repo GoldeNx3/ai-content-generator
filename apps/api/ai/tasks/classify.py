@@ -1,0 +1,36 @@
+# Rola pliku: Zadanie `classify`: cztery oceny, kategoria i uzasadnienie tematu oraz wynik łączny.
+
+from datetime import datetime
+
+from pydantic import BaseModel
+
+from ai.context import TaskContext
+from app.services.llm.base import CandidateInput
+from app.services.scoring import compute_total_score
+
+
+class CandidatePayload(BaseModel):
+    title: str
+    summary: str | None = None
+    source: str
+    published_at: datetime | None = None
+
+
+class ClassifyInput(BaseModel):
+    candidate: CandidatePayload
+
+
+async def run(data: dict, ctx: TaskContext) -> dict:
+    payload = ClassifyInput.model_validate(data).candidate
+    candidate = CandidateInput(payload.title, payload.summary, payload.source, payload.published_at)
+    classifier = ctx.providers["classify"]
+    classification = await ctx.call("classifying", lambda: classifier.classify_candidate(candidate))
+    return {
+        "relevance": classification.relevance,
+        "freshness": classification.freshness,
+        "search_potential": classification.search_potential,
+        "commercial_potential": classification.commercial_potential,
+        "total_score": compute_total_score(classification),
+        "category": classification.category,
+        "reason": classification.reason,
+    }

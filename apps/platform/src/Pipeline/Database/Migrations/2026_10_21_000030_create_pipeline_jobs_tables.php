@@ -25,6 +25,7 @@ return new class extends Migration
             $table->timestampTz('available_at')->useCurrent();
             $table->timestampTz('started_at')->nullable();
             $table->timestampTz('finished_at')->nullable();
+            $table->timestampTz('lease_expires_at')->nullable();
             $table->string('result_type', 30)->nullable();
             $table->unsignedBigInteger('result_id')->nullable();
             $table->string('error_code', 60)->nullable();

@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.enums import ArticleStatus, CandidateCategory
+from app.enums import ArticleStatus, CandidateCategory
 
 # ---------- LLM structured output ----------
 

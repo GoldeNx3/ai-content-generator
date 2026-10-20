@@ -7,7 +7,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import AuthAttempt, User, UserSession, Workspace, WorkspaceMember
-from app.models.enums import AuthAttemptKind
+from app.enums import AuthAttemptKind
 
 
 class UserRepository:

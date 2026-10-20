@@ -6,7 +6,7 @@ from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, UniqueConstr
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
-from app.models.enums import SourceType
+from app.enums import SourceType
 from app.models.mixins import TimestampMixin
 
 

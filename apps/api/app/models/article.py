@@ -11,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
 from app.models.candidate import enum_values
-from app.models.enums import ArticleStatus, CandidateCategory
+from app.enums import ArticleStatus, CandidateCategory
 from app.models.mixins import TimestampMixin
 
 

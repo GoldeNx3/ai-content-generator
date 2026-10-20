@@ -5,7 +5,7 @@ import re
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.models.enums import WorkspaceRole
+from app.enums import WorkspaceRole
 
 # Celowo prosta walidacja; pełną weryfikację adresu dałoby dopiero potwierdzenie mailem.
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")

@@ -3,7 +3,7 @@
 
 from pydantic import BaseModel, Field, PrivateAttr
 
-from app.models.enums import CandidateCategory
+from app.enums import CandidateCategory
 
 
 class CandidateClassification(BaseModel):

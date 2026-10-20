@@ -22,7 +22,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.candidate import enum_values
-from app.models.enums import (
+from app.enums import (
     FactImportance,
     FetchStatus,
     ResearchSourceOrigin,
