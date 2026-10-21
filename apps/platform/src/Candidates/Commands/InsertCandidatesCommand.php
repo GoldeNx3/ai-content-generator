@@ -15,7 +15,7 @@ final class InsertCandidatesCommand
         $inserted = 0;
         foreach (array_chunk($rows, self::CHUNK) as $chunk) {
             $inserted += DB::table('candidates')->insertOrIgnore(array_map(
-                fn (array $row) => [...$row, 'status' => 'pending', 'created_at' => $now, 'updated_at' => $now],
+                fn (array $row) => ['status' => 'pending', ...$row, 'created_at' => $now, 'updated_at' => $now],
                 $chunk,
             ));
         }
