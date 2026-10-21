@@ -7,9 +7,10 @@ use Modules\Articles\Data\ArticleData;
 use Modules\Articles\Data\ArticleQaState;
 use Modules\Articles\Data\ArticleSummaryData;
 use Modules\Articles\Models\Article;
-use Modules\Articles\Queries\ArticleLineageQuery;
+use Modules\Articles\Support\Lineage;
 use Modules\Articles\Queries\ArticleVersionsQuery;
 use Modules\Articles\Queries\CompletedFixIterationsQuery;
+use Modules\Qa\Queries\LatestQaForArticlesQuery;
 use Modules\Qa\Queries\LatestQaQuery;
 use Modules\Qa\Support\QaSnapshot;
 
@@ -18,13 +19,14 @@ final class ArticleViewService
     public function __construct(
         private readonly ArticleVersionsQuery $versions,
         private readonly LatestQaQuery $latestQa,
+        private readonly LatestQaForArticlesQuery $latestQaForArticles,
         private readonly CompletedFixIterationsQuery $fixIterations,
     ) {}
 
     public function summaries(int $candidateId): Collection
     {
         $articles = $this->versions->execute($candidateId);
-        $reports = $this->latestQa->forArticles($articles->pluck('id')->all());
+        $reports = $this->latestQaForArticles->execute($articles->pluck('id')->all());
         $fixes = $this->fixIterations->execute($articles->pluck('id')->all());
         $byId = $articles->keyBy('id')->all();
 
@@ -48,7 +50,7 @@ final class ArticleViewService
     public function iterationsUsed(Article $article, array $versions, array $fixes): int
     {
         $used = [$article->auto_fix_iteration];
-        foreach (ArticleLineageQuery::walk($versions, $article->id) as $id) {
+        foreach (Lineage::walk($versions, $article->id) as $id) {
             $used[] = $fixes[$id] ?? 0;
         }
 

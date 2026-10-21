@@ -4,7 +4,9 @@ namespace Modules\Classification\Services;
 
 use Illuminate\Support\Str;
 use Modules\Candidates\Models\Candidate;
-use Modules\Classification\Commands\BatchCommand;
+use Modules\Classification\Commands\CreateBatchCommand;
+use Modules\Classification\Commands\MarkBatchSkippedCommand;
+use Modules\Classification\Queries\FindBatchQuery;
 use Modules\Classification\Queries\UnclassifiedCandidatesQuery;
 use Modules\Pipeline\Data\EnqueuedBatchData;
 use Modules\Pipeline\Enums\JobKind;
@@ -21,7 +23,9 @@ final class ClassificationService
     public function __construct(
         private readonly EnqueueService $enqueue,
         private readonly UnclassifiedCandidatesQuery $unclassified,
-        private readonly BatchCommand $batches,
+        private readonly CreateBatchCommand $createBatch,
+        private readonly MarkBatchSkippedCommand $markSkipped,
+        private readonly FindBatchQuery $findBatch,
         private readonly FindJobByKeyQuery $byKey,
         private readonly BudgetService $budget,
     ) {}
@@ -35,10 +39,10 @@ final class ClassificationService
     {
         $key ??= (string) Str::uuid();
         $hash = hash('sha256', "classify-batch:{$workspaceId}:{$limit}");
-        $batch = $this->batches->find($key);
+        $batch = $this->findBatch->execute($key);
         if ($batch === null) {
             $this->budget->ensureAvailable($workspaceId);
-            $batch = $this->batches->create($key, $workspaceId, $hash, $this->unclassified->execute($workspaceId, $limit));
+            $batch = $this->createBatch->execute($key, $workspaceId, $hash, $this->unclassified->execute($workspaceId, $limit));
         }
         if ($batch->request_hash !== $hash || $batch->workspace_id !== $workspaceId) {
             throw new JobConflictException('idempotency_conflict');
@@ -46,7 +50,7 @@ final class ClassificationService
         $result = new EnqueuedBatchData;
         $ids = $batch->candidate_ids;
         foreach ($ids as $index => $candidateId) {
-            if (in_array($candidateId, $this->batches->find($key)->skipped_ids, true)) {
+            if (in_array($candidateId, $this->findBatch->execute($key)->skipped_ids, true)) {
                 $result->skipped_busy++;
 
                 continue;
@@ -69,7 +73,7 @@ final class ClassificationService
                     $result->job_ids[] = $child->id;
                     $result->existing++;
                 } else {
-                    $this->batches->markSkipped($key, $candidateId);
+                    $this->markSkipped->execute($key, $candidateId);
                     $result->skipped_busy++;
                 }
             }

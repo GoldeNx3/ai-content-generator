@@ -31,13 +31,4 @@ final class StartResearchCommand
 
         return $research;
     }
-
-    public function resume(int $researchId): Research
-    {
-        ResearchFact::query()->where('research_id', $researchId)->delete();
-        $research = Research::query()->findOrFail($researchId);
-        $research->update(['status' => ResearchStatus::Running]);
-
-        return $research;
-    }
 }

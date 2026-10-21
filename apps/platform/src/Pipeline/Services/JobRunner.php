@@ -7,8 +7,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Ai\Services\AiRunner;
 use Modules\Pipeline\Commands\ClaimJobCommand;
-use Modules\Pipeline\Commands\FinishJobCommand;
-use Modules\Pipeline\Commands\UpdateRunningJobCommand;
+use Modules\Pipeline\Commands\FailJobCommand;
+use Modules\Pipeline\Commands\SucceedJobCommand;
 use Modules\Pipeline\Enums\JobStatus;
 use Modules\Pipeline\Exceptions\LeaseLostException;
 use Modules\Pipeline\Jobs\RunPipelineJob;
@@ -23,8 +23,9 @@ final class JobRunner
 
     public function __construct(
         private readonly ClaimJobCommand $claim,
-        private readonly UpdateRunningJobCommand $update,
-        private readonly FinishJobCommand $finish,
+        private readonly RunningJobWriter $update,
+        private readonly SucceedJobCommand $succeed,
+        private readonly FailJobCommand $failJob,
         private readonly HandlerRegistry $handlers,
         private readonly FailurePolicy $policy,
         private readonly AiRunner $ai,
@@ -42,7 +43,7 @@ final class JobRunner
         if ($job === null) {
             return;
         }
-        $context = new JobRunContext($job, $this->update, $this->finish, $this->ai, $timeout);
+        $context = new JobRunContext($job, $this->update, $this->succeed, $this->ai, $timeout);
         try {
             $this->handlers->for($job->kind)->run($job, $context);
         } catch (LeaseLostException $exception) {
@@ -82,7 +83,7 @@ final class JobRunner
         $write = function (PipelineJob $locked, ?PipelineJobAttempt $attempt) use ($code, $message, $retryable, $retryAfter, $details, $outcome, &$retry): void {
             $retry = $retryable && $locked->attempt_count < $locked->max_attempts;
             $available = CarbonImmutable::now()->addSeconds($this->policy->delaySeconds($locked->attempt_count, $retryAfter));
-            $this->finish->fail($locked, $attempt, $retry, $code, $message, $available, $outcome ?? ($retry ? 'retryable_error' : 'failed'));
+            $this->failJob->execute($locked, $attempt, $retry, $code, $message, $available, $outcome ?? ($retry ? 'retryable_error' : 'failed'));
             $this->handlers->for($locked->kind)->failed($locked, ! $retry, $message, $details);
         };
         if ($fenced) {

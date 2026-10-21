@@ -12,7 +12,8 @@ use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Queries\ActiveCandidateJobQuery;
 use Modules\Pipeline\Services\EnqueueService;
 use Modules\WordPress\Client\WordPressClientFactory;
-use Modules\WordPress\Commands\PublicationCommand;
+use Modules\WordPress\Commands\FindOrCreatePublicationCommand;
+use Modules\WordPress\Commands\UpdatePublicationCommand;
 use Modules\WordPress\Data\ConnectionConfig;
 use Modules\WordPress\Data\PublicationData;
 use Modules\WordPress\Data\PublishData;
@@ -32,7 +33,8 @@ final class PublicationService
         private readonly WordPressClientFactory $clients,
         private readonly PublicationGate $gate,
         private readonly ProfileService $profiles,
-        private readonly PublicationCommand $publications,
+        private readonly FindOrCreatePublicationCommand $findOrCreatePublication,
+        private readonly UpdatePublicationCommand $updatePublication,
         private readonly ActiveCandidateJobQuery $activeJob,
         private readonly EnqueueService $enqueue,
     ) {}
@@ -79,9 +81,9 @@ final class PublicationService
             if ($this->activeJob->execute($article->candidate_id) !== null) {
                 throw new JobInputException('Poczekaj na zakończenie aktywnego zadania.');
             }
-            $publication = $this->publications->forArticle($article);
+            $publication = $this->findOrCreatePublication->execute($article);
             $resolved = $this->profiles->resolve($article, [...($article->seo_preview ?? []), ...$this->profiles->overrides($article, $publication)]);
-            $this->publications->update($publication, ['profile' => [...$resolved, ...$values, 'version_id' => $article->id]]);
+            $this->updatePublication->execute($publication, ['profile' => [...$resolved, ...$values, 'version_id' => $article->id]]);
         });
 
         return $this->state($article->refresh());

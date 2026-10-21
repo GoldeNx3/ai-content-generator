@@ -9,8 +9,13 @@ use Modules\Articles\Queries\CompletedFixIterationsQuery;
 use Modules\Articles\Services\ArticleVersionService;
 use Modules\Articles\Services\ArticleViewService;
 use Modules\Articles\Support\ContentHash;
-use Modules\AutoFix\Commands\FixReportCommand;
-use Modules\AutoFix\Queries\FixesForVersionQuery;
+use Modules\Articles\Commands\SetArticleStatusCommand;
+use Modules\AutoFix\Commands\CompleteFixReportCommand;
+use Modules\AutoFix\Commands\CreateFixReportCommand;
+use Modules\AutoFix\Commands\FailFixReportCommand;
+use Modules\AutoFix\Commands\SetFixStatusCommand;
+use Modules\AutoFix\Queries\FixForJobQuery;
+use Modules\Pipeline\Commands\AttachJobArticleCommand;
 use Modules\AutoFix\Support\FixPolicy;
 use Modules\Candidates\Models\Candidate;
 use Modules\Pipeline\Contracts\BaseStageHandler;
@@ -31,8 +36,13 @@ final class AutoFixHandler extends BaseStageHandler
         private readonly ArticleVersionsQuery $versions,
         private readonly CompletedFixIterationsQuery $fixIterations,
         private readonly ArticleVersionService $versionService,
-        private readonly FixReportCommand $reports,
-        private readonly FixesForVersionQuery $fixes,
+        private readonly CreateFixReportCommand $createFix,
+        private readonly SetFixStatusCommand $setFixStatus,
+        private readonly FailFixReportCommand $failFix,
+        private readonly CompleteFixReportCommand $completeFix,
+        private readonly FixForJobQuery $fixForJob,
+        private readonly SetArticleStatusCommand $setArticleStatus,
+        private readonly AttachJobArticleCommand $attachArticle,
     ) {}
 
     public function kind(): JobKind
@@ -80,14 +90,14 @@ final class AutoFixHandler extends BaseStageHandler
 
     public function created(PipelineJob $job): void
     {
-        $job->update(['article_id' => $job->payload['options']['article_id']]);
-        $this->reports->createPending($job->article_id, $job->id, $job->payload['fix_context']);
+        $this->attachArticle->execute($job, $job->payload['options']['article_id']);
+        $this->createFix->execute($job->article_id, $job->id, $job->payload['fix_context']);
     }
 
     public function run(PipelineJob $job, JobRunContext $context): void
     {
-        $fix = $this->fixes->forJob($job->id) ?? throw new JobInputException('Article fix not found', 404);
-        $context->transaction(fn () => $this->reports->status($fix, 'running'));
+        $fix = $this->fixForJob->execute($job->id) ?? throw new JobInputException('Article fix not found', 404);
+        $context->transaction(fn () => $this->setFixStatus->execute($fix, 'running'));
         $context->stage('fixing_article');
         $response = $context->ai('fix', 'autofix.fix', [
             'payload' => $fix->input_snapshot,
@@ -106,9 +116,9 @@ final class AutoFixHandler extends BaseStageHandler
         $context->finish(function () use ($fix, $article, $result, $response, $child): StageResult {
             $version = $child === null ? null : $this->versionService->store($article->candidate_id, $child);
             if ($version === null) {
-                $article->update(['status' => ArticleStatus::ManualReviewRequired]);
+                $this->setArticleStatus->execute($article, ArticleStatus::ManualReviewRequired);
             }
-            $this->reports->complete($fix, $result, CallUsage::of($response['calls']), $version?->id);
+            $this->completeFix->execute($fix, $result, CallUsage::of($response['calls']), $version?->id);
 
             return new StageResult('article_fix', $fix->id);
         });
@@ -116,9 +126,9 @@ final class AutoFixHandler extends BaseStageHandler
 
     public function failed(PipelineJob $job, bool $final, string $message, ?array $details): void
     {
-        $fix = $this->fixes->forJob($job->id);
+        $fix = $this->fixForJob->execute($job->id);
         if ($fix !== null) {
-            $this->reports->fail($fix, $final ? 'failed' : 'pending', $message);
+            $this->failFix->execute($fix, $final ? 'failed' : 'pending', $message);
         }
     }
 }

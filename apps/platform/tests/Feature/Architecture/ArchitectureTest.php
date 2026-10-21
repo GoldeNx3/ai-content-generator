@@ -59,11 +59,18 @@ final class ArchitectureTest extends TestCase
     }
 
     #[Test]
-    public function queries_and_commands_expose_execute_or_named_operations(): void
+    public function queries_and_commands_have_single_execute_method(): void
     {
-        foreach (glob(base_path('src/*/Queries/*Query.php')) as $path) {
+        $paths = [...glob(base_path('src/*/Queries/*.php')), ...glob(base_path('src/*/Commands/*.php'))];
+        $this->assertNotEmpty($paths);
+        foreach ($paths as $path) {
             $class = 'Modules\\'.str_replace(['/', '.php'], ['\\', ''], Str::after($path, base_path('src/')));
-            $this->assertTrue(method_exists($class, 'execute'), "{$class} must have execute()");
+            $reflection = new ReflectionClass($class);
+            $public = array_values(array_map(fn ($m) => $m->name, array_filter(
+                $reflection->getMethods(ReflectionMethod::IS_PUBLIC),
+                fn ($m) => $m->class === $class && $m->name !== '__construct' && ! $m->isStatic(),
+            )));
+            $this->assertSame(['execute'], $public, "{$class} must expose only execute()");
         }
     }
 

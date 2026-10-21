@@ -7,8 +7,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Shared\Exceptions\ApiException;
 use Modules\WordPress\Client\WordPressClientFactory;
-use Modules\WordPress\Commands\AuthRequestCommand;
-use Modules\WordPress\Commands\ConnectionCommand;
+use Modules\WordPress\Commands\ConsumeAuthRequestCommand;
+use Modules\WordPress\Commands\CreateAuthRequestCommand;
+use Modules\WordPress\Commands\DeleteConnectionCommand;
+use Modules\WordPress\Commands\SaveConnectionCommand;
+use Modules\WordPress\Commands\UnlinkPublicationsCommand;
+use Modules\WordPress\Commands\UpdateConnectionCommand;
 use Modules\WordPress\Data\ConnectionConfig;
 use Modules\WordPress\Exceptions\WordPressException;
 use Modules\WordPress\Models\WordPressConnection;
@@ -28,8 +32,12 @@ final class ConnectionService
         private readonly WordPressClientFactory $clients,
         private readonly ConnectionForWorkspaceQuery $connectionFor,
         private readonly LinkedPublicationsQuery $linked,
-        private readonly ConnectionCommand $connections,
-        private readonly AuthRequestCommand $authRequests,
+        private readonly SaveConnectionCommand $saveConnection,
+        private readonly UpdateConnectionCommand $updateConnection,
+        private readonly DeleteConnectionCommand $deleteConnection,
+        private readonly UnlinkPublicationsCommand $unlinkPublications,
+        private readonly CreateAuthRequestCommand $createAuthRequest,
+        private readonly ConsumeAuthRequestCommand $consumeAuthRequest,
     ) {}
 
     public function find(int $workspaceId): ?WordPressConnection
@@ -65,11 +73,11 @@ final class ConnectionService
         return DB::transaction(function () use ($existing, $workspaceId, $siteChanged, $siteUrl, $apiUrl, $username, $password, $probe, $caps): WordPressConnection {
             $instance = $existing?->instance_id ?? 'ce-'.Str::lower(Str::random(32));
             if ($siteChanged) {
-                $this->connections->unlinkPublications($workspaceId, $existing->instance_id);
+                $this->unlinkPublications->execute($workspaceId, $existing->instance_id);
                 $instance = 'ce-'.Str::lower(Str::random(32));
             }
 
-            return $this->connections->save($existing, $workspaceId, [
+            return $this->saveConnection->execute($existing, $workspaceId, [
                 'site_url' => $siteUrl, 'api_url' => $apiUrl, 'username' => $username, 'app_password' => $password,
                 'instance_id' => $instance, 'seo_plugin' => $this->seoPlugin($caps),
                 'wp_user_id' => $probe['user_id'], 'wp_user_name' => $probe['user_name'],
@@ -88,22 +96,18 @@ final class ConnectionService
         } catch (WordPressException $exception) {
             $attributes['last_error'] = $exception->errorCode;
         }
-        $connection->update($attributes);
-
-        return $connection;
+        return $this->updateConnection->execute($connection, $attributes);
     }
 
     public function updateDefaults(int $workspaceId, array $values): WordPressConnection
     {
         $connection = $this->find($workspaceId) ?? throw new ApiException('wordpress_not_configured', 404);
-        $connection->update($values);
-
-        return $connection;
+        return $this->updateConnection->execute($connection, $values);
     }
 
     public function disconnect(int $workspaceId): void
     {
-        $this->connections->delete($workspaceId);
+        $this->deleteConnection->execute($workspaceId);
     }
 
     public function startAuthorization(int $workspaceId, int $userId, string $siteUrl, ?string $apiUrl): string
@@ -120,7 +124,7 @@ final class ConnectionService
             throw new ApiException('wordpress_app_passwords_unavailable', 422);
         }
         $state = Str::random(48);
-        $this->authRequests->create(hash('sha256', $state), $workspaceId, $userId, $siteUrl, $apiUrl, CarbonImmutable::now()->addMinutes(self::AUTH_TTL_MINUTES));
+        $this->createAuthRequest->execute(hash('sha256', $state), $workspaceId, $userId, $siteUrl, $apiUrl, CarbonImmutable::now()->addMinutes(self::AUTH_TTL_MINUTES));
         $callback = rtrim(config('content.frontend_url'), '/').'/settings/wordpress/callback';
 
         return $endpoint.'?'.http_build_query([
@@ -133,7 +137,7 @@ final class ConnectionService
 
     public function completeAuthorization(int $workspaceId, int $userId, string $state, string $username, string $password, bool $confirm): WordPressConnection
     {
-        $request = $this->authRequests->consume(hash('sha256', $state), $workspaceId, $userId)
+        $request = $this->consumeAuthRequest->execute(hash('sha256', $state), $workspaceId, $userId)
             ?? throw new ApiException('wordpress_auth_state_invalid', 400);
 
         return $this->connect($workspaceId, $request->site_url, $request->api_url, $username, $password, $confirm);

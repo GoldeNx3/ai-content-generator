@@ -1,19 +1,9 @@
 <?php
 
-namespace Modules\Articles\Queries;
+namespace Modules\Articles\Support;
 
-use Modules\Articles\Models\Article;
-
-final class ArticleLineageQuery
+final class Lineage
 {
-    public function execute(Article $article): array
-    {
-        $versions = Article::query()->where('candidate_id', $article->candidate_id)
-            ->get(['id', 'parent_version_id', 'created_by'])->keyBy('id');
-
-        return self::walk($versions->all(), $article->id);
-    }
-
     public static function walk(array $versions, int $articleId): array
     {
         $lineage = [];

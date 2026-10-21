@@ -15,17 +15,4 @@ final class LatestQaQuery
             ->orderByDesc('id')
             ->first();
     }
-
-    public function forArticles(array $articleIds): array
-    {
-        return ArticleQa::query()
-            ->whereIn('article_id', $articleIds)
-            ->orderBy('article_id')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
-            ->get()
-            ->unique('article_id')
-            ->keyBy('article_id')
-            ->all();
-    }
 }

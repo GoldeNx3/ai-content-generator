@@ -26,7 +26,7 @@ final class PrepareWordPressHandler extends WordPressStage
                 $publication->wp_status === 'publish' => 'published',
                 default => 'not_sent',
             };
-            $this->publications->update($publication, ['status' => $status]);
+            $this->updatePublication->execute($publication, ['status' => $status]);
 
             return new StageResult('wordpress_publication', $publication->id);
         });

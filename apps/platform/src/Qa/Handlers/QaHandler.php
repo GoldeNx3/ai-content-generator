@@ -15,7 +15,11 @@ use Modules\Pipeline\Exceptions\JobInputException;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Services\JobRunContext;
 use Modules\Pipeline\Support\CallUsage;
-use Modules\Qa\Commands\QaReportCommand;
+use Modules\Articles\Commands\UpdateArticleQaStateCommand;
+use Modules\Pipeline\Commands\AttachJobArticleCommand;
+use Modules\Qa\Commands\CompleteQaReportCommand;
+use Modules\Qa\Commands\CreateQaReportCommand;
+use Modules\Qa\Commands\SetQaReportStatusCommand;
 use Modules\Qa\Queries\QaReportForJobQuery;
 use Modules\Qa\Support\QaSnapshot;
 use Modules\Research\Queries\ResearchForCandidateQuery;
@@ -23,7 +27,11 @@ use Modules\Research\Queries\ResearchForCandidateQuery;
 final class QaHandler extends BaseStageHandler
 {
     public function __construct(
-        private readonly QaReportCommand $reports,
+        private readonly CreateQaReportCommand $createReport,
+        private readonly SetQaReportStatusCommand $setReportStatus,
+        private readonly CompleteQaReportCommand $completeReport,
+        private readonly UpdateArticleQaStateCommand $updateArticleQa,
+        private readonly AttachJobArticleCommand $attachArticle,
         private readonly QaReportForJobQuery $reportForJob,
         private readonly ResearchForCandidateQuery $researchFor,
         private readonly ArticleViewService $views,
@@ -54,14 +62,14 @@ final class QaHandler extends BaseStageHandler
     public function created(PipelineJob $job): void
     {
         $article = Article::query()->findOrFail($job->payload['options']['article_id']);
-        $job->update(['article_id' => $article->id]);
-        $this->reports->createPending($article, $job->id, $job->payload['qa_context']);
+        $this->attachArticle->execute($job, $article->id);
+        $this->createReport->execute($article, $job->id, $job->payload['qa_context']);
     }
 
     public function run(PipelineJob $job, JobRunContext $context): void
     {
         $report = $this->reportForJob->execute($job->id) ?? throw new JobInputException('QA report not found', 404);
-        $context->transaction(fn () => $report->update(['status' => 'running']));
+        $context->transaction(fn () => $this->setReportStatus->execute($job->id, 'running'));
         $context->stage('validating_references');
         $evaluation = $context->ai('evaluate', 'qa.evaluate', [
             'snapshot' => $report->input_snapshot,
@@ -69,7 +77,7 @@ final class QaHandler extends BaseStageHandler
         ]);
         $context->stage('validating_qa');
         $context->finish(function () use ($job, $report, $evaluation): StageResult {
-            $this->reports->complete($report, $evaluation['result'], CallUsage::of($evaluation['calls']));
+            $this->completeReport->execute($report, $evaluation['result'], CallUsage::of($evaluation['calls']));
             $this->applyToArticle(Article::query()->whereKey($job->article_id)->lockForUpdate()->firstOrFail(), $report->refresh());
 
             return new StageResult('article_qa', $report->id);
@@ -78,7 +86,7 @@ final class QaHandler extends BaseStageHandler
 
     public function failed(PipelineJob $job, bool $final, string $message, ?array $details): void
     {
-        $this->reports->status($job->id, $final ? 'failed' : 'pending');
+        $this->setReportStatus->execute($job->id, $final ? 'failed' : 'pending');
     }
 
     private function applyToArticle(Article $article, $report): void
@@ -94,6 +102,6 @@ final class QaHandler extends BaseStageHandler
                 $status = $used >= config('content.ai.settings.auto_fix_max_iterations') ? ArticleStatus::ManualReviewRequired : ArticleStatus::NeedsChanges;
             }
         }
-        $article->update(['qa_passed' => $passed, 'status' => $status]);
+        $this->updateArticleQa->execute($article, $passed, $status);
     }
 }

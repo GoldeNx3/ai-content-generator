@@ -3,6 +3,7 @@
 namespace Modules\Candidates\Queries;
 
 use Modules\Candidates\Models\Candidate;
+use Modules\Candidates\Support\WorkflowStatusExpression;
 
 final class CandidateDetailsQuery
 {

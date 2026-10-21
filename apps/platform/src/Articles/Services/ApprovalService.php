@@ -3,7 +3,8 @@
 namespace Modules\Articles\Services;
 
 use Illuminate\Support\Facades\DB;
-use Modules\Articles\Commands\ArticleStatusCommand;
+use Modules\Articles\Commands\ApproveArticleCommand;
+use Modules\Articles\Commands\RejectArticleCommand;
 use Modules\Articles\Enums\ArticleStatus;
 use Modules\Articles\Models\Article;
 use Modules\Pipeline\Exceptions\JobInputException;
@@ -16,7 +17,8 @@ final class ApprovalService
     public function __construct(
         private readonly LockCandidateQuery $lockCandidate,
         private readonly LatestQaQuery $latestQa,
-        private readonly ArticleStatusCommand $status,
+        private readonly ApproveArticleCommand $approve,
+        private readonly RejectArticleCommand $reject,
     ) {}
 
     public function approve(Article $article): Article
@@ -28,7 +30,7 @@ final class ApprovalService
                 throw new JobInputException('Zatwierdzenie wymaga aktualnego, zaliczonego QA i statusu ready_for_approval.');
             }
             if ($article->status !== ArticleStatus::Approved) {
-                $this->status->approve($article);
+                $this->approve->execute($article);
             }
 
             return $article->refresh();
@@ -43,7 +45,7 @@ final class ApprovalService
             if ($article->status === ArticleStatus::Superseded) {
                 throw new JobInputException('Wersja została zastąpiona.');
             }
-            $this->status->reject($article, $reason);
+            $this->reject->execute($article, $reason);
 
             return $article->refresh();
         });

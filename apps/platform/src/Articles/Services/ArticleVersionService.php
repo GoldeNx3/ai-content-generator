@@ -7,7 +7,7 @@ use Modules\Ai\Services\AiRunner;
 use Modules\Articles\Commands\CreateArticleVersionCommand;
 use Modules\Articles\Enums\ArticleStatus;
 use Modules\Articles\Models\Article;
-use Modules\Articles\Queries\ArticleLineageQuery;
+use Modules\Articles\Support\Lineage;
 use Modules\Articles\Queries\ArticleVersionsQuery;
 use Modules\Articles\Queries\CompletedFixIterationsQuery;
 use Modules\Articles\Queries\NextVersionQuery;
@@ -59,7 +59,7 @@ final class ArticleVersionService
             $data['generated_content'] = $data['content'];
         }
         $data['article_type'] = $parent->article_type->value;
-        $lineage = [$parent->id, ...ArticleLineageQuery::walk($versions, $parent->id)];
+        $lineage = [$parent->id, ...Lineage::walk($versions, $parent->id)];
         $preview = $this->seo->compute($data, $parent->candidate_id, null, $lineage, $demo);
 
         return [...$data, 'seo_preview' => $preview['seo_preview'], 'seo_origin' => $preview['seo_origin']];

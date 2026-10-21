@@ -13,9 +13,4 @@ final class FixesForVersionQuery
             ->where(fn ($query) => $query->where('source_article_version_id', $articleId)->orWhere('result_article_version_id', $articleId))
             ->orderByDesc('created_at')->orderByDesc('id')->get();
     }
-
-    public function forJob(string $jobId): ?ArticleFix
-    {
-        return ArticleFix::query()->where('job_id', $jobId)->first();
-    }
 }

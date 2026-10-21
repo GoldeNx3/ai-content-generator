@@ -3,25 +3,11 @@
 namespace Modules\WordPress\Commands;
 
 use Illuminate\Support\Facades\DB;
-use Modules\WordPress\Models\WordPressConnection;
 use Modules\WordPress\Models\WordPressPublication;
 
-final class ConnectionCommand
+final class UnlinkPublicationsCommand
 {
-    public function save(?WordPressConnection $connection, int $workspaceId, array $attributes): WordPressConnection
-    {
-        $connection ??= new WordPressConnection(['workspace_id' => $workspaceId]);
-        $connection->fill($attributes)->save();
-
-        return $connection;
-    }
-
-    public function delete(int $workspaceId): void
-    {
-        WordPressConnection::query()->where('workspace_id', $workspaceId)->delete();
-    }
-
-    public function unlinkPublications(int $workspaceId, string $instanceId): void
+    public function execute(int $workspaceId, string $instanceId): void
     {
         WordPressPublication::query()
             ->whereIn('candidate_id', DB::table('candidates')->where('workspace_id', $workspaceId)->select('id'))

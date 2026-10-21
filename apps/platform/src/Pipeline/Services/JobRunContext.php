@@ -5,8 +5,7 @@ namespace Modules\Pipeline\Services;
 use Illuminate\Support\Facades\DB;
 use Modules\Ai\Exceptions\AiTaskException;
 use Modules\Ai\Services\AiRunner;
-use Modules\Pipeline\Commands\FinishJobCommand;
-use Modules\Pipeline\Commands\UpdateRunningJobCommand;
+use Modules\Pipeline\Commands\SucceedJobCommand;
 use Modules\Pipeline\Data\StageResult;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Models\PipelineJobAttempt;
@@ -15,8 +14,8 @@ final class JobRunContext
 {
     public function __construct(
         public readonly PipelineJob $job,
-        private readonly UpdateRunningJobCommand $update,
-        private readonly FinishJobCommand $finish,
+        private readonly RunningJobWriter $update,
+        private readonly SucceedJobCommand $succeed,
         private readonly AiRunner $ai,
         private readonly int $timeoutSeconds,
     ) {}
@@ -48,13 +47,8 @@ final class JobRunContext
             $this->update->calls($this->job, $exception->calls);
             throw $exception;
         }
-        $this->update->fenced($this->job, function (PipelineJob $locked, PipelineJobAttempt $attempt) use ($step, $response): void {
-            $attempt->forceFill(['llm_calls' => [...($attempt->llm_calls ?? []), ...$response->calls]])->save();
-            $checkpoint = ['result' => $response->result, 'calls' => $response->calls];
-            $locked->forceFill(['checkpoints' => [...($locked->checkpoints ?? []), 'ai:'.$step => $checkpoint]])->save();
-        });
         $checkpoint = ['result' => $response->result, 'calls' => $response->calls];
-        $this->job->checkpoints = [...($this->job->checkpoints ?? []), 'ai:'.$step => $checkpoint];
+        $this->update->aiResult($this->job, 'ai:'.$step, $checkpoint);
 
         return $checkpoint;
     }
@@ -63,7 +57,7 @@ final class JobRunContext
     {
         $this->update->fenced($this->job, function (PipelineJob $locked, PipelineJobAttempt $attempt) use ($persist): void {
             $result = $persist() ?? new StageResult;
-            $this->finish->succeed($locked, $attempt, $result);
+            $this->succeed->execute($locked, $attempt, $result);
         });
     }
 

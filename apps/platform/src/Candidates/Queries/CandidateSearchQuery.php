@@ -5,6 +5,7 @@ namespace Modules\Candidates\Queries;
 use Illuminate\Database\Eloquent\Builder;
 use Modules\Candidates\Data\CandidateFiltersData;
 use Modules\Candidates\Models\Candidate;
+use Modules\Candidates\Support\WorkflowStatusExpression;
 
 final class CandidateSearchQuery
 {

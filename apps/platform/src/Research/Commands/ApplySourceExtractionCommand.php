@@ -3,20 +3,11 @@
 namespace Modules\Research\Commands;
 
 use Carbon\CarbonImmutable;
-use Modules\Research\Enums\SourceOrigin;
 use Modules\Research\Models\ResearchSource;
 
-final class SaveResearchSourcesCommand
+final class ApplySourceExtractionCommand
 {
-    public function create(int $researchId, string $url, SourceOrigin $origin, ?string $title = null): ResearchSource
-    {
-        return ResearchSource::query()->firstOrCreate(
-            ['research_id' => $researchId, 'url' => $url],
-            ['origin' => $origin, 'title' => $title],
-        );
-    }
-
-    public function applyExtraction(ResearchSource $source, array $extraction): void
+    public function execute(ResearchSource $source, array $extraction): void
     {
         $success = ($extraction['fetch_status'] ?? 'failed') === 'success';
         $source->forceFill([

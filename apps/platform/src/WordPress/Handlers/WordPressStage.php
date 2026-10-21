@@ -4,12 +4,14 @@ namespace Modules\WordPress\Handlers;
 
 use Modules\Articles\Models\Article;
 use Modules\Candidates\Models\Candidate;
+use Modules\Pipeline\Commands\AttachJobArticleCommand;
 use Modules\Pipeline\Contracts\BaseStageHandler;
 use Modules\Pipeline\Exceptions\JobInputException;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Services\JobRunContext;
 use Modules\WordPress\Client\WordPressClientFactory;
-use Modules\WordPress\Commands\PublicationCommand;
+use Modules\WordPress\Commands\FindOrCreatePublicationCommand;
+use Modules\WordPress\Commands\UpdatePublicationCommand;
 use Modules\WordPress\Data\ConnectionConfig;
 use Modules\WordPress\Models\WordPressPublication;
 use Modules\WordPress\Queries\ConnectionForWorkspaceQuery;
@@ -23,9 +25,11 @@ abstract class WordPressStage extends BaseStageHandler
         protected readonly PublicationGate $gate,
         protected readonly ConnectionForWorkspaceQuery $connectionFor,
         protected readonly PublicationForCandidateQuery $publicationFor,
-        protected readonly PublicationCommand $publications,
+        protected readonly FindOrCreatePublicationCommand $findOrCreatePublication,
+        protected readonly UpdatePublicationCommand $updatePublication,
         protected readonly WordPressClientFactory $clients,
         protected readonly PublisherService $publisher,
+        protected readonly AttachJobArticleCommand $attachArticle,
     ) {}
 
     public function prepare(Candidate $candidate, array $options): array
@@ -46,9 +50,9 @@ abstract class WordPressStage extends BaseStageHandler
     public function created(PipelineJob $job): void
     {
         $article = Article::query()->findOrFail($job->payload['options']['article_id']);
-        $job->update(['article_id' => $article->id]);
-        $publication = $this->publications->forArticle($article);
-        $this->publications->update($publication, ['job_id' => $job->id, 'status' => 'queued', 'error_code' => null, 'conflict' => null]);
+        $this->attachArticle->execute($job, $article->id);
+        $publication = $this->findOrCreatePublication->execute($article);
+        $this->updatePublication->execute($publication, ['job_id' => $job->id, 'status' => 'queued', 'error_code' => null, 'conflict' => null]);
     }
 
     public function failed(PipelineJob $job, bool $final, string $message, ?array $details): void
@@ -58,7 +62,7 @@ abstract class WordPressStage extends BaseStageHandler
             return;
         }
         $code = $job->error_code;
-        $this->publications->update($publication, [
+        $this->updatePublication->execute($publication, [
             'status' => $final ? 'failed' : 'queued',
             'error_code' => $code,
             ...($code === 'wordpress_conflict' && $details !== null ? ['conflict' => $details] : []),
@@ -71,7 +75,7 @@ abstract class WordPressStage extends BaseStageHandler
         $connection = $this->connectionFor->execute($article->candidate->workspace_id)
             ?? throw new \Modules\WordPress\Exceptions\WordPressException('wordpress_not_configured');
 
-        return [$article, $connection, $this->clients->make(ConnectionConfig::fromModel($connection)), $this->publications->forArticle($article)];
+        return [$article, $connection, $this->clients->make(ConnectionConfig::fromModel($connection)), $this->findOrCreatePublication->execute($article)];
     }
 
     protected function profile(JobRunContext $context, Article $article, WordPressPublication $publication, bool $force): array

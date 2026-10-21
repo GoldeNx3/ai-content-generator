@@ -3,6 +3,7 @@
 namespace Modules\Articles\Services;
 
 use Modules\Ai\Services\AiRunner;
+use Modules\Articles\Commands\SaveSeoPreviewCommand;
 use Modules\Articles\Models\Article;
 use Modules\WordPress\Queries\PublicationForCandidateQuery;
 
@@ -13,6 +14,7 @@ final class SeoPreviewService
     public function __construct(
         private readonly AiRunner $ai,
         private readonly PublicationForCandidateQuery $publication,
+        private readonly SaveSeoPreviewCommand $savePreview,
     ) {}
 
     public function compute(array $article, int $candidateId, ?int $articleId, array $lineage, bool $demo): array
@@ -29,7 +31,7 @@ final class SeoPreviewService
     public function refresh(Article $article, array $lineage): void
     {
         $preview = $this->compute($this->fields($article), $article->candidate_id, $article->id, $lineage, $article->candidate->isDemo());
-        $article->update(['seo_preview' => $preview['seo_preview'], 'seo_origin' => $preview['seo_origin']]);
+        $this->savePreview->execute($article, $preview['seo_preview'], $preview['seo_origin']);
     }
 
     public function fields(Article $article): array

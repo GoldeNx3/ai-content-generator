@@ -11,12 +11,13 @@ use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Queries\ActiveCandidateJobQuery;
 use Modules\Pipeline\Queries\LockCandidateQuery;
 use Modules\Pipeline\Services\EnqueueService;
-use Modules\Research\Commands\SaveResearchSourcesCommand;
+use Modules\Research\Commands\ApplySourceExtractionCommand;
+use Modules\Research\Commands\CreateResearchSourceCommand;
+use Modules\Research\Commands\FindOrCreateResearchCommand;
 use Modules\Research\Data\ResearchData;
 use Modules\Research\Data\ResearchSourceData;
 use Modules\Research\Enums\ResearchStatus;
 use Modules\Research\Enums\SourceOrigin;
-use Modules\Research\Models\Research;
 use Modules\Research\Queries\ResearchForCandidateQuery;
 use Modules\Shared\Exceptions\ApiException;
 use Modules\Shared\Support\UrlNormalizer;
@@ -30,7 +31,9 @@ final class ResearchService
         private readonly EnqueueService $enqueue,
         private readonly LockCandidateQuery $lockCandidate,
         private readonly ActiveCandidateJobQuery $activeJob,
-        private readonly SaveResearchSourcesCommand $saveSources,
+        private readonly CreateResearchSourceCommand $createSource,
+        private readonly ApplySourceExtractionCommand $applyExtraction,
+        private readonly FindOrCreateResearchCommand $findOrCreateResearch,
         private readonly AiRunner $ai,
     ) {}
 
@@ -53,7 +56,7 @@ final class ResearchService
             if ($active = $this->activeJob->execute($candidate->id)) {
                 throw new JobConflictException('candidate_busy', $active->id);
             }
-            $research = Research::query()->firstOrCreate(['candidate_id' => $candidate->id]);
+            $research = $this->findOrCreateResearch->execute($candidate->id);
             if ($research->status === ResearchStatus::Running) {
                 throw ApiException::plain('Research is running - add sources after it finishes', 409);
             }
@@ -62,11 +65,11 @@ final class ResearchService
                 throw ApiException::plain('This URL is already a source of this research', 409);
             }
 
-            return $this->saveSources->create($research->id, $url, SourceOrigin::Manual);
+            return $this->createSource->execute($research->id, $url, SourceOrigin::Manual);
         });
         $extracted = $this->ai->run('research.extract', ['original_url' => $candidate->external_url, 'urls' => [$url]],
             $candidate->isDemo(), self::MANUAL_EXTRACT_TIMEOUT);
-        $this->saveSources->applyExtraction($source, $extracted->result['sources'][0]);
+        $this->applyExtraction->execute($source, $extracted->result['sources'][0]);
 
         return ResearchSourceData::fromModel($source->refresh());
     }

@@ -6,13 +6,14 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Factory as Http;
 use Modules\Articles\Models\Article;
 use Modules\Candidates\Enums\CandidateStatus;
-use Modules\Candidates\Models\Candidate;
+use Modules\Candidates\Commands\UpdateCandidateStatusCommand;
 use Modules\Pipeline\Data\StageResult;
 use Modules\Pipeline\Exceptions\JobInputException;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Services\JobRunContext;
 use Modules\WordPress\Client\WordPressClient;
-use Modules\WordPress\Commands\PublicationCommand;
+use Modules\WordPress\Commands\FindOrCreatePublicationCommand;
+use Modules\WordPress\Commands\UpdatePublicationCommand;
 use Modules\WordPress\Exceptions\WordPressException;
 use Modules\WordPress\Models\WordPressConnection;
 use Modules\WordPress\Models\WordPressPublication;
@@ -30,7 +31,9 @@ final class PublisherService
     public function __construct(
         private readonly PublicationGate $gate,
         private readonly ProfileService $profiles,
-        private readonly PublicationCommand $publications,
+        private readonly FindOrCreatePublicationCommand $findOrCreatePublication,
+        private readonly UpdatePublicationCommand $updatePublication,
+        private readonly UpdateCandidateStatusCommand $updateCandidateStatus,
         private readonly Http $http,
         private readonly PublicHostGuard $guard,
     ) {}
@@ -43,7 +46,7 @@ final class PublisherService
         if ($forcePrepare || $missing !== []) {
             $context->stage('preparing_seo');
             $profile = $context->ai('prepare', 'seo.prepare', ['article' => $this->profiles->article($article), 'overrides' => $profile])['result']['profile'];
-            $context->transaction(fn () => $this->publications->update($publication, ['profile' => [...$profile, 'version_id' => $article->id]]));
+            $context->transaction(fn () => $this->updatePublication->execute($publication, ['profile' => [...$profile, 'version_id' => $article->id]]));
         }
 
         return $profile;
@@ -64,7 +67,7 @@ final class PublisherService
             throw new JobInputException('Brak treści.', 422);
         }
         $context->stage('publishing_wordpress');
-        $context->transaction(fn () => $this->publications->update($p, ['status' => 'sending', 'warnings' => [], 'error_code' => null]));
+        $context->transaction(fn () => $this->updatePublication->execute($p, ['status' => 'sending', 'warnings' => [], 'error_code' => null]));
 
         $caps = $client->capabilities();
         if (($caps['seo_plugin'] ?? 'none') !== $connection->seo_plugin) {
@@ -130,7 +133,7 @@ final class PublisherService
             $expected = $original['expected_hash'] ?? ($options['expected_wp_hash'] ?? $p->last_synced_content_hash);
             $allowed = array_filter([$expected, $original ? WpContentHash::ofText($payload['content']) : null]);
             if ($expected && ! in_array($digest, $allowed, true)) {
-                $context->transaction(fn () => $this->publications->update($p, ['conflict' => ['current_hash' => $digest, 'post_id' => $p->wordpress_post_id], 'error_code' => 'wordpress_conflict']));
+                $context->transaction(fn () => $this->updatePublication->execute($p, ['conflict' => ['current_hash' => $digest, 'post_id' => $p->wordpress_post_id], 'error_code' => 'wordpress_conflict']));
                 throw new WordPressException('wordpress_conflict');
             }
             if ($original === null) {
@@ -146,7 +149,7 @@ final class PublisherService
             } catch (WordPressException $exception) {
                 if ($exception->errorCode === 'wordpress_conflict' && is_int($exception->details['post_id'] ?? null)) {
                     $remote = $client->getPost($exception->details['post_id']);
-                    $context->transaction(fn () => $this->publications->update($p, [
+                    $context->transaction(fn () => $this->updatePublication->execute($p, [
                         'wordpress_post_id' => $remote['id'], 'wp_status' => $remote['status'], 'wordpress_instance_id' => $connection->instance_id,
                         'wordpress_url' => $remote['ce_permalink'] ?? $remote['link'] ?? null,
                         'conflict' => ['current_hash' => WpContentHash::ofPost($remote), 'post_id' => $remote['id']], 'error_code' => 'wordpress_conflict',
@@ -154,7 +157,7 @@ final class PublisherService
                 }
                 throw $exception;
             }
-            $context->transaction(fn () => $this->publications->update($p, [
+            $context->transaction(fn () => $this->updatePublication->execute($p, [
                 'wordpress_post_id' => $current['id'], 'wp_status' => $current['status'], 'wordpress_instance_id' => $connection->instance_id,
                 'wordpress_url' => $current['ce_permalink'] ?? $current['link'] ?? null, 'last_synced_at' => null,
             ]));
@@ -174,7 +177,7 @@ final class PublisherService
         $expected = WpContentHash::ofPost($current);
         $context->transaction(fn () => $this->gate->approved($article, lock: true));
         $client->updatePost($p->wordpress_post_id, ['meta' => $meta['metadata']], $identity, $operation.':seo', $expected);
-        $context->transaction(fn () => $this->publications->update($p, ['profile' => [...$profile, 'version_id' => $article->id], 'wordpress_url' => $profile['canonical_url']]));
+        $context->transaction(fn () => $this->updatePublication->execute($p, ['profile' => [...$profile, 'version_id' => $article->id], 'wordpress_url' => $profile['canonical_url']]));
         $context->checkpoint('wp_seo_written', true);
 
         $verify = $client->getPost($p->wordpress_post_id);
@@ -207,14 +210,14 @@ final class PublisherService
 
         $result = null;
         $context->finish(function () use ($p, $article, $profile, $verify, $effective, $scheduledAt, $warnings, &$result): StageResult {
-            $this->publications->update($p, [
+            $this->updatePublication->execute($p, [
                 'article_version_id' => $article->id, 'title' => $article->title, 'slug' => $profile['slug'], 'wp_status' => $verify['status'],
                 'status' => self::STATUS_MAP[$effective], 'scheduled_at' => $scheduledAt,
                 'published_at' => $effective === 'publish' ? CarbonImmutable::now() : null, 'last_synced_at' => CarbonImmutable::now(),
                 'last_synced_content_hash' => WpContentHash::ofPost($verify), 'error_code' => null, 'conflict' => null,
                 'warnings' => array_values(array_unique([...($p->warnings ?? []), ...$warnings])),
             ]);
-            Candidate::query()->whereKey($article->candidate_id)->update(['status' => CandidateStatus::Approved->value]);
+            $this->updateCandidateStatus->execute($article->candidate, CandidateStatus::Approved);
 
             return new StageResult('wordpress_publication', $p->id);
         });
@@ -224,7 +227,7 @@ final class PublisherService
 
     private function unlink(JobRunContext $context, WordPressPublication $p): void
     {
-        $context->transaction(fn () => $this->publications->update($p, [
+        $context->transaction(fn () => $this->updatePublication->execute($p, [
             'wordpress_post_id' => null, 'wordpress_instance_id' => null, 'last_synced_content_hash' => null, 'conflict' => null,
         ]));
         $context->checkpoint('wp_original', null);
@@ -295,7 +298,7 @@ final class PublisherService
             throw new JobInputException('Nieobsługiwany format lub rozmiar obrazka.', 422);
         }
         $media = $client->uploadMedia($data, $filename, $mime);
-        $context->transaction(fn () => $this->publications->update($p, ['media_id' => $media['id'], 'media_fingerprint' => $fingerprint]));
+        $context->transaction(fn () => $this->updatePublication->execute($p, ['media_id' => $media['id'], 'media_fingerprint' => $fingerprint]));
         $context->checkpoint('wp_media', $media['id']);
 
         return (int) $media['id'];

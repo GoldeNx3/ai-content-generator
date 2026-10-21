@@ -12,7 +12,10 @@ use Modules\Pipeline\Services\JobRunContext;
 use Modules\Pipeline\Support\CallUsage;
 use Modules\Research\Commands\FailResearchCommand;
 use Modules\Research\Commands\SaveResearchAnalysisCommand;
-use Modules\Research\Commands\SaveResearchSourcesCommand;
+use Modules\Research\Commands\ApplySourceExtractionCommand;
+use Modules\Research\Commands\CreateResearchSourceCommand;
+use Modules\Research\Commands\ResumeResearchCommand;
+use Modules\Research\Commands\SaveSearchQueriesCommand;
 use Modules\Research\Commands\StartResearchCommand;
 use Modules\Research\Enums\FetchStatus;
 use Modules\Research\Enums\SourceOrigin;
@@ -27,7 +30,10 @@ final class ResearchHandler extends BaseStageHandler
         private readonly ResearchForCandidateQuery $researchFor,
         private readonly ResearchSourcesQuery $sources,
         private readonly StartResearchCommand $start,
-        private readonly SaveResearchSourcesCommand $saveSources,
+        private readonly CreateResearchSourceCommand $createSource,
+        private readonly ApplySourceExtractionCommand $applyExtraction,
+        private readonly ResumeResearchCommand $resume,
+        private readonly SaveSearchQueriesCommand $saveQueries,
         private readonly SaveResearchAnalysisCommand $saveAnalysis,
         private readonly FailResearchCommand $failResearch,
     ) {}
@@ -91,7 +97,7 @@ final class ResearchHandler extends BaseStageHandler
     {
         $researchId = $context->checkpointValue('research_id');
         if ($researchId !== null) {
-            return $context->transaction(fn () => $this->start->resume($researchId));
+            return $context->transaction(fn () => $this->resume->execute($researchId));
         }
         $research = $context->transaction(fn () => $this->start->execute($job->candidate_id, $job->id, $discover));
         $context->checkpoint('research_id', $research->id);
@@ -103,7 +109,7 @@ final class ResearchHandler extends BaseStageHandler
     {
         $sources = $this->sources->execute($research->id);
         if (! $sources->contains(fn (ResearchSource $source) => $source->origin === SourceOrigin::Original)) {
-            $sources->push($this->saveSources->create($research->id, $original, SourceOrigin::Original));
+            $sources->push($this->createSource->execute($research->id, $original, SourceOrigin::Original));
         }
         $pending = $sources->filter(fn (ResearchSource $source) => $source->fetch_status !== FetchStatus::Success)->values();
         if ($pending->isEmpty()) {
@@ -115,7 +121,7 @@ final class ResearchHandler extends BaseStageHandler
         ]);
         $context->transaction(function () use ($pending, $extracted): void {
             foreach ($pending as $index => $source) {
-                $this->saveSources->applyExtraction($source, $extracted['result']['sources'][$index]);
+                $this->applyExtraction->execute($source, $extracted['result']['sources'][$index]);
             }
         });
     }
@@ -132,10 +138,10 @@ final class ResearchHandler extends BaseStageHandler
         ]);
         if ($context->checkpointValue('discovery_done') === null) {
             $context->transaction(function () use ($research, $discovery): void {
-                $research->update(['search_queries' => $discovery['result']['queries']]);
+                $this->saveQueries->execute($research, $discovery['result']['queries']);
                 foreach ($discovery['result']['sources'] as $found) {
-                    $source = $this->saveSources->create($research->id, $found['url'], SourceOrigin::Search, $found['title'] ?? null);
-                    $this->saveSources->applyExtraction($source, $found);
+                    $source = $this->createSource->execute($research->id, $found['url'], SourceOrigin::Search, $found['title'] ?? null);
+                    $this->applyExtraction->execute($source, $found);
                 }
             });
             $context->checkpoint('discovery_done', true);

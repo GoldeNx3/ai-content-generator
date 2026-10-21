@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\Candidates\Queries;
+namespace Modules\Candidates\Support;
 
 final class WorkflowStatusExpression
 {
