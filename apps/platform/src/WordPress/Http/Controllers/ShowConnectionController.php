@@ -19,6 +19,10 @@ final class ShowConnectionController
     {
         $connection = $this->connections->find($this->workspace->id());
 
-        return response()->json($connection === null ? null : ConnectionData::fromModel($connection));
+        if ($connection === null) {
+            return JsonResponse::fromJsonString('null');
+        }
+
+        return response()->json(ConnectionData::fromModel($connection));
     }
 }

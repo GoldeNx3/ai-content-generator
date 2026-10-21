@@ -51,6 +51,15 @@ final class ConnectionTest extends TestCase
     }
 
     #[Test]
+    public function missing_connection_is_json_null_and_disconnect_clears_it(): void
+    {
+        $this->assertSame('null', $this->getJson('/api/wordpress/connection')->assertOk()->getContent());
+        $this->postJson('/api/wordpress/connection', $this->manual())->assertOk();
+        $this->deleteJson('/api/wordpress/connection')->assertSuccessful();
+        $this->assertSame('null', $this->getJson('/api/wordpress/connection')->assertOk()->getContent());
+    }
+
+    #[Test]
     public function manual_connect_verifies_and_encrypts_password(): void
     {
         $this->postJson('/api/wordpress/connection', $this->manual())->assertOk()
