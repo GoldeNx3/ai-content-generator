@@ -6,7 +6,7 @@ use Modules\WordPress\Models\WordPressPublication;
 
 final class LinkedPublicationsQuery
 {
-    public function exists(int $workspaceId, string $instanceId): bool
+    public function execute(int $workspaceId, string $instanceId): bool
     {
         return WordPressPublication::query()
             ->join('candidates', 'candidates.id', '=', 'wordpress_publications.candidate_id')

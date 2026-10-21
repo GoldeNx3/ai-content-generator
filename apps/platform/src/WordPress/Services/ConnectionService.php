@@ -52,7 +52,7 @@ final class ConnectionService
         $password = trim($password);
         $existing = $this->find($workspaceId);
         $siteChanged = $existing !== null && $existing->site_url !== $siteUrl;
-        if ($siteChanged && ! $confirmSiteChange && $this->linked->exists($workspaceId, $existing->instance_id)) {
+        if ($siteChanged && ! $confirmSiteChange && $this->linked->execute($workspaceId, $existing->instance_id)) {
             throw new ApiException('wordpress_site_change_requires_confirmation', 409);
         }
         try {
