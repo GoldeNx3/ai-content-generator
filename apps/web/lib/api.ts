@@ -39,17 +39,49 @@ export class ApiError extends Error {
   }
 }
 
+// Sanctum (Laravel): zapisy wymagają tokenu CSRF z ciasteczka XSRF-TOKEN, odesłanego w nagłówku.
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+function xsrfToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.split("; ").find((part) => part.startsWith("XSRF-TOKEN="));
+  return match ? decodeURIComponent(match.slice("XSRF-TOKEN=".length)) : null;
+}
+
+async function ensureCsrfCookie(force = false): Promise<void> {
+  if (!force && xsrfToken()) return;
+  await fetch(`${API_URL}/sanctum/csrf-cookie`, { credentials: "include", cache: "no-store" });
+}
+
+async function send(path: string, init: RequestInit): Promise<Response> {
+  const method = (init.method ?? "GET").toUpperCase();
+  const token = SAFE_METHODS.has(method) ? null : xsrfToken();
+  return fetch(`${API_URL}/api${path}`, {
+    ...init,
+    // Content-Type only with a body: a JSON header on GET forces a CORS preflight on every poll.
+    headers: {
+      Accept: "application/json",
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { "X-XSRF-TOKEN": token } : {}),
+      ...init.headers,
+    },
+    cache: "no-store",
+    // Ciasteczko sesji (HttpOnly) ustawia API; bez tego przeglądarka nie wyśle go cross-origin.
+    credentials: "include",
+  });
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`${API_URL}/api${path}`, {
-      ...init,
-      // Content-Type only with a body: a JSON header on GET forces a CORS preflight on every poll.
-      headers: init.body ? { "Content-Type": "application/json", ...init.headers } : init.headers,
-      cache: "no-store",
-      // Ciasteczko sesji (HttpOnly) ustawia API; bez tego przeglądarka nie wyśle go cross-origin.
-      credentials: "include",
-    });
+    const mutating = !SAFE_METHODS.has((init.method ?? "GET").toUpperCase());
+    if (mutating) await ensureCsrfCookie();
+    response = await send(path, init);
+    // 419: wygasły token CSRF (np. po wylogowaniu lub zmianie sesji) – odświeżamy go i ponawiamy raz.
+    if (mutating && response.status === 419) {
+      await ensureCsrfCookie(true);
+      response = await send(path, init);
+    }
   } catch {
     throw new ApiError(`Cannot reach API at ${API_URL}`, 0);
   }

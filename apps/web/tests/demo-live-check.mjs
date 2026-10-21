@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
-import { loginLive, applySession } from './fixtures/auth.mjs';
+import { liveHeaders, loginLive, applySession } from './fixtures/auth.mjs';
 // API wymaga sesji: wszystkie bezpośrednie wywołania z Node idą z ciasteczkiem zalogowanego konta.
 const session=await loginLive(null);
-const fetch=(url,init={})=>globalThis.fetch(url,{...init,headers:{...init.headers,Cookie:session}});
+const fetch=(url,init={})=>globalThis.fetch(url,{...init,headers:{...init.headers,...liveHeaders(session)}});
 const API='http://localhost:8000/api', WEB='http://localhost:3000';
 const PREFIX='https://demo.content-engine.invalid/';
 const catalog=await (await fetch(`${API}/candidates?page_size=100&sort=created_at&order=desc`)).json();

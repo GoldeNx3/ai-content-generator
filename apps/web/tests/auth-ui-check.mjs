@@ -2,7 +2,7 @@
 // na ?next, ochrona przed open redirect, błędne hasło, wygasła sesja (401) i wylogowanie.
 import { createRequire } from 'node:module';
 import assert from 'node:assert/strict';
-import { corsHeaders, SESSION_COOKIE, TEST_ME } from './fixtures/auth.mjs';
+import { corsHeaders, fakeCsrf, SESSION_COOKIE, TEST_ME } from './fixtures/auth.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const port = process.env.UI_TEST_PORT || '3107';
@@ -40,6 +40,8 @@ try {
   else body = {};
   await route.fulfill({status,contentType:'application/json',headers:corsHeaders(route),body:status === 204 ? '' : JSON.stringify(body)});
  });
+
+ await fakeCsrf(page);
 
  // 1. Bez ciasteczka proxy.ts kieruje na /login z zachowaną ścieżką.
  await page.goto(`${web}/queue?status=failed`);
