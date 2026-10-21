@@ -1,6 +1,6 @@
 # Czytelność i SEO przy generowaniu
 
-Reguły globalne są wspólne dla briefu, writera, QA i Auto Fix: `app/services/article/readability.py`. SEO powstaje razem z artykułem w kroku 4.
+Reguły globalne są wspólne dla briefu, writera, QA i Auto Fix: `apps/ai/app/services/article/readability.py`. SEO powstaje razem z artykułem w kroku 4.
 
 - Cel 150–250 słów między H2/H3; maksymalnie 300. H3 dzielą dłuższy temat bez skracania potrzebnych wyjaśnień.
 - Akapity zwykle 40–100 słów, maksymalnie 150.

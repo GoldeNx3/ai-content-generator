@@ -43,13 +43,13 @@ artykułowi zmyślony cytat. Dodatkowe źródło może dostarczać samodzielnych
 poza wskazanym faktem, np. drugą stronę konfliktu; nie jest automatycznie błędem.
 
 Każdy job ma jeden raport; automatyczne retry korzysta z tego samego raportu i
-checkpointu odpowiedzi. Ręczne retry ma nowy job/raport. Wygasły worker nie może
-zapisać wyniku. Znane tokeny i koszt zachowujemy także po błędzie późniejszej
+checkpointu odpowiedzi. Ręczne retry ma nowy job/raport. Worker, który stracił
+dzierżawę, nie może zapisać wyniku. Znane tokeny i koszt zachowujemy także po błędzie późniejszej
 walidacji; nieznane koszty są prezentowane jako nieznane.
 
 ## Weryfikacja
 
-Standardowo uruchom backend pytest, frontend `npm test`, `npm run lint`, TypeScript
+Standardowo uruchom `make test`, frontend `npm test`, `npm run lint`, TypeScript
 oraz `npm run build` z `NODE_ENV=production`. Przeglądarkowe testy `test:ui` i
 `test:queue` przechwytują API i nie wykonują płatnych operacji.
 

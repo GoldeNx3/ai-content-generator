@@ -1,8 +1,8 @@
 # Optional local integration with Projects/goldndev-wordpress.
 services:
-  api:
+  platform:
     networks: [default, wordpress]
-  worker:
+  queue:
     networks: [default, wordpress]
 networks:
   wordpress:

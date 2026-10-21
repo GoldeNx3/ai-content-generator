@@ -3,13 +3,13 @@ x-platform: &platform
   build:
     context: ./apps
     dockerfile: platform/Dockerfile
-    target: base
+    target: dev
   environment:
     DB_HOST: db
     REDIS_HOST: redis
   volumes:
     - ./apps/platform:/srv/platform
-    - ./apps/api:/srv/ai
+    - ./apps/ai:/srv/ai
   depends_on:
     db:
       condition: service_healthy
