@@ -3,6 +3,7 @@
 
 from pydantic import ValidationError
 
+from app.services.jobs.errors import JobInputError
 from app.services.jobs.messages import public_error_message
 from app.services.llm.base import LLMError
 
@@ -21,6 +22,9 @@ def describe(exc: BaseException) -> dict:
                 "retry_after": exc.retry_after}
     if isinstance(exc, TaskInputError):
         return {"code": exc.code, "message": str(exc), "retryable": False, "retry_after": None}
+    if isinstance(exc, JobInputError):
+        # Walidacja wyniku modelu (np. poprawka Auto Fix bez pokrycia w faktach): bez ponawiania.
+        return {"code": "invalid_output", "message": str(exc), "retryable": False, "retry_after": None}
     if isinstance(exc, ValidationError):
         return {"code": "invalid_input", "message": str(exc), "retryable": False, "retry_after": None}
     public = getattr(exc, "public_message", None)

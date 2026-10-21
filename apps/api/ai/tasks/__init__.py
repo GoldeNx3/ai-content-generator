@@ -1,6 +1,6 @@
 # Rola pliku: Rejestr zadań AI; nazwa zadania z wejścia wybiera funkcję `run(input, ctx)`.
 
-from ai.tasks import article, classify, qa, research
+from ai.tasks import article, auto_fix, classify, qa, research
 
 TASKS = {
     "classify": classify.run,
@@ -12,4 +12,5 @@ TASKS = {
     "article.rebuild": article.rebuild,
     "seo.preview": article.seo_preview,
     "qa.evaluate": qa.evaluate,
+    "autofix.fix": auto_fix.fix,
 }
