@@ -7,8 +7,8 @@ $writer = env('OPENAI_WRITER_MODEL') ?: $research;
 return [
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
     'allow_registration' => (bool) env('ALLOW_REGISTRATION', true),
-    'default_monthly_budget_usd' => env('DEFAULT_MONTHLY_BUDGET_USD') === null || env('DEFAULT_MONTHLY_BUDGET_USD') === ''
-        ? null : (float) env('DEFAULT_MONTHLY_BUDGET_USD'),
+    'default_monthly_budget_usd' => in_array(env('DEFAULT_MONTHLY_BUDGET_USD', '10'), ['', null], true)
+        ? null : (float) env('DEFAULT_MONTHLY_BUDGET_USD', '10'),
 
     'auth' => [
         'max_login_failures_per_email' => (int) env('AUTH_MAX_FAILURES_PER_EMAIL', 5),

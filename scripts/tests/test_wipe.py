@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class WipeTests(unittest.TestCase):
-    def run_wipe(self, failure="", services="db\napi\nworker\nscheduler\nweb\n"):
+    def run_wipe(self, failure="", services="db\nredis\nplatform\nqueue\nscheduler\nweb\n"):
         with tempfile.TemporaryDirectory() as directory:
             temp = Path(directory)
             docker = temp / "docker"
@@ -40,31 +40,34 @@ elif 'psql' in args and os.environ['WIPE_FAILURE'] == 'reset':
     def test_reset_backs_up_before_truncating_and_restores_running_services(self):
         result, calls, backups = self.run_wipe()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(calls[1], ['compose', 'stop', 'api', 'worker', 'scheduler'])
+        self.assertEqual(calls[1], ['compose', 'stop', 'platform', 'queue', 'scheduler'])
         self.assertIn('pg_dump', calls[2])
         self.assertIn('psql', calls[3])
         self.assertIn('RESTART IDENTITY', calls[3][-1])
-        self.assertNotIn('alembic_version', calls[3][-1])
-        self.assertEqual(calls[-1], ['compose', 'start', 'api', 'worker', 'scheduler'])
+        self.assertNotIn('migrations', calls[3][-1])
+        self.assertNotIn('users', calls[3][-1])
+        self.assertEqual(calls[4][:4], ['compose', 'exec', '-T', 'redis'])
+        self.assertIn('queues:', calls[4][-1])
+        self.assertEqual(calls[-1], ['compose', 'start', 'platform', 'queue', 'scheduler'])
         self.assertEqual(backups, ['-- database backup\n'])
 
     def test_backup_failure_prevents_reset_and_restores_services(self):
         result, calls, _ = self.run_wipe(failure='backup')
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(any('psql' in call for call in calls))
-        self.assertEqual(calls[-1], ['compose', 'start', 'api', 'worker', 'scheduler'])
+        self.assertEqual(calls[-1], ['compose', 'start', 'platform', 'queue', 'scheduler'])
 
     def test_reset_failure_still_restores_services_and_keeps_backup(self):
         result, calls, backups = self.run_wipe(failure='reset')
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(calls[-1], ['compose', 'start', 'api', 'worker', 'scheduler'])
+        self.assertEqual(calls[-1], ['compose', 'start', 'platform', 'queue', 'scheduler'])
         self.assertEqual(backups, ['-- database backup\n'])
 
     def test_previously_stopped_services_are_not_started(self):
-        result, calls, _ = self.run_wipe(services='db\napi\nweb\n')
+        result, calls, _ = self.run_wipe(services='db\nredis\nplatform\nweb\n')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(calls[1], ['compose', 'stop', 'api'])
-        self.assertEqual(calls[-1], ['compose', 'start', 'api'])
+        self.assertEqual(calls[1], ['compose', 'stop', 'platform'])
+        self.assertEqual(calls[-1], ['compose', 'start', 'platform'])
 
     def test_stopped_database_prevents_all_mutations(self):
         result, calls, backups = self.run_wipe(services='web\n')

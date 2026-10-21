@@ -1,4 +1,4 @@
-"""Back up and clear application data in the local Compose database."""
+"""Back up and clear application data (database and Redis queue) in the local Compose stack."""
 
 from pathlib import Path
 import subprocess
@@ -8,10 +8,14 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 SQL = """
-TRUNCATE TABLE job_attempts, jobs, job_batches, articles,
+TRUNCATE TABLE pipeline_job_attempts, pipeline_jobs, pipeline_job_batches, failed_jobs,
+wordpress_publications, article_fix_issues, article_fixes, article_qa_issues, article_qas, articles,
 research_fact_sources, research_facts, research_sources, researches,
 candidates, sources RESTART IDENTITY CASCADE;
 """
+
+# Zadania kolejki Laravela w Redisie wskazują na usunięte joby; sesje i cache zostają.
+FLUSH_QUEUES = "redis-cli --scan --pattern '*queues:*' | xargs -r redis-cli del"
 
 
 def compose(*args, **kwargs):
@@ -26,7 +30,7 @@ def wipe():
     ).stdout.splitlines()
     if "db" not in running:
         raise RuntimeError("Kontener db nie działa. Uruchom najpierw make up lub make dev.")
-    services = [name for name in ("api", "worker", "scheduler") if name in running]
+    services = [name for name in ("platform", "queue", "scheduler") if name in running]
     try:
         if services:
             compose("stop", *services)
@@ -47,11 +51,12 @@ def wipe():
             "exec", "-T", "db", "psql", "-v", "ON_ERROR_STOP=1",
             "-U", "content", "-d", "content", "-c", SQL,
         )
+        compose("exec", "-T", "redis", "sh", "-c", FLUSH_QUEUES)
     finally:
         if services:
             compose("start", *services)
     print("Dane i kolejka wyczyszczone. Schemat i migracje zachowane.")
-    print("Aby zasilić źródła: make seed, następnie make fetch.")
+    print("Aby zasilić źródła: make seed, następnie make pipeline.")
 
 
 if __name__ == "__main__":

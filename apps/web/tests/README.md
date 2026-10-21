@@ -26,8 +26,8 @@ Wymaga uruchomionego workera, `make seed-demo` i osobnego Candidate z URL w name
 `https://demo.content-engine.invalid/checks/`. Nie modyfikuje scenariuszy seedera;
 wykonuje classify → research → write → QA oraz klika Auto Fix i Approval w UI.
 Koszty są równe 0 dzięki dostawcom demo. Ustaw `PLAYWRIGHT_MODULE` jak w testach powyżej.
-Pełny test kolejki bez przeglądarki i bez zewnętrznych klientów:
-`docker compose exec -T api pytest -q tests/test_demo_runtime.py tests/test_demo_seed.py`.
+Pełny pipeline demo bez przeglądarki (Laravel + prawdziwy proces AI w trybie demo):
+`docker compose exec -T platform php artisan test --filter=Demo`.
 
 Testy UI obejmują stale widoczny obszar „Wybrany artykuł”, wspólny wybór wersji z QA i Auto Fix, nawigację między kartami, polskie akcje, powrót do tekstu i zachowanie niezapisanej edycji po zakończeniu generowania w tle. Formularz ma powiązane etykiety, a listy i kolejka nazwane tabele.
 
