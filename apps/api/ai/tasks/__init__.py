@@ -1,6 +1,6 @@
 # Rola pliku: Rejestr zadań AI; nazwa zadania z wejścia wybiera funkcję `run(input, ctx)`.
 
-from ai.tasks import article, auto_fix, classify, qa, research
+from ai.tasks import article, auto_fix, classify, qa, research, wordpress
 
 TASKS = {
     "classify": classify.run,
@@ -13,4 +13,9 @@ TASKS = {
     "seo.preview": article.seo_preview,
     "qa.evaluate": qa.evaluate,
     "autofix.fix": auto_fix.fix,
+    "seo.profile": wordpress.profile,
+    "seo.prepare": wordpress.prepare,
+    "wordpress.render": wordpress.render,
+    "wordpress.metadata": wordpress.metadata,
+    "wordpress.verify_meta": wordpress.verify_meta,
 }

@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Model;
 #[Hidden(['app_password'])]
 class WordPressConnection extends Model
 {
+    protected $attributes = ['seo_plugin' => 'none', 'default_status' => 'draft', 'can_publish' => false];
+
     protected function casts(): array
     {
         return ['app_password' => 'encrypted', 'can_publish' => 'boolean', 'last_checked_at' => 'immutable_datetime'];

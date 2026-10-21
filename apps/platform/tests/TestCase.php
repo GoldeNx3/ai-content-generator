@@ -22,6 +22,7 @@ abstract class TestCase extends BaseTestCase
         $this->workspace = $workspace ?? Workspace::query()->create(['name' => 'test']);
         $this->user = User::query()->create(['email' => fake()->unique()->safeEmail(), 'password' => 'secret-password']);
         WorkspaceMember::query()->create(['workspace_id' => $this->workspace->id, 'user_id' => $this->user->id, 'role' => $role]);
+        $this->app->forgetScopedInstances();
         $this->actingAs($this->user, 'web');
 
         return $this->user;
