@@ -134,4 +134,29 @@ final class ConnectionTest extends TestCase
         $this->postJson('/api/wordpress/connection', $this->manual())->assertStatus(403)->assertExactJson(['detail' => ['code' => 'owner_required']]);
         $this->deleteJson('/api/wordpress/connection')->assertStatus(403);
     }
+
+    #[Test]
+    public function connection_can_be_imported_from_env_once(): void
+    {
+        config(['content.wordpress.import' => ['url' => 'https://wp.example/blog', 'api_url' => null, 'username' => self::GOOD[0], 'app_password' => self::GOOD[1]]]);
+
+        $this->artisan('wordpress:import-env', ['--workspace' => $this->workspace->id])->assertSuccessful();
+
+        $connection = WordPressConnection::query()->where('workspace_id', $this->workspace->id)->sole();
+        $this->assertSame(self::GOOD[1], $connection->app_password);
+        $this->assertSame('rankmath', $connection->seo_plugin);
+        $this->artisan('wordpress:import-env', ['--workspace' => $this->workspace->id])->assertFailed();
+    }
+
+    #[Test]
+    public function env_import_requires_credentials_and_valid_password(): void
+    {
+        config(['content.wordpress.import' => ['url' => 'https://wp.example/blog', 'api_url' => null, 'username' => self::GOOD[0], 'app_password' => null]]);
+        $this->artisan('wordpress:import-env')->assertFailed();
+
+        config(['content.wordpress.import.app_password' => 'wrong']);
+        $this->artisan('wordpress:import-env')->assertFailed();
+
+        $this->assertSame(0, WordPressConnection::query()->count());
+    }
 }

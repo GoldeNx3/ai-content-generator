@@ -89,5 +89,11 @@ return [
         'allow_private_urls' => (bool) env('WORDPRESS_ALLOW_PRIVATE_URLS', false),
         'asset_root' => env('WORDPRESS_ASSET_ROOT', storage_path('app/assets')),
         'max_image_bytes' => (int) env('WORDPRESS_MAX_IMAGE_BYTES', 10_000_000),
+        'import' => [
+            'url' => env('WORDPRESS_URL'),
+            'api_url' => env('WORDPRESS_API_URL'),
+            'username' => env('WORDPRESS_USERNAME'),
+            'app_password' => env('WORDPRESS_APP_PASSWORD'),
+        ],
     ],
 ];

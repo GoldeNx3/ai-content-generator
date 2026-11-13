@@ -13,6 +13,9 @@ w trybie SPA: sesja Laravela w Redisie, ciasteczko `ce_session` (HttpOnly) i och
 - `POST /api/auth/login` / `POST /api/auth/logout` / `GET /api/auth/me`.
 - Wszystkie inne trasy `/api/*` mają middleware `auth:sanctum`; bez sesji zwracają `401`
   z `detail.code = "not_authenticated"`. `/up` jest publiczne (healthcheck).
+- Konto można zablokować (`make deactivate-user EMAIL=...`, `users.is_active = false`). Provider `active_eloquent`
+  (`Auth/Providers/AuthServiceProvider.php`) pomija nieaktywnych: logowanie zwraca `401 invalid_credentials`, istniejące
+  sesje dostają `401 not_authenticated`. Udane logowanie zapisuje `users.last_login_at`.
 - Frontend: `proxy.ts` kieruje na `/login?next=...`, gdy brak ciasteczka (sprawdzenie optymistyczne).
   `lib/api.ts` przy `401` robi to samo. Po wylogowaniu czyszczone są klucze idempotencji w sessionStorage.
 

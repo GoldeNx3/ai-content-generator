@@ -49,7 +49,9 @@ make seed-demo WORKSPACE=<id>   tematy demo: pełny pipeline za 0 USD
 make pipeline                   jednorazowo to, co scheduler: RSS + zlecenie oceny
 make create-user EMAIL=...      konto bez rejestracji; WORKSPACE=<id> dołącza jako owner
 make set-budget WORKSPACE=<id> USD=<kwota|default>
-make wipe                       kopia bazy do /tmp, usunięcie danych i zadań kolejki (konta zostają)
+make wipe                       kopia bazy do /tmp, data:wipe (dane i zadania kolejki; konta i połączenia WP zostają)
+make deactivate-user EMAIL=...  blokada konta (activate-user odblokowuje)
+make wordpress-import           połączenie WP workspace'u z WORDPRESS_* w .env (WORKSPACE=<id>)
 make artisan CMD="route:list"
 ```
 
@@ -117,5 +119,6 @@ publiczny ruch przez reverse proxy z TLS.
 ```bash
 make deploy-init        # pierwszy raz: clone do PROD_DIR (domyślnie /srv/content-engine), potem deploy
 make deploy             # na serwerze: git reset --hard origin/$BRANCH, build, migracja, up
-make logs-prod / ps-prod / migrate-prod / create-user-prod / set-budget-prod / seed-prod
+make logs-prod / ps-prod / migrate-prod / create-user-prod / deactivate-user-prod / activate-user-prod
+make set-budget-prod / seed-prod / wordpress-import-prod
 ```

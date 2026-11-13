@@ -25,9 +25,11 @@ make seed / seed-demo [WORKSPACE=<id>]          # sample RSS sources / demo topi
 make pipeline      # one-off scheduler run: fetch RSS + enqueue classification
 make create-user EMAIL=... [WORKSPACE=<id>]     # interactive password; WORKSPACE joins as owner
 make set-budget WORKSPACE=<id> USD=<amount|default>
-make wipe          # pg_dump to /tmp, truncate domain tables, drop Redis queue keys (accounts kept)
+make wipe          # pg_dump to /tmp, stop queue/scheduler, `artisan data:wipe` (domain tables + pipeline queue; accounts, WP connections kept)
+make deactivate-user / activate-user EMAIL=...   # users.is_active; inactive users are filtered by the `active_eloquent` auth provider
+make wordpress-import [WORKSPACE=<id>]          # WP connection from WORDPRESS_URL/USERNAME/APP_PASSWORD
 make artisan CMD="route:list"
-make deploy / deploy-init / logs-prod / ps-prod / migrate-prod / create-user-prod / set-budget-prod / seed-prod
+make deploy / deploy-init / logs-prod / ps-prod / migrate-prod / create-user-prod / (de)activate-user-prod / set-budget-prod / seed-prod / wordpress-import-prod
 ```
 
 - Single Laravel test: `docker compose exec -T platform php artisan test --filter=ClassName` (tests in `apps/platform/tests/{Feature,Unit}`, grouped per module).

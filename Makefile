@@ -1,4 +1,4 @@
-.PHONY: up dev down build migrate seed seed-demo wipe logs test test-platform test-ai pipeline create-user set-budget artisan
+.PHONY: up dev down build migrate seed seed-demo wipe logs test test-platform test-ai pipeline create-user deactivate-user activate-user set-budget wordpress-import artisan
 
 ARTISAN := docker compose exec platform php artisan
 
@@ -28,8 +28,20 @@ seed:
 seed-demo:
 	$(ARTISAN) demo:seed $(if $(WORKSPACE),--workspace=$(WORKSPACE))
 
+# Kopia bazy do $TMPDIR (lub /tmp), zatrzymanie queue/scheduler, data:wipe, ponowny start tylko tego, co działało.
 wipe:
-	python3 scripts/wipe.py
+	@set -e; umask 077; \
+	running=$$(docker compose ps --status running --services); \
+	echo "$$running" | grep -qx db || { echo "Kontener db nie działa. Uruchom najpierw make up lub make dev." >&2; exit 1; }; \
+	echo "$$running" | grep -qx platform || { echo "Kontener platform nie działa. Uruchom najpierw make up lub make dev." >&2; exit 1; }; \
+	backup="$${TMPDIR:-/tmp}/content-before-reset-$$(date +%Y%m%d-%H%M%S).sql"; \
+	docker compose exec -T db pg_dump -U content -d content > "$$backup" || { rm -f "$$backup"; echo "Kopia bazy nie powiodła się, nic nie usunięto." >&2; exit 1; }; \
+	echo "Kopia bazy: $$backup"; \
+	stopped=$$(echo "$$running" | grep -xE 'queue|scheduler' | tr '\n' ' '); \
+	trap '[ -z "$$stopped" ] || docker compose start $$stopped' EXIT; \
+	[ -z "$$stopped" ] || docker compose stop $$stopped; \
+	docker compose exec -T platform php artisan data:wipe --force; \
+	echo "Aby zasilić źródła: make seed, następnie make pipeline."
 
 test: test-platform test-ai
 
@@ -49,6 +61,19 @@ create-user:
 	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
 	$(ARTISAN) users:create $(EMAIL) $(if $(WORKSPACE),--workspace=$(WORKSPACE))
 
+# Blokada konta (logowanie odrzucone, aktywne sesje tracą ważność) i odblokowanie: make deactivate-user EMAIL=...
+deactivate-user:
+	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
+	$(ARTISAN) users:deactivate $(EMAIL)
+
+activate-user:
+	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
+	$(ARTISAN) users:activate $(EMAIL)
+
+# Połączenie WordPress z WORDPRESS_URL / WORDPRESS_USERNAME / WORDPRESS_APP_PASSWORD (WORKSPACE=<id>, domyślnie najstarszy).
+wordpress-import:
+	$(ARTISAN) wordpress:import-env $(if $(WORKSPACE),--workspace=$(WORKSPACE))
+
 # Budżet AI workspace'u: make set-budget WORKSPACE=<id> USD=25 (USD=default -> DEFAULT_MONTHLY_BUDGET_USD).
 set-budget:
 	@test -n "$(WORKSPACE)" -a -n "$(USD)" || { echo "Podaj WORKSPACE=<id> USD=<kwota|default>"; exit 1; }
@@ -65,7 +90,7 @@ BRANCH ?= main
 PROD_DIR ?= /srv/content-engine
 DC_PROD := docker compose -f docker-compose.prod.yml
 
-.PHONY: deploy-init deploy build-prod up-prod down-prod restart-prod logs-prod ps-prod migrate-prod seed-prod create-user-prod set-budget-prod
+.PHONY: deploy-init deploy build-prod up-prod down-prod restart-prod logs-prod ps-prod migrate-prod seed-prod create-user-prod deactivate-user-prod activate-user-prod set-budget-prod wordpress-import-prod
 deploy-init:
 	@if [ -d "$(PROD_DIR)/.git" ]; then \
 		echo "$(PROD_DIR) już istnieje, pomijam clone."; \
@@ -120,3 +145,14 @@ create-user-prod:
 set-budget-prod:
 	@test -n "$(WORKSPACE)" -a -n "$(USD)" || { echo "Podaj WORKSPACE=<id> USD=<kwota|default>"; exit 1; }
 	$(DC_PROD) exec platform php artisan workspaces:budget $(WORKSPACE) $(USD)
+
+deactivate-user-prod:
+	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
+	$(DC_PROD) exec -T platform php artisan users:deactivate $(EMAIL)
+
+activate-user-prod:
+	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
+	$(DC_PROD) exec -T platform php artisan users:activate $(EMAIL)
+
+wordpress-import-prod:
+	$(DC_PROD) exec -T platform php artisan wordpress:import-env $(if $(WORKSPACE),--workspace=$(WORKSPACE))
