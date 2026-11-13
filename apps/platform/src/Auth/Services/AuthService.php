@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Modules\Auth\Commands\CreateUserCommand;
+use Modules\Auth\Commands\RecordLoginCommand;
 use Modules\Auth\Data\LoginData;
 use Modules\Auth\Data\MeData;
 use Modules\Auth\Data\RegisterData;
@@ -23,6 +24,7 @@ final class AuthService
 {
     public function __construct(
         private readonly CreateUserCommand $createUser,
+        private readonly RecordLoginCommand $recordLogin,
         private readonly EmailTakenQuery $emailTaken,
         private readonly WorkspaceService $workspaces,
         private readonly CurrentWorkspace $currentWorkspace,
@@ -78,6 +80,7 @@ final class AuthService
         }
         RateLimiter::clear($emailKey);
         $request->session()->regenerate();
+        $this->recordLogin->execute($this->guard()->id());
 
         return $this->me();
     }
@@ -100,6 +103,7 @@ final class AuthService
     {
         $this->guard()->login($user);
         $request->session()->regenerate();
+        $this->recordLogin->execute($user->id);
     }
 
     private function guard(): StatefulGuard

@@ -97,4 +97,34 @@ final class AuthTest extends TestCase
             ->assertStatus(429)->assertExactJson(['detail' => ['code' => 'too_many_attempts']]);
         RateLimiter::clear('login:email:jan@example.com');
     }
+
+    #[Test]
+    public function login_records_last_login_time(): void
+    {
+        $this->register();
+        $this->app['auth']->guard('web')->logout();
+        User::query()->update(['last_login_at' => null]);
+
+        $this->spa()->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => self::PASSWORD])->assertOk();
+
+        $this->assertNotNull(User::query()->where('email', 'jan@example.com')->value('last_login_at'));
+    }
+
+    #[Test]
+    public function deactivated_account_cannot_log_in_and_loses_its_session(): void
+    {
+        $this->register();
+        $this->spa()->getJson('/api/auth/me')->assertOk();
+
+        $this->artisan('users:deactivate', ['email' => 'JAN@example.com'])->assertSuccessful();
+        $this->app['auth']->forgetGuards();
+        $this->spa()->getJson('/api/auth/me')->assertStatus(401)->assertExactJson(['detail' => ['code' => 'not_authenticated']]);
+        $this->spa()->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => self::PASSWORD])
+            ->assertStatus(401)->assertExactJson(['detail' => ['code' => 'invalid_credentials']]);
+
+        $this->artisan('users:activate', ['email' => 'jan@example.com'])->assertSuccessful();
+        $this->app['auth']->forgetGuards();
+        $this->spa()->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => self::PASSWORD])->assertOk();
+        $this->artisan('users:deactivate', ['email' => 'nikt@example.com'])->assertFailed();
+    }
 }
