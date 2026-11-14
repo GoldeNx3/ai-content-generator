@@ -78,3 +78,34 @@ def test_text_fields_sent_to_wordpress_are_plain_text():
         assert '<' not in p[key] and '>' not in p[key], (key,p[key])
     assert p['title']=='Tytuł' and p['meta_description']=='Opis'
     assert p['tags']==['AI','C++','Laravel']
+
+
+def test_profile_overrides_are_validated_against_the_seo_schema():
+    with pytest.raises(Exception):
+        seo_profile(article(),{'internal_links':['tekst']})
+    with pytest.raises(Exception):
+        seo_profile(article(),{'faq':[{'question':'q'}]})
+
+
+def test_verified_internal_links_must_be_http():
+    html=content_html(article(content='Zobacz Laravel tutaj.'),{'verified_internal_links':[{'anchor':'Laravel','url':'javascript://wp/a%0aalert(1)'}]})
+    assert 'javascript' not in html
+
+
+def test_llm_cannot_choose_image_author_links_or_indexing():
+    from ai.tasks.wordpress import merge_prepared
+    current={'featured_image_url':None,'author_id':None,'internal_links':[],'robots_index':True,'seo_title':''}
+    generated={'featured_image_url':'https://evil.example/x.png','author_id':7,'internal_links':[{'anchor':'a','url':'https://x'}],
+        'robots_index':False,'seo_title':'Nowy tytuł','slug':'x'}
+    merged=merge_prepared(current,generated)
+    assert merged['featured_image_url'] is None and merged['author_id'] is None and merged['internal_links']==[]
+    assert merged['robots_index'] is True and merged['seo_title']=='Nowy tytuł'
+
+
+def test_article_update_lengths_match_the_api():
+    from app.schemas.article import ArticleUpdate
+    with pytest.raises(Exception):
+        ArticleUpdate(lead='a'*2001)
+    with pytest.raises(Exception):
+        ArticleUpdate(content='a'*100001)
+    assert ArticleUpdate(lead='a'*2000, content='a'*100000).lead

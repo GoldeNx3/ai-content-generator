@@ -3,7 +3,9 @@
 namespace Tests\Feature\WordPress;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Modules\Articles\Models\Article;
+use Modules\Pipeline\Services\JobRunner;
 use Modules\Qa\Models\ArticleQa;
 use Modules\Qa\Support\QaSnapshot;
 use Modules\WordPress\Models\WordPressConnection;
@@ -142,19 +144,39 @@ final class PublishTest extends TestCase
     }
 
     #[Test]
+    public function seo_settings_reject_malformed_nested_values(): void
+    {
+        $article = $this->approvedArticle();
+        $url = "/api/article-versions/{$article->id}/wordpress/settings";
+        foreach ([
+            ['internal_links' => ['tekst']],
+            ['internal_links' => [['anchor' => 'x', 'url' => 'javascript://wp.example/a%0aalert(1)']]],
+            ['internal_links' => [['anchor' => 'x', 'url' => 'https://wp.example/a', 'extra' => 'y']]],
+            ['faq' => [['question' => str_repeat('a', 301), 'answer' => 'b']]],
+            ['faq' => ['tekst']],
+            ['howto_steps' => [['text' => str_repeat('a', 1001)]]],
+            ['featured_image_url' => 'https://img.example/a.png', 'featured_image_asset' => 'a.png'],
+        ] as $payload) {
+            $this->patchJson($url, $payload)->assertStatus(422);
+        }
+        $this->patchJson($url, ['internal_links' => [['anchor' => 'Laravel', 'url' => 'https://wp.example/blog/laravel/']],
+            'faq' => [['question' => 'Pytanie?', 'answer' => 'Odpowiedź.']], 'howto_steps' => [['name' => 'Krok', 'text' => 'Zrób to.']]])->assertOk();
+    }
+
+    #[Test]
     public function transient_wordpress_errors_are_retried(): void
     {
-        \Illuminate\Support\Facades\Queue::fake();
+        Queue::fake();
         $this->connect();
         $article = $this->approvedArticle();
         $job = $this->postJson("/api/article-versions/{$article->id}/wordpress", ['status' => 'draft'])->json('id');
         $this->wp->error = 503;
 
-        app(\Modules\Pipeline\Services\JobRunner::class)->run($job);
+        app(JobRunner::class)->run($job);
         $this->getJson("/api/jobs/{$job}")->assertJsonPath('status', 'retrying')->assertJsonPath('error_code', 'wordpress_http_503');
         $this->assertSame('queued', WordPressPublication::query()->value('status'));
 
-        app(\Modules\Pipeline\Services\JobRunner::class)->run($job);
+        app(JobRunner::class)->run($job);
         $this->getJson("/api/jobs/{$job}")->assertJsonPath('status', 'succeeded');
         $this->assertSame(1, $this->wp->creates);
     }

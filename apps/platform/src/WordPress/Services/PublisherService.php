@@ -3,10 +3,11 @@
 namespace Modules\WordPress\Services;
 
 use Carbon\CarbonImmutable;
+use GuzzleHttp\Exception\RequestException;
 use Illuminate\Http\Client\Factory as Http;
 use Modules\Articles\Models\Article;
-use Modules\Candidates\Enums\CandidateStatus;
 use Modules\Candidates\Commands\UpdateCandidateStatusCommand;
+use Modules\Candidates\Enums\CandidateStatus;
 use Modules\Pipeline\Data\StageResult;
 use Modules\Pipeline\Exceptions\JobInputException;
 use Modules\Pipeline\Models\PipelineJob;
@@ -285,8 +286,16 @@ final class PublisherService
             $mime = mime_content_type($path) ?: '';
             $filename = basename($path);
         } else {
-            $response = $this->http->timeout(20)->withoutRedirecting()
-                ->withOptions(['curl' => $this->guard->curlResolve($image)])->get($image);
+            try {
+                $response = $this->http->timeout(20)->withoutRedirecting()
+                    ->withOptions(['curl' => $this->guard->curlResolve($image), 'progress' => function ($total, $downloaded) use ($limit): void {
+                        if ($total > $limit || $downloaded > $limit) {
+                            throw new JobInputException('Nieobsługiwany format lub rozmiar obrazka.', 422);
+                        }
+                    }])->get($image);
+            } catch (RequestException $exception) {
+                throw $exception->getPrevious() instanceof JobInputException ? $exception->getPrevious() : new JobInputException('Nie udało się pobrać obrazka.', 422);
+            }
             if (! $response->successful()) {
                 throw new JobInputException('Nie udało się pobrać obrazka.', 422);
             }
@@ -310,7 +319,7 @@ final class PublisherService
         $siteHost = parse_url($connection->site_url, PHP_URL_HOST);
         foreach ($profile['internal_links'] ?? [] as $link) {
             $url = $link['url'] ?? '';
-            if (parse_url($url, PHP_URL_HOST) !== $siteHost) {
+            if (! in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true) || parse_url($url, PHP_URL_HOST) !== $siteHost) {
                 $warnings[] = 'Internal link pominięty: URL nie należy do WordPressa.';
 
                 continue;

@@ -103,13 +103,26 @@ async def prepare(data: dict, ctx: TaskContext) -> dict:
         result = await ctx.call("preparing_seo", generate)
     finally:
         await llm._client.close()
-    generated = result.output.model_dump()
-    for key, value in current.items():
-        if value is not None and value != "" and value != []:
-            generated[key] = value
+    generated = merge_prepared(current, result.output.model_dump())
     generated["slug"] = slugify(generated["slug"])
     generated["canonical_url"] = current.get("canonical_url")
     return {"profile": seo_profile(article, generated)}
+
+
+# Fields the model may only fill as text; publishing decisions (image, author, links, indexing) stay with the user.
+USER_ONLY_FIELDS = ("featured_image_url", "featured_image_asset", "author_id", "internal_links", "robots_index", "robots_follow",
+                    "include_sources", "canonical_url")
+
+
+def merge_prepared(current: dict, generated: dict) -> dict:
+    merged = dict(generated)
+    for key, value in current.items():
+        if value is not None and value != "" and value != []:
+            merged[key] = value
+    for key in USER_ONLY_FIELDS:
+        if key in current or key in merged:
+            merged[key] = current.get(key)
+    return merged
 
 
 async def render(data: dict, ctx: TaskContext) -> dict:

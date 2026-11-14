@@ -8,7 +8,7 @@ use Spatie\LaravelData\Data;
 final class SeoSettingsData extends Data
 {
     public const FIELDS = [
-        'title', 'slug', 'seo_title', 'meta_description', 'excerpt', 'canonical_url', 'focus_keyword', 'secondary_keywords',
+        'excerpt', 'canonical_url', 'focus_keyword', 'secondary_keywords',
         'og_title', 'og_description', 'twitter_title', 'twitter_description', 'robots_index', 'robots_follow', 'schema_type',
         'category', 'tags', 'author_id', 'featured_image_url', 'featured_image_asset', 'internal_links', 'faq', 'howto_steps',
         'include_sources',
@@ -35,11 +35,20 @@ final class SeoSettingsData extends Data
             'tags' => ['sometimes', 'array', 'max:8'],
             'tags.*' => ['string', 'max:50'],
             'author_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
-            'featured_image_url' => ['sometimes', 'nullable', 'url:http,https', 'max:2048'],
+            'featured_image_url' => ['sometimes', 'nullable', 'url:http,https', 'max:2048', 'prohibits:featured_image_asset'],
             'featured_image_asset' => ['sometimes', 'nullable', 'string', 'max:500'],
             'internal_links' => ['sometimes', 'array', 'max:20'],
+            'internal_links.*' => ['array:anchor,url'],
+            'internal_links.*.anchor' => ['required', 'string', 'max:200'],
+            'internal_links.*.url' => ['required', 'url:http,https', 'max:2048'],
             'faq' => ['sometimes', 'array', 'max:20'],
+            'faq.*' => ['array:question,answer'],
+            'faq.*.question' => ['required', 'string', 'max:300'],
+            'faq.*.answer' => ['required', 'string', 'max:2000'],
             'howto_steps' => ['sometimes', 'array', 'max:30'],
+            'howto_steps.*' => ['array:name,text'],
+            'howto_steps.*.name' => ['required', 'string', 'max:200'],
+            'howto_steps.*.text' => ['required', 'string', 'max:1000'],
             'include_sources' => ['sometimes', 'boolean'],
         ];
     }

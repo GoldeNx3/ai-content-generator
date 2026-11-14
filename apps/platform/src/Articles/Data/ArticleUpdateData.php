@@ -12,9 +12,9 @@ final class ArticleUpdateData extends Data
     public function __construct(
         #[Min(1), Max(300)]
         public string|Optional $title,
-        #[Min(1)]
+        #[Min(1), Max(2000)]
         public string|Optional $lead,
-        #[Min(1)]
+        #[Min(1), Max(100000)]
         public string|Optional $content,
         #[Min(1), Max(300)]
         public string|Optional $meta_title,

@@ -38,6 +38,10 @@ def seo_profile(article, overrides=None):
     data=SEOData.model_validate(getattr(article,'seo_data',None) or {}).model_dump()
     profile={**data,'title':article.title,'slug':article.slug,'seo_title':article.meta_title,'meta_description':article.meta_description}
     profile.update(overrides or {})
+    # Overrides come from the panel and the LLM: the SEO part must still match the schema (shapes of FAQ, links, steps).
+    if profile.get('category') not in CATEGORIES: profile['category']=None
+    checked=SEOData.model_validate({key:profile[key] for key in SEOData.model_fields if key in profile}).model_dump()
+    profile.update(checked)
     profile['category']=profile.get('category') if profile.get('category') in CATEGORIES else category_name(article)
     profile['excerpt']=profile.get('excerpt') or plain(article.lead)
     for prefix in ('og','twitter'):
@@ -74,6 +78,7 @@ def content_html(article, profile=None):
     # Links are only added after the service checks their existing WordPress URLs.
     for entry in profile.get('verified_internal_links',[]):
         anchor=entry.get('anchor','');url=entry.get('url','')
+        if urlsplit(url).scheme not in ('http','https'): continue
         for node in soup.find_all(string=True):
             if node.parent.name not in ('a','code','pre') and anchor and anchor in str(node):
                 before,after=str(node).split(anchor,1)

@@ -126,8 +126,8 @@ class GenerateArticleRequest(BaseModel):
 
 class ArticleUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=300)
-    lead: str | None = Field(default=None, min_length=1)
-    content: str | None = Field(default=None, min_length=1)
+    lead: str | None = Field(default=None, min_length=1, max_length=2000)
+    content: str | None = Field(default=None, min_length=1, max_length=100000)
     meta_title: str | None = Field(default=None, min_length=1, max_length=300)
     meta_description: str | None = Field(default=None, min_length=1, max_length=500)
 

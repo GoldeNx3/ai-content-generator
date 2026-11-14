@@ -88,6 +88,8 @@ final class ArticlesTest extends TestCase
         $this->assertSame(['article.rebuild', 'seo.preview'], array_column($this->aiRequests, 'task'));
         $this->assertFalse($article->refresh()->is_current);
         $this->patchJson("/api/articles/{$article->id}", ['title' => ''])->assertStatus(422);
+        $this->patchJson("/api/articles/{$article->id}", ['lead' => str_repeat('a', 2001)])->assertStatus(422);
+        $this->patchJson("/api/articles/{$article->id}", ['content' => str_repeat('a', 100001)])->assertStatus(422);
     }
 
     #[Test]
