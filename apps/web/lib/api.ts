@@ -125,6 +125,10 @@ export const ERROR_MESSAGES: Record<string, string> = {
   workspace_paused: "Workspace jest wstrzymany: nowe zadania nie są przyjmowane. Wznów go w Ustawieniach albo w Kolejce.",
   job_not_cancellable: "To zadanie już się zakończyło i nie można go anulować.",
   job_not_stoppable: "Trwającej publikacji w WordPressie nie można przerwać w połowie zapisu. Poczekaj, aż się zakończy.",
+  too_many_requests: "Zbyt wiele kosztownych operacji w krótkim czasie. Odczekaj minutę i spróbuj ponownie.",
+  source_private_url: "Adres źródła prowadzi do sieci prywatnej albo lokalnej. Podaj publiczny adres kanału RSS.",
+  source_url_invalid: "Podaj adres http(s) kanału RSS bez loginu i hasła w adresie.",
+  source_limit_reached: "Osiągnięto limit 200 źródeł na konto. Usuń nieużywane źródła, aby dodać nowe.",
   budget_exceeded: "Wyczerpano miesięczny budżet AI tego workspace'u. Płatne kroki (ocena, research, pisanie, QA, poprawki) wrócą od 1. dnia miesiąca albo po zwiększeniu budżetu przez administratora.",
   secrets_key_missing: "Serwer nie ma skonfigurowanego klucza SECRETS_KEY. Skontaktuj się z administratorem.",
 };

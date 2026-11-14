@@ -20,7 +20,7 @@ final class CandidateJobsController
     {
         $query = $request->validate([
             'status' => ['nullable', Rule::in(['active', 'queued', 'running', 'retrying', 'succeeded', 'failed', 'cancelled'])],
-            'page' => ['nullable', 'integer', 'min:1'],
+            'page' => ['nullable', 'integer', 'min:1', 'max:10000'],
             'page_size' => ['nullable', 'integer', 'between:1,100'],
         ]);
 

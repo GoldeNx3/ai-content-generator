@@ -31,9 +31,15 @@ w trybie SPA: sesja Laravela w Redisie, ciasteczko `ce_session` (HttpOnly) i och
   (domyślnie 14 dni). W prod `SESSION_SECURE_COOKIE=true`.
 - CORS i CSRF: dozwolony jest wyłącznie origin z `FRONTEND_URL` (`supports_credentials`), a sesyjne
   uwierzytelnianie dotyczy tylko domen z `SANCTUM_STATEFUL_DOMAINS`.
-- Limity (`RateLimiter`): `AUTH_MAX_FAILURES_PER_EMAIL` (5) i `AUTH_MAX_FAILURES_PER_IP` (20) nieudanych
+- Limity (`RateLimiter`): `AUTH_MAX_FAILURES_PER_EMAIL` (5, liczone dla pary e-mail + IP, więc obcy nie zablokuje
+  właścicielowi logowania z innego adresu) i `AUTH_MAX_FAILURES_PER_IP` (20) nieudanych
   logowań w oknie `AUTH_WINDOW_MINUTES` (15) → `429 too_many_attempts`; rejestracje
   `AUTH_MAX_REGISTRATIONS_PER_IP` (5) na `AUTH_REGISTRATION_WINDOW_MINUTES` (60) → `429 too_many_registrations`.
+- Kosztowne i synchroniczne trasy (pobieranie źródeł, ręczne źródło researchu, test i autoryzacja WordPressa,
+  „oceń oczekujące”) mają limit `throttle:expensive`: 10 na minutę na konto → `429 too_many_requests`.
+  Konto może mieć najwyżej 200 źródeł (`422 source_limit_reached`); listy przyjmują `page` ≤ 10 000.
+- Źródła RSS muszą wskazywać publiczne adresy (`422 source_private_url`); pobieranie przypina rozwiązany adres,
+  ponownie sprawdza przekierowania i ucina odpowiedzi > 5 MB. `SOURCES_ALLOW_PRIVATE_URLS=true` tylko lokalnie.
 - IP klienta pochodzi z `X-Forwarded-For` (`trustProxies('*')`): w prod port API jest bindowany na localhost
   i dostępny tylko przez reverse proxy, które musi ustawiać ten nagłówek.
 

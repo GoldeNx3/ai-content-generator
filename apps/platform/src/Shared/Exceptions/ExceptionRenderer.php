@@ -20,7 +20,7 @@ final class ExceptionRenderer
         $exceptions->render(fn (ModelNotFoundException $e) => self::detail('not_found', 404));
         $exceptions->render(fn (NotFoundHttpException $e) => self::detail('not_found', 404));
         $exceptions->render(fn (AccessDeniedHttpException $e) => self::detail('forbidden', 403));
-        $exceptions->render(fn (ThrottleRequestsException $e) => self::detail('too_many_attempts', 429));
+        $exceptions->render(fn (ThrottleRequestsException $e) => self::detail('too_many_requests', 429)->withHeaders($e->getHeaders()));
     }
 
     private static function detail(string $code, int $status): JsonResponse

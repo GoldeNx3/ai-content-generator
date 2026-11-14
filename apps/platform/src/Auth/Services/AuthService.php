@@ -63,7 +63,7 @@ final class AuthService
 
     public function login(LoginData $data, Request $request): MeData
     {
-        $emailKey = 'login:email:'.$data->email;
+        $emailKey = 'login:email:'.$data->email.'|'.$request->ip();
         $ipKey = 'login:ip:'.$request->ip();
         $window = config('content.auth.login_window_minutes') * 60;
         if (RateLimiter::tooManyAttempts($emailKey, config('content.auth.max_login_failures_per_email'))

@@ -13,12 +13,15 @@ use Modules\Sources\Data\SourceData;
 use Modules\Sources\Data\UpdateSourceData;
 use Modules\Sources\Models\Source;
 use Modules\Sources\Queries\ListSourcesQuery;
+use Modules\Sources\Queries\SourceCountQuery;
 use Modules\Sources\Queries\SourceHasJobHistoryQuery;
 use Modules\Sources\Queries\SourceUrlTakenQuery;
 use Spatie\LaravelData\Optional;
 
 final class SourceService
 {
+    private const MAX_SOURCES = 200;
+
     public function __construct(
         private readonly ListSourcesQuery $list,
         private readonly SourceUrlTakenQuery $urlTaken,
@@ -26,6 +29,7 @@ final class SourceService
         private readonly CreateSourceCommand $create,
         private readonly UpdateSourceCommand $update,
         private readonly DeleteSourceCommand $delete,
+        private readonly SourceCountQuery $sourceCount,
     ) {}
 
     public function list(int $workspaceId): Collection
@@ -36,6 +40,9 @@ final class SourceService
     public function create(int $workspaceId, CreateSourceData $data): SourceData
     {
         $this->ensureSafeUrl($data->url);
+        if ($this->sourceCount->execute($workspaceId) >= self::MAX_SOURCES) {
+            throw new ApiException('source_limit_reached', 422);
+        }
         if ($this->urlTaken->execute($data->url, $workspaceId)) {
             throw ApiException::plain('Source with this URL already exists', 409);
         }

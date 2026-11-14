@@ -8,6 +8,7 @@ use Modules\Candidates\Enums\CandidateStatus;
 use Modules\Candidates\Enums\WorkflowStatus;
 use Modules\Shared\Enums\SortOrder;
 use Spatie\LaravelData\Attributes\Validation\Between;
+use Spatie\LaravelData\Attributes\Validation\Max;
 use Spatie\LaravelData\Attributes\Validation\Min;
 use Spatie\LaravelData\Data;
 
@@ -25,7 +26,7 @@ final class CandidateFiltersData extends Data
         public ?int $max_score = null,
         public CandidateSort $sort = CandidateSort::TotalScore,
         public SortOrder $order = SortOrder::Desc,
-        #[Min(1)]
+        #[Min(1), Max(10000)]
         public int $page = 1,
         #[Between(1, 100)]
         public int $page_size = 25,

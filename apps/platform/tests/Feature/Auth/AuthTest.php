@@ -129,6 +129,23 @@ final class AuthTest extends TestCase
     }
 
     #[Test]
+    public function failed_logins_from_one_address_do_not_lock_the_owner_out_elsewhere(): void
+    {
+        $this->register();
+        $this->app['auth']->guard('web')->logout();
+        config(['content.auth.max_login_failures_per_email' => 3]);
+        foreach (range(1, 3) as $_) {
+            $this->spa()->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => 'bad']);
+        }
+
+        $this->spa()->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => self::PASSWORD])
+            ->assertStatus(429);
+        $this->spa()->withServerVariables(['REMOTE_ADDR' => '198.51.100.20'])->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => self::PASSWORD])
+            ->assertOk();
+        RateLimiter::clear('login:email:jan@example.com|203.0.113.9');
+    }
+
+    #[Test]
     public function login_is_throttled_per_email(): void
     {
         $this->register();
@@ -140,7 +157,7 @@ final class AuthTest extends TestCase
 
         $this->spa()->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => self::PASSWORD])
             ->assertStatus(429)->assertExactJson(['detail' => ['code' => 'too_many_attempts']]);
-        RateLimiter::clear('login:email:jan@example.com');
+        RateLimiter::clear('login:email:jan@example.com|127.0.0.1');
     }
 
     #[Test]

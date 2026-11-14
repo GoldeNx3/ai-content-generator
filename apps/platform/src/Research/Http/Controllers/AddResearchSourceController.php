@@ -9,7 +9,7 @@ use Modules\Research\Services\ResearchService;
 use Spatie\RouteAttributes\Attributes\Middleware;
 use Spatie\RouteAttributes\Attributes\Post;
 
-#[Middleware('auth:sanctum')]
+#[Middleware(['auth:sanctum', 'throttle:expensive'])]
 final class AddResearchSourceController
 {
     public function __construct(private readonly ResearchService $research) {}

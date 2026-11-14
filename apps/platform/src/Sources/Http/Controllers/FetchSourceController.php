@@ -8,7 +8,7 @@ use Modules\Sources\Services\IngestionService;
 use Spatie\RouteAttributes\Attributes\Middleware;
 use Spatie\RouteAttributes\Attributes\Post;
 
-#[Middleware('auth:sanctum')]
+#[Middleware(['auth:sanctum', 'throttle:expensive'])]
 final class FetchSourceController
 {
     public function __construct(private readonly IngestionService $ingestion) {}
