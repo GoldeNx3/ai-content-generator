@@ -16,7 +16,9 @@ use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Queries\ActiveCandidateJobQuery;
 use Modules\Pipeline\Queries\FindJobByKeyQuery;
 use Modules\Pipeline\Queries\LockCandidateQuery;
+use Modules\Shared\Exceptions\ApiException;
 use Modules\Usage\Services\BudgetService;
+use Modules\Workspaces\Queries\WorkspacePausedQuery;
 
 final class EnqueueService
 {
@@ -27,6 +29,7 @@ final class EnqueueService
         private readonly CreateJobCommand $createJob,
         private readonly HandlerRegistry $handlers,
         private readonly BudgetService $budget,
+        private readonly WorkspacePausedQuery $paused,
     ) {}
 
     public function enqueue(JobKind $kind, int $candidateId, array $options = [], ?string $key = null, ?string $retryOf = null): PipelineJob
@@ -87,6 +90,9 @@ final class EnqueueService
 
     private function ensureAllowed(JobKind $kind, Candidate $candidate): void
     {
+        if ($this->paused->execute($candidate->workspace_id)) {
+            throw new ApiException('workspace_paused', 409);
+        }
         if ($candidate->isDemo()) {
             return;
         }

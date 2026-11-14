@@ -16,6 +16,9 @@ final class ClaimJobCommand
             $now = CarbonImmutable::now();
             $job = PipelineJob::query()->whereKey($jobId)
                 ->whereIn('status', [JobStatus::Queued->value, JobStatus::Retrying->value])
+                ->whereNotExists(fn ($query) => $query->from('workspaces')
+                    ->whereColumn('workspaces.id', 'pipeline_jobs.workspace_id')
+                    ->whereNotNull('workspaces.paused_at'))
                 ->lockForUpdate()
                 ->first();
             if ($job === null) {
