@@ -5,22 +5,23 @@ import { AgentProgress } from "@/components/agent-progress";
 import { useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { KIND_LABELS, STATUS_LABELS, stageLabel } from "@/lib/jobs";
+import { cancelAction, KIND_LABELS, STATUS_LABELS, stageLabel } from "@/lib/jobs";
 import { Button } from "@/components/ui/button";
 import type { Job, JobAttempt } from "@/types/api";
 
 const OUTCOMES: Record<string, string> = {
   running: "W toku", succeeded: "Sukces", retryable_error: "Błąd przejściowy",
-  failed: "Błąd", interrupted: "Przerwana próba",
+  failed: "Błąd", interrupted: "Przerwana próba", cancelled: "Anulowana",
 };
 
 // Ten widok odczytuje historię z bazy, również jeśli proces lub przeglądarka były restartowane.
-export function JobDetails({ initial, onRetried }: { initial: Job; onRetried: (job: Job) => void }) {
+export function JobDetails({ initial, onRetried, onCancelled }: { initial: Job; onRetried: (job: Job) => void; onCancelled?: () => void }) {
   const [job, setJob] = useState(initial);
   const [attempts, setAttempts] = useState<JobAttempt[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   useEffect(() => {
     let disposed = false;
     let timer: ReturnType<typeof setTimeout>;
@@ -47,6 +48,14 @@ export function JobDetails({ initial, onRetried }: { initial: Job; onRetried: (j
     finally { setRetrying(false); }
   }
 
+  async function cancel() {
+    setCancelling(true);
+    try { setJob(await api.cancelJob(job.id)); onCancelled?.(); }
+    catch (failure) { setError(errorText(failure)); }
+    finally { setCancelling(false); }
+  }
+  const action = cancelAction(job);
+
   return <div className="space-y-5">
     <AgentProgress key={job.id} job={job} />
     <div className="space-y-1 text-sm">
@@ -62,11 +71,18 @@ export function JobDetails({ initial, onRetried }: { initial: Job; onRetried: (j
       {job.status === "retrying" && <><dt>Następna próba najwcześniej</dt><dd>{formatDate(job.available_at)}</dd></>}
       {job.result_id !== null && <><dt>Zapisany wynik</dt><dd>{job.result_type} #{job.result_id}</dd></>}
     </dl>
-    {job.error_message && job.status !== "succeeded" && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+    {job.error_message && !["succeeded", "cancelled"].includes(job.status) && <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
       <p>{job.error_message}</p><p className="mt-1 font-mono text-xs">{job.error_code}</p>
     </div>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    {job.status === "cancelled" && <p className="text-sm text-muted-foreground">{job.error_message ?? "Anulowano."} Etap możesz zlecić ponownie na stronie tematu.</p>}
     {job.status === "failed" && <Button disabled={retrying} onClick={() => void retry()}>{retrying ? "Zlecanie…" : "Ponów zadanie · płatne"}</Button>}
+    {action && <div className="space-y-1">
+      <Button variant="outline" disabled={cancelling || action === "stopping"} onClick={() => void cancel()}>
+        {action === "cancel" ? (cancelling ? "Anulowanie…" : "Anuluj zadanie") : action === "stop" ? (cancelling ? "Zatrzymywanie…" : "Zatrzymaj po bieżącym kroku") : "Zatrzymywanie…"}
+      </Button>
+      {action !== "cancel" && <p className="text-xs text-muted-foreground">Trwające wywołanie AI zostanie dokończone i policzone; kolejne kroki nie ruszą.</p>}
+    </div>}
     <section className="space-y-3">
       <h3 className="font-semibold">Historia prób</h3>
       {!loaded && <p className="text-sm text-muted-foreground">Ładowanie historii…</p>}

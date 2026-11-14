@@ -2,7 +2,7 @@ import type { Job, JobStatus } from "@/types/api";
 
 // Wspólne nazwy dla listy kolejki i szczegółów tematu.
 export const STATUS_LABELS: Record<JobStatus, string> = {
-  queued: "Oczekujące", running: "W toku", retrying: "Ponawiane", succeeded: "Sukcesy", failed: "Błędy",
+  queued: "Oczekujące", running: "W toku", retrying: "Ponawiane", succeeded: "Sukcesy", failed: "Błędy", cancelled: "Anulowane",
 };
 export const KIND_LABELS: Record<Job["kind"], string> = {
   prepare_wordpress: "Przygotowanie SEO", publish_wordpress: "WordPress Publisher", classify: "Ocena tematu", research: "Research", write: "Pisanie artykułu", qa_article: "QA / Fact Checker", auto_fix_article: "Auto Fix",
@@ -22,9 +22,18 @@ export const STATUS_STYLES: Record<JobStatus, string> = {
   retrying: "bg-amber-50 text-amber-900 ring-amber-200",
   succeeded: "bg-emerald-50 text-emerald-800 ring-emerald-200",
   failed: "bg-rose-50 text-rose-800 ring-rose-200",
+  cancelled: "bg-zinc-50 text-zinc-500 ring-zinc-200",
 };
 
 export const isActiveJob = (job: Job) => ["queued", "running", "retrying"].includes(job.status);
+
+// "stop" zatrzymuje biegnący job przed kolejnym płatnym krokiem AI; publikacja WP nie ma takich kroków.
+export type CancelAction = "cancel" | "stop" | "stopping" | null;
+export function cancelAction(job: Pick<Job, "status" | "kind" | "cancel_requested_at">): CancelAction {
+  if (job.status === "queued" || job.status === "retrying") return "cancel";
+  if (job.status !== "running" || job.kind === "publish_wordpress") return null;
+  return job.cancel_requested_at ? "stopping" : "stop";
+}
 
 // Candidate-wide activity guards mutations; stage activity describes only this agent/version.
 export function selectStageJobs(jobs: Job[], kind: Job["kind"], articleId?: number) {

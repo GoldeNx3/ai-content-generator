@@ -29,3 +29,17 @@ test('elapsed time uses execution start and survives a refreshed page',()=>{
   assert.equal(exports.jobElapsedSeconds({...qa,started_at:'invalid'},Date.parse(stamp)),null);
   assert.equal(exports.jobElapsedSeconds(qa,Date.parse(stamp)-1000),0);
 });
+test('cancelled jobs are terminal and labelled',()=>{
+  assert.equal(exports.isActiveJob({...qa,status:'cancelled'}),false);
+  assert.equal(exports.STATUS_LABELS.cancelled,'Anulowane');
+  assert.ok(exports.STATUS_STYLES.cancelled);
+});
+test('cancel is offered for waiting jobs and running AI jobs only',()=>{
+  assert.equal(exports.cancelAction({...qa,status:'queued'}),'cancel');
+  assert.equal(exports.cancelAction({...qa,status:'retrying'}),'cancel');
+  assert.equal(exports.cancelAction({...qa,status:'running',cancel_requested_at:null}),'stop');
+  assert.equal(exports.cancelAction({...qa,status:'running',cancel_requested_at:stamp}),'stopping');
+  assert.equal(exports.cancelAction({...qa,kind:'publish_wordpress',status:'running',cancel_requested_at:null}),null);
+  assert.equal(exports.cancelAction({...qa,status:'succeeded'}),null);
+  assert.equal(exports.cancelAction({...qa,status:'cancelled'}),null);
+});

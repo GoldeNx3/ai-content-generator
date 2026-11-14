@@ -1,7 +1,7 @@
 import type {
   Credentials,
   Me,
-  WordPressState, WordPressProfile, WordPressConnection, WordPressManualConnect, Usage,
+  WordPressState, WordPressProfile, WordPressConnection, WordPressManualConnect, Usage, AutomationSettings, AutomationUpdate,
   ArticleFix,
   ArticleQA,
   QueueQuery,
@@ -122,6 +122,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   wordpress_http_403: "Konto WordPress nie ma wymaganych uprawnień (edycja wpisów).",
   wordpress_http_404: "Brak wtyczki Content Engine Bridge albo REST API jest wyłączone. Zainstaluj i aktywuj wtyczkę.",
   wordpress_invalid_json: "WordPress zwrócił nieoczekiwaną odpowiedź (sprawdź adres i wtyczki blokujące REST API).",
+  workspace_paused: "Workspace jest wstrzymany: nowe zadania nie są przyjmowane. Wznów go w Ustawieniach albo w Kolejce.",
+  job_not_cancellable: "To zadanie już się zakończyło i nie można go anulować.",
   budget_exceeded: "Wyczerpano miesięczny budżet AI tego workspace'u. Płatne kroki (ocena, research, pisanie, QA, poprawki) wrócą od 1. dnia miesiąca albo po zwiększeniu budżetu przez administratora.",
   secrets_key_missing: "Serwer nie ma skonfigurowanego klucza SECRETS_KEY. Skontaktuj się z administratorem.",
 };
@@ -231,6 +233,10 @@ export const api = {
   publishWordPress: (id:number, body:{status:"draft"|"future"|"publish";scheduled_at?:string}) => enqueue<Job>(`/article-versions/${id}/wordpress`,body),
   syncWordPress: (id:number, body:{expected_wp_hash?:string}={}) => enqueue<Job>(`/article-versions/${id}/wordpress/sync`,body),
   usage: () => request<Usage>("/usage"),
+  automation: () => request<AutomationSettings>("/workspace/automation"),
+  updateAutomation: (body: AutomationUpdate) => patch<AutomationSettings>("/workspace/automation", body),
+  pauseWorkspace: () => post<{ paused_at: string }>("/workspace/pause"),
+  resumeWorkspace: () => post<{ paused_at: null; resumed_jobs: number }>("/workspace/resume"),
   wordpressConnection: () => request<WordPressConnection | null>("/wordpress/connection"),
   connectWordPress: (body: WordPressManualConnect) => post<WordPressConnection>("/wordpress/connection", body),
   authorizeWordPress: (body: { site_url: string; api_url?: string | null }) =>
@@ -252,6 +258,8 @@ export const api = {
   activeJobs: () => request<JobPage>("/jobs?status=active&page_size=100"),
   jobAttempts: (id: string) => request<JobAttempt[]>(`/jobs/${id}/attempts`),
   retryJob: (id: string) => enqueue<Job>(`/jobs/${id}/retry`),
+  cancelJob: (id: string) => post<Job>(`/jobs/${id}/cancel`),
+  cancelPendingJobs: () => post<{ cancelled: number }>("/jobs/cancel-pending"),
   pricing: () => request<ModelPricing>("/pricing"),
   stats: () => request<DashboardStats>("/stats"),
 

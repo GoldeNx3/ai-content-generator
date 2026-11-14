@@ -108,6 +108,23 @@ export interface Usage {
   unknown_cost_calls: number;
 }
 
+export const AUTOMATION_INTERVALS = [15, 30, 60, 120, 360, 720, 1440] as const;
+export interface AutomationRunResult { new_candidates: number; enqueued: number; errors: number; budget_exceeded: boolean }
+export interface AutomationSettings {
+  auto_fetch_enabled: boolean;
+  auto_fetch_interval_minutes: number;
+  auto_classify_enabled: boolean;
+  auto_classify_batch_limit: number;
+  last_auto_run_at: string | null;
+  last_auto_run_result: AutomationRunResult | null;
+  next_auto_run_at: string | null;
+  paused_at: string | null;
+  automation_enabled_globally: boolean;
+  can_edit: boolean;
+}
+export type AutomationUpdate = Partial<Pick<AutomationSettings,
+  "auto_fetch_enabled" | "auto_fetch_interval_minutes" | "auto_classify_enabled" | "auto_classify_batch_limit">>;
+
 export interface DashboardStats {
   candidates_today: number;
   new_today: number;
@@ -304,7 +321,7 @@ export interface ModelPricing {
 }
 
 // Status zadania pochodzi z bazy. Zamknięcie przeglądarki nie zatrzymuje workera.
-export type JobStatus = "queued" | "running" | "retrying" | "succeeded" | "failed";
+export type JobStatus = "queued" | "running" | "retrying" | "succeeded" | "failed" | "cancelled";
 export interface Job {
   id: string;
   candidate_id: number;
@@ -323,6 +340,7 @@ export interface Job {
   result_type: string | null;
   error_code: string | null;
   error_message: string | null;
+  cancel_requested_at?: string | null;
 }
 export interface JobPage { items: Job[]; total: number; page: number; page_size: number }
 export interface JobAttempt {

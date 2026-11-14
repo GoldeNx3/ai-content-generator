@@ -11,7 +11,7 @@ import { formatDate } from "@/lib/format";
 import type { Job, JobAttempt } from "@/types/api";
 
 export const jobStatusLabel: Record<Job["status"], string> = {
-  queued: "W kolejce", running: "W toku", retrying: "Oczekuje na ponowienie", succeeded: "Zakończono", failed: "Błąd",
+  queued: "W kolejce", running: "W toku", retrying: "Oczekuje na ponowienie", succeeded: "Zakończono", failed: "Błąd", cancelled: "Anulowano",
 };
 export function JobStatus({ jobs, active, error, onRetry }: {
   jobs: Job[]; active?: Job; error: string | null; onRetry: (job: Job) => Promise<unknown>;
@@ -43,14 +43,15 @@ export function JobStatus({ jobs, active, error, onRetry }: {
     finally { setRetrying(false); }
   }
   const Icon = job?.status === "succeeded" ? CheckCircle2Icon : job?.status === "failed" ? AlertCircleIcon : job?.status === "running" ? Loader2Icon : CircleIcon;
-  const color = job?.status === "failed" ? "text-rose-700" : job?.status === "succeeded" ? "text-emerald-700" : "text-sky-700";
+  const color = job?.status === "failed" ? "text-rose-700" : job?.status === "succeeded" ? "text-emerald-700" : job?.status === "cancelled" ? "text-zinc-500" : "text-sky-700";
   return <div className="space-y-3 text-sm" role="status">
     {error && <p className="text-destructive">Nie udało się odczytać statusu: {error}</p>}
     {active && active.kind !== job?.kind && <p>Dla tego tematu trwa inne zadanie · {jobStatusLabel[active.status]}.</p>}
     {job && <>
       <ol className="space-y-5 border-l border-slate-200 pl-5"><li className="relative"><Icon className={`absolute -left-[30px] top-0.5 size-5 bg-white ${color} ${job.status === "running" ? "animate-spin" : ""}`} /><p className={`font-medium ${color}`}>{jobStatusLabel[job.status]}{job.stage && stages[job.stage] && ` · ${stages[job.stage]}`}</p><p className="mt-1 text-xs text-muted-foreground">{formatDate(job.finished_at ?? job.started_at ?? job.created_at)}</p></li></ol>
       {job.status === "retrying" && <p>Ponowienie najwcześniej: {formatDate(job.available_at)}</p>}
-      {job.error_message && job.status !== "succeeded" && <div role="alert" className="rounded-lg bg-destructive/10 p-3 text-destructive"><p>{job.error_message}</p>{job.error_code && <p className="mt-1 font-mono text-xs opacity-80">Kod błędu: {job.error_code}</p>}</div>}
+      {job.status === "cancelled" && <p className="text-muted-foreground">Zadanie anulowano. Możesz zlecić ten etap ponownie.</p>}
+      {job.error_message && !["succeeded", "cancelled"].includes(job.status) && <div role="alert" className="rounded-lg bg-destructive/10 p-3 text-destructive"><p>{job.error_message}</p>{job.error_code && <p className="mt-1 font-mono text-xs opacity-80">Kod błędu: {job.error_code}</p>}</div>}
       {job.status === "failed" && <Button size="sm" variant="outline" disabled={retrying || Boolean(active)} onClick={() => void retry()}>Ponów zadanie · {demo ? "demo · bezpłatne" : "płatne"}</Button>}
       <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)}>{expanded ? "Ukryj" : "Szczegóły techniczne"}</Button>
       {expanded && <div className="space-y-3 text-xs">

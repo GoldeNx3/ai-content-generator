@@ -54,7 +54,7 @@ export function WordPressPanel({article,onSelectVersion,editing}:{article:Articl
     let alive=true;
     const timer=setInterval(()=>{void api.getJob(job.id).then(async next=>{
       if(!alive)return;setJob(next);
-      if(next.status==="succeeded" || next.status==="failed") {
+      if(next.status==="succeeded" || next.status==="failed" || next.status==="cancelled") {
         await load();setError(next.status==="failed"?next.error_message:null);
       }
     }).catch(e=>alive&&setError(errorText(e)));},1500);

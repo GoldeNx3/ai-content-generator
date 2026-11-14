@@ -22,6 +22,10 @@ const attempts = () => [{number:1,started_at:stamp,finished_at:stamp,outcome:'fa
  {stage:'writing',finished:false,estimated_cost_usd:null,usage:null},
 ]}];
 let retryPosts=0;
+let cancelPosts=[];
+let cancelAllPosts=0;
+let resumePosts=0;
+const automation={auto_fetch_enabled:false,auto_fetch_interval_minutes:60,auto_classify_enabled:false,auto_classify_batch_limit:20,last_auto_run_at:null,last_auto_run_result:null,next_auto_run_at:null,paused_at:null,automation_enabled_globally:true,can_edit:true};
 let staleAttemptReads=0;
 let temporaryListFailure=false;
 const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
@@ -33,7 +37,7 @@ try {
   if (!url.pathname.startsWith('/api/')) return route.abort();
   let body; let status=200;
   if (url.pathname==='/api/jobs/stats') {
-   body={queued:0,running:0,retrying:0,succeeded:0,failed:0,total:jobs.length};
+   body={queued:0,running:0,retrying:0,succeeded:0,failed:0,cancelled:0,total:jobs.length};
    for (const job of jobs) body[job.status]++;
   } else if (url.pathname==='/api/jobs') {
    if (temporaryListFailure) {temporaryListFailure=false;status=503;body={detail:'Testowy błąd odczytu'};}
@@ -43,6 +47,20 @@ try {
     const number=Number(url.searchParams.get('page')||1);const size=Number(url.searchParams.get('page_size')||25);
     body={items:selected.slice((number-1)*size,number*size),total:selected.length,page:number,page_size:size};
    }
+  } else if (url.pathname==='/api/workspace/automation') body=automation;
+  else if (url.pathname==='/api/workspace/resume') {
+   assert.equal(route.request().method(),'POST');resumePosts++;automation.paused_at=null;body={paused_at:null,resumed_jobs:3};
+  } else if (url.pathname==='/api/jobs/cancel-pending') {
+   assert.equal(route.request().method(),'POST');cancelAllPosts++;
+   const waiting=jobs.filter(job=>['queued','retrying'].includes(job.status));
+   for (const job of waiting) Object.assign(job,{status:'cancelled',error_code:'cancelled',error_message:'Anulowano przez użytkownika.',finished_at:stamp});
+   body={cancelled:waiting.length};
+  } else if (url.pathname.endsWith('/cancel')) {
+   assert.equal(route.request().method(),'POST');
+   const job=jobs.find(item=>item.id===url.pathname.split('/')[3]);cancelPosts.push(job.id);
+   if (job.status==='running') job.cancel_requested_at=stamp;
+   else Object.assign(job,{status:'cancelled',error_code:'cancelled',error_message:'Anulowano przez użytkownika.',finished_at:stamp});
+   body=job;
   } else if (url.pathname.endsWith('/retry')) {
    assert.equal(route.request().method(),'POST');
    assert.match(route.request().headers()['idempotency-key'], /^[a-f0-9-]{36}$/);
@@ -100,6 +118,37 @@ try {
  await dialog.getByText('Zapisany koszt: ≈ $0.009000',{exact:true}).waitFor();
  assert.ok(staleAttemptReads>=2,'terminal job details still refresh attempt ledger');
  await page.keyboard.press('Escape');
+
+ // Hamulec: pojedyncze anulowanie, zatrzymanie biegnącego, wszystkie oczekujące i baner pauzy.
+ await page.getByRole('combobox',{name:'Etap',exact:true}).click();
+ await page.getByRole('option',{name:'Wszystkie etapy',exact:true}).click();
+ await page.getByRole('button',{name:'Filtr: Oczekujące',exact:true}).click();
+ const queued=jobs.filter(job=>job.status==='queued');
+ await page.getByText(`${queued.length} zadań · strona 1/1`,{exact:true}).waitFor();
+ await page.getByRole('button',{name:`Anuluj: zadanie ${queued[0].id}`,exact:true}).click();
+ await page.getByText(`${queued.length-1} zadań · strona 1/1`,{exact:true}).waitFor();
+ assert.deepEqual(cancelPosts,[queued[0].id]);
+ await page.getByRole('button',{name:'Filtr: Anulowane',exact:true}).click();
+ await page.getByText('Anulowano przez użytkownika.',{exact:true}).first().waitFor();
+ await page.getByRole('button',{name:'Filtr: W toku',exact:true}).click();
+ const running=jobs.find(job=>job.status==='running');
+ await page.getByRole('button',{name:`Zatrzymaj po bieżącym kroku: zadanie ${running.id}`,exact:true}).click();
+ await page.getByRole('button',{name:`Zatrzymywanie…: zadanie ${running.id}`,exact:true}).waitFor();
+ assert.equal(running.status,'running','running job is only flagged');
+ const waiting=jobs.filter(job=>['queued','retrying'].includes(job.status)).length;
+ await page.getByRole('button',{name:`Anuluj wszystkie oczekujące (${waiting})`,exact:true}).click();
+ assert.equal(cancelAllPosts,0,'first click only asks for confirmation');
+ await page.getByRole('button',{name:`Potwierdź anulowanie ${waiting} zadań`,exact:true}).click();
+ await page.getByText(`Anulowano oczekujące zadania: ${waiting}.`,{exact:true}).waitFor();
+ assert.equal(cancelAllPosts,1);
+ automation.paused_at=stamp;
+ await page.getByText(/Workspace jest wstrzymany od/).waitFor();
+ await page.getByRole('button',{name:'Wznów',exact:true}).click();
+ await page.getByText('Workspace wznowiony. Wróciło do kolejki: 3.',{exact:true}).waitFor();
+ assert.equal(resumePosts,1);
+ await page.getByRole('button',{name:'Filtr: Sukcesy',exact:true}).click();
+ await page.getByRole('combobox',{name:'Etap',exact:true}).click();
+ await page.getByRole('option',{name:'Research',exact:true}).click();
  temporaryListFailure=true;
  await page.getByRole('button',{name:'Odśwież',exact:true}).click();
  await page.locator('main [role="alert"]').getByText(/Testowy błąd odczytu/).waitFor();
@@ -107,10 +156,11 @@ try {
  await page.locator('main [role="alert"]').waitFor({state:'hidden'});
  await page.reload();
  await page.getByText('28 zadań · strona 1/2',{exact:true}).waitFor();
+ assert.equal(await page.getByText(/Workspace jest wstrzymany/).count(),0);
  await page.setViewportSize({width:390,height:844});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.screenshot({path:'/tmp/content-queue-mobile.png',fullPage:true});
  await page.setViewportSize({width:1440,height:1000});
  await page.screenshot({path:'/tmp/content-queue.png',fullPage:true});
- console.log('PASS: global status counts, filters, paging, attempts/costs, retry, live updates, read-error recovery, reload and mobile. No real API calls.');
+ console.log('PASS: global status counts, filters, paging, attempts/costs, retry, cancel/stop/cancel-all, pause banner, live updates, read-error recovery, reload and mobile. No real API calls.');
 } finally {await browser.close();}

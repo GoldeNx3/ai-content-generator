@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshCwIcon, ListTodoIcon } from "lucide-react";
+import { RefreshCwIcon, ListTodoIcon, PauseCircleIcon } from "lucide-react";
 import { api, errorText } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { KIND_LABELS, STATUS_LABELS, STATUS_STYLES, stageLabel } from "@/lib/jobs";
+import { cancelAction, KIND_LABELS, STATUS_LABELS, STATUS_STYLES, stageLabel } from "@/lib/jobs";
 import { Button } from "@/components/ui/button";
 import { FilterSelect } from "@/components/filter-select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { JobDetails } from "@/components/queue/job-details";
-import type { Job, JobPage, JobStats, QueueQuery } from "@/types/api";
+import type { AutomationSettings, Job, JobPage, JobStats, QueueQuery } from "@/types/api";
 
 const STATUSES = Object.keys(STATUS_LABELS) as Job["status"][];
 const PAGE_SIZE = 25;
@@ -24,6 +24,10 @@ export default function QueuePage() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [automation, setAutomation] = useState<AutomationSettings | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirmCancelAll, setConfirmCancelAll] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const requestNumber = useRef(0);
 
   const load = useCallback(async () => {
@@ -31,12 +35,12 @@ export default function QueuePage() {
     const number = ++requestNumber.current;
     setRefreshing(true);
     try {
-      const [list, counts] = await Promise.all([api.queueJobs(query), api.queueStats()]);
+      const [list, counts, settings] = await Promise.all([api.queueJobs(query), api.queueStats(), api.automation()]);
       if (number !== requestNumber.current) return;
       // Gdy liczba wyników maleje podczas pracy, wracamy na istniejącą stronę.
       const lastPage = Math.max(1, Math.ceil(list.total / PAGE_SIZE));
       if ((query.page ?? 1) > lastPage) { setQuery((current) => ({ ...current, page: lastPage })); return; }
-      setPage(list); setStats(counts); setError(null); setUpdatedAt(new Date().toISOString());
+      setPage(list); setStats(counts); setAutomation(settings); setError(null); setUpdatedAt(new Date().toISOString());
     } catch (failure) { if (number === requestNumber.current) setError(errorText(failure)); }
     finally { if (number === requestNumber.current) setRefreshing(false); }
   }, [query]);
@@ -55,6 +59,24 @@ export default function QueuePage() {
     return () => { disposed = true; ++requestNumber.current; clearTimeout(timer); document.removeEventListener("visibilitychange", visible); };
   }, [load]);
 
+  async function act(key: string, action: () => Promise<string | null>) {
+    setBusy(key);
+    try { setNotice(await action()); setError(null); await load(); }
+    catch (failure) { setError(errorText(failure)); }
+    finally { setBusy(null); }
+  }
+  const cancelJob = (job: Job) => act(job.id, async () => { await api.cancelJob(job.id); return null; });
+  const cancelAll = () => act("cancel-all", async () => {
+    const { cancelled } = await api.cancelPendingJobs();
+    setConfirmCancelAll(false);
+    return `Anulowano oczekujące zadania: ${cancelled}.`;
+  });
+  const resume = () => act("resume", async () => {
+    const { resumed_jobs } = await api.resumeWorkspace();
+    return `Workspace wznowiony. Wróciło do kolejki: ${resumed_jobs}.`;
+  });
+  const waiting = (stats?.queued ?? 0) + (stats?.retrying ?? 0);
+
   const filter = (patch: Partial<QueueQuery>) => setQuery((current) => ({ ...current, ...patch, page: 1 }));
   const currentPage = query.page ?? 1;
   const pages = Math.max(1, Math.ceil((page?.total ?? 0) / PAGE_SIZE));
@@ -67,7 +89,19 @@ export default function QueuePage() {
       <Button variant="outline" size="sm" disabled={refreshing} onClick={() => void load()}><RefreshCwIcon className={refreshing ? "animate-spin" : ""} />Odśwież</Button>
     </div>
 
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+    {automation?.paused_at && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="flex items-center gap-2"><PauseCircleIcon className="size-5" />Workspace jest wstrzymany od {formatDate(automation.paused_at)}. Worker nie bierze jego zadań, a nowe nie są przyjmowane.</p>
+      {automation.can_edit && <Button size="sm" disabled={busy === "resume"} onClick={() => void resume()}>{busy === "resume" ? "Wznawianie…" : "Wznów"}</Button>}
+    </div>}
+    {notice && <p role="status" className="rounded-lg bg-muted p-3 text-sm">{notice}</p>}
+    {automation?.can_edit && waiting > 0 && <div className="flex flex-wrap items-center gap-2">
+      {!confirmCancelAll
+        ? <Button size="sm" variant="outline" onClick={() => setConfirmCancelAll(true)}>Anuluj wszystkie oczekujące ({waiting})</Button>
+        : <><Button size="sm" variant="destructive" disabled={busy === "cancel-all"} onClick={() => void cancelAll()}>{busy === "cancel-all" ? "Anulowanie…" : `Potwierdź anulowanie ${waiting} zadań`}</Button>
+          <Button size="sm" variant="ghost" onClick={() => setConfirmCancelAll(false)}>Nie anuluj</Button></>}
+      <p className="text-xs text-muted-foreground">Dotyczy zadań w kolejce i czekających na ponowienie. Trwające zadania zatrzymasz pojedynczo.</p>
+    </div>}
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
       <CountCard label="Wszystkie" value={stats?.total} selected={query.status === "all"} onClick={() => filter({ status: "all" })} />
       {STATUSES.map((status) => <CountCard key={status} label={STATUS_LABELS[status]} value={stats?.[status]} selected={query.status === status} onClick={() => filter({ status })} />)}
     </div>
@@ -102,7 +136,10 @@ export default function QueuePage() {
             <TableCell>{stageLabel(job.stage)}{job.status === "retrying" && <p className="text-xs text-muted-foreground">Najwcześniej {formatDate(job.available_at)}</p>}</TableCell>
             <TableCell className="font-mono">{job.attempt_count}/{job.max_attempts}</TableCell>
             <TableCell className="text-xs text-muted-foreground">{formatDate(job.created_at)}</TableCell>
-            <TableCell><Button size="sm" variant="ghost" aria-label={`Szczegóły zadania ${job.id}`} onClick={() => setSelected(job)}>Szczegóły</Button></TableCell>
+            <TableCell className="whitespace-nowrap">
+              <CancelButton job={job} busy={busy === job.id} onCancel={() => void cancelJob(job)} />
+              <Button size="sm" variant="ghost" aria-label={`Szczegóły zadania ${job.id}`} onClick={() => setSelected(job)}>Szczegóły</Button>
+            </TableCell>
           </TableRow>)}
         </TableBody>
       </Table>
@@ -115,10 +152,17 @@ export default function QueuePage() {
     <Dialog open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelected(null); }}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader><DialogTitle>Szczegóły zadania</DialogTitle><DialogDescription>Postęp, błędy i wywołania zapisane dla każdej próby.</DialogDescription></DialogHeader>
-        {selected && <JobDetails key={selected.id} initial={selected} onRetried={(job) => { setSelected(job); void load(); }} />}
+        {selected && <JobDetails key={selected.id} initial={selected} onRetried={(job) => { setSelected(job); void load(); }} onCancelled={() => void load()} />}
       </DialogContent>
     </Dialog>
   </div>;
+}
+
+function CancelButton({ job, busy, onCancel }: { job: Job; busy: boolean; onCancel: () => void }) {
+  const action = cancelAction(job);
+  if (!action) return null;
+  const label = action === "cancel" ? "Anuluj" : action === "stop" ? "Zatrzymaj po bieżącym kroku" : "Zatrzymywanie…";
+  return <Button size="sm" variant="outline" disabled={busy || action === "stopping"} aria-label={`${label}: zadanie ${job.id}`} onClick={onCancel}>{busy ? "…" : label}</Button>;
 }
 
 function CountCard({ label, value, selected, onClick }: { label: string; value?: number; selected: boolean; onClick: () => void }) {
