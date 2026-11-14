@@ -8,8 +8,11 @@ use Modules\Ai\Services\AiRunner;
 use Modules\Pipeline\Commands\SucceedJobCommand;
 use Modules\Pipeline\Data\StageResult;
 use Modules\Pipeline\Exceptions\JobCancelledException;
+use Modules\Pipeline\Exceptions\StageFailedException;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Models\PipelineJobAttempt;
+use Modules\Pipeline\Support\ErrorMessages;
+use Modules\Usage\Services\BudgetService;
 
 final class JobRunContext
 {
@@ -19,6 +22,7 @@ final class JobRunContext
         private readonly SucceedJobCommand $succeed,
         private readonly AiRunner $ai,
         private readonly int $timeoutSeconds,
+        private readonly ?BudgetService $budget = null,
     ) {}
 
     public function stage(string $stage): void
@@ -44,6 +48,10 @@ final class JobRunContext
         $cached = $this->checkpointValue('ai:'.$step);
         if ($cached !== null) {
             return $cached;
+        }
+        $demo = (bool) ($this->job->payload['demo'] ?? false);
+        if (! $demo && $this->job->kind->isPaid() && $this->budget?->isExceeded($this->job->workspace_id)) {
+            throw new StageFailedException('budget_exceeded', ErrorMessages::for('budget_exceeded'));
         }
         try {
             $response = $this->ai->run($task, $input, (bool) ($this->job->payload['demo'] ?? false), $this->timeoutSeconds);

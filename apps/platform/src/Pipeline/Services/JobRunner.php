@@ -16,6 +16,7 @@ use Modules\Pipeline\Jobs\RunPipelineJob;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Models\PipelineJobAttempt;
 use Modules\Pipeline\Support\ErrorMessages;
+use Modules\Usage\Services\BudgetService;
 use Throwable;
 
 final class JobRunner
@@ -31,6 +32,7 @@ final class JobRunner
         private readonly FailurePolicy $policy,
         private readonly AiRunner $ai,
         private readonly JobCancellationService $cancellation,
+        private readonly BudgetService $budget,
     ) {}
 
     public function run(string $jobId): void
@@ -45,7 +47,7 @@ final class JobRunner
         if ($job === null) {
             return;
         }
-        $context = new JobRunContext($job, $this->update, $this->succeed, $this->ai, $timeout);
+        $context = new JobRunContext($job, $this->update, $this->succeed, $this->ai, $timeout, $this->budget);
         try {
             $this->handlers->for($job->kind)->run($job, $context);
         } catch (JobCancelledException) {

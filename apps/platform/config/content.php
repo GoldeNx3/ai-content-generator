@@ -6,7 +6,7 @@ $writer = env('OPENAI_WRITER_MODEL') ?: $research;
 
 return [
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
-    'allow_registration' => (bool) env('ALLOW_REGISTRATION', true),
+    'allow_registration' => (bool) env('ALLOW_REGISTRATION', false),
     'default_monthly_budget_usd' => in_array(env('DEFAULT_MONTHLY_BUDGET_USD', '10'), ['', null], true)
         ? null : (float) env('DEFAULT_MONTHLY_BUDGET_USD', '10'),
 

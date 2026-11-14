@@ -27,8 +27,13 @@ final class BudgetService
 
     public function ensureAvailable(int $workspaceId): void
     {
-        if ($this->budget->execute($workspaceId) !== null && $this->usage($workspaceId)->exceeded) {
+        if ($this->isExceeded($workspaceId)) {
             throw new JobInputException('budget_exceeded', 402);
         }
+    }
+
+    public function isExceeded(int $workspaceId): bool
+    {
+        return $this->budget->execute($workspaceId) !== null && $this->usage($workspaceId)->exceeded;
     }
 }

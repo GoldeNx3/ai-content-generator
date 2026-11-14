@@ -23,7 +23,7 @@ final class ClassifyPendingController
     #[Post('candidates/classify-pending')]
     public function __invoke(Request $request): JsonResponse
     {
-        $limit = $request->validate(['limit' => ['nullable', 'integer', 'between:1,1000']])['limit'] ?? null;
+        $limit = $request->validate(['limit' => ['nullable', 'integer', 'between:1,200']])['limit'] ?? null;
 
         return response()->json($this->classification->classifyPending(
             $this->workspace->id(),

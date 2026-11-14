@@ -45,7 +45,7 @@ FRONTEND_URL=https://app.example.com
 SESSION_DOMAIN=.example.com          # wspólne dla app. i api.
 SESSION_SECURE_COOKIE=true
 SANCTUM_STATEFUL_DOMAINS=app.example.com
-ALLOW_REGISTRATION=true              # koszty ogranicza DEFAULT_MONTHLY_BUDGET_USD
+ALLOW_REGISTRATION=false             # domyślnie zamknięta: konta przez make create-user-prod; przy true koszty ogranicza DEFAULT_MONTHLY_BUDGET_USD
 DEFAULT_MONTHLY_BUDGET_USD=10
 ```
 
@@ -81,6 +81,9 @@ niezaufanych serwisów (np. WordPress); w takim przypadku panel i API powinny mi
 - Po przekroczeniu nowe płatne zadania dostają `402 budget_exceeded`. Publikacja w WordPressie i scenariusze
   demo są wolne od limitu. Powtórzenie żądania z tym samym `Idempotency-Key` nadal zwraca istniejący job.
   Zadanie już zlecone może przekroczyć limit o swój koszt.
+- Budżet sprawdzany jest też przez workera przed każdym płatnym krokiem AI: job zakolejkowany przed wyczerpaniem
+  budżetu kończy się `budget_exceeded` bez wywołania modelu (zapisane kroki nie są opłacane ponownie przy retry).
+  „Oceń oczekujące” przyjmuje najwyżej 200 tematów.
 - Klasyfikacja zbiorcza zwraca `skipped_budget`. Automatyka stosuje limit ocen z ustawień workspace'u
   (`auto_classify_batch_limit`) i przerywa ocenę workspace'u po przekroczeniu budżetu.
 - Sterowanie jobami (ustawienia automatyki, pauza/wznowienie, anulowanie pojedyncze i zbiorcze) – właściciel konta,

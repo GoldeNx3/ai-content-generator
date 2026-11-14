@@ -20,6 +20,7 @@ final class ErrorMessages
         'ai_process_failed' => 'Proces AI (Python) zakończył się błędem. Zadanie ponowi się automatycznie; szczegóły są w logach workera.',
         'worker_interrupted' => 'Praca została przerwana; poprzednie wywołanie mogło naliczyć koszt.',
         'cancelled' => 'Anulowano przez użytkownika.',
+        'budget_exceeded' => 'Wyczerpano miesięczny budżet AI tego workspace\'u. Zadanie zatrzymano przed płatnym krokiem; po zwiększeniu budżetu lub od 1. dnia miesiąca ponów je – zapisane kroki nie zostaną opłacone drugi raz.',
         'worker_lost' => 'Worker został przerwany; poprzednie wywołanie mogło naliczyć koszt.',
         'no_source_content' => 'Nie udało się pobrać treści żadnego źródła. Dodaj dostępne źródło ręcznie i ponów analizę lub skonfiguruj wyszukiwarkę.',
         'wordpress_not_configured' => 'WordPress nie jest połączony z tym workspace\'em. Połącz stronę w Ustawieniach.',

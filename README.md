@@ -30,7 +30,7 @@ make seed-demo                                         # po rejestracji pierwsze
 
 | Usługa | Adres |
 |---|---|
-| Panel | http://localhost:3000 (rejestracja: `/register`) |
+| Panel | http://localhost:3000 (konto: `make create-user EMAIL=...`; `/register` tylko przy `ALLOW_REGISTRATION=true`) |
 | API | http://localhost:8000/api |
 | PostgreSQL | localhost:5432 (`content` / `content`) |
 
@@ -67,7 +67,7 @@ Dev: `apps/platform/.env`. Prod: root `.env` (opis w `.env.example`). Najważnie
 | `AUTOMATION_ENABLED` | główny wyłącznik automatyki (`false` = scheduler nic nie pobiera ani nie zleca); samą automatykę ustawia każdy workspace w panelu: Ustawienia → Automatyka |
 | `FETCH_MAX_AGE_DAYS` | filtr wieku wpisów RSS |
 | `DEFAULT_MONTHLY_BUDGET_USD` | miesięczny budżet AI workspace'u (domyślnie 10; puste = bez limitu) |
-| `ALLOW_REGISTRATION` | publiczna rejestracja (każde konto dostaje własny workspace) |
+| `ALLOW_REGISTRATION` | publiczna rejestracja, domyślnie `false` (wszystkie konta korzystają z jednego klucza OpenAI); konta zakłada `make create-user` |
 | `QA_PASS_SCORE`, `AUTO_FIX_MAX_*` | próg QA i limity Auto Fix |
 | `FRONTEND_URL`, `SANCTUM_STATEFUL_DOMAINS`, `SESSION_DOMAIN` | origin panelu (CORS + CSRF) i ciasteczko sesji `ce_session` |
 | `WORDPRESS_ALLOW_PRIVATE_URLS` | `true` tylko dla lokalnego WP w sieci Dockera (ochrona SSRF) |
