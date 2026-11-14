@@ -5,15 +5,16 @@ namespace Modules\WordPress\Console;
 use Illuminate\Console\Command;
 use Modules\Shared\Exceptions\ApiException;
 use Modules\WordPress\Services\ConnectionService;
-use Modules\Workspaces\Queries\OldestWorkspaceQuery;
+use Modules\Workspaces\Exceptions\WorkspaceNotResolvedException;
+use Modules\Workspaces\Services\ConsoleWorkspaceResolver;
 
 final class ImportEnvConnectionCommand extends Command
 {
-    protected $signature = 'wordpress:import-env {--workspace= : ID workspace\'u (domyślnie najstarszy)}';
+    protected $signature = 'wordpress:import-env {--workspace= : ID workspace\'u} {--email= : E-mail konta, którego workspace ma dostać połączenie}';
 
     protected $description = 'Łączy workspace z WordPressem na podstawie WORDPRESS_URL / WORDPRESS_USERNAME / WORDPRESS_APP_PASSWORD';
 
-    public function handle(ConnectionService $connections, OldestWorkspaceQuery $oldest): int
+    public function handle(ConnectionService $connections, ConsoleWorkspaceResolver $workspaces): int
     {
         $env = config('content.wordpress.import');
         if (blank($env['url']) || blank($env['username']) || blank($env['app_password'])) {
@@ -21,9 +22,10 @@ final class ImportEnvConnectionCommand extends Command
 
             return self::FAILURE;
         }
-        $workspaceId = $this->option('workspace') ? (int) $this->option('workspace') : $oldest->execute()?->id;
-        if ($workspaceId === null) {
-            $this->error('Brak workspace\'u: najpierw załóż konto.');
+        try {
+            $workspaceId = $workspaces->resolve($this->option('workspace'), $this->option('email'));
+        } catch (WorkspaceNotResolvedException $exception) {
+            $this->error($exception->getMessage());
 
             return self::FAILURE;
         }

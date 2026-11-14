@@ -21,13 +21,13 @@ make up            # db, redis, migrate, platform (:8000, artisan serve), queue,
 make dev           # same, but web runs `next dev` with apps/web mounted (hot reload)
 make test          # test-platform (php artisan test) + test-ai (pytest in /opt/ai venv); needs running stack
 make migrate       # php artisan migrate (also runs via the `migrate` service)
-make seed / seed-demo [WORKSPACE=<id>]          # sample RSS sources / demo topics (zero-cost demo providers)
+make seed [GROUPS=ai,php,...] / seed-demo  [EMAIL=<user>|WORKSPACE=<id>]  # RSS sources by topic group (finance opt-in) / demo topics (zero-cost)
 make pipeline      # one-off scheduler run: fetch RSS + enqueue classification
 make create-user EMAIL=... [WORKSPACE=<id>]     # interactive password; WORKSPACE joins as owner
 make set-budget WORKSPACE=<id> USD=<amount|default>
 make wipe          # pg_dump to /tmp, stop queue/scheduler, `artisan data:wipe` (domain tables + pipeline queue; accounts, WP connections kept)
 make deactivate-user / activate-user EMAIL=...   # users.is_active; inactive users are filtered by the `active_eloquent` auth provider
-make wordpress-import [WORKSPACE=<id>]          # WP connection from WORDPRESS_URL/USERNAME/APP_PASSWORD
+make wordpress-import [EMAIL=<user>|WORKSPACE=<id>]  # WP connection from WORDPRESS_URL/USERNAME/APP_PASSWORD
 make artisan CMD="route:list"
 make deploy / deploy-init / logs-prod / ps-prod / migrate-prod / create-user-prod / (de)activate-user-prod / set-budget-prod / seed-prod / wordpress-import-prod
 ```

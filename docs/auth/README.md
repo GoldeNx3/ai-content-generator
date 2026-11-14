@@ -61,7 +61,8 @@ niezaufanych serwisów (np. WordPress); w takim przypadku panel i API powinny mi
 - **Listy i agregaty** filtrują jawnie po `CurrentWorkspace`. Nowa lista musi robić to samo.
 - Worker i scheduler działają ponad workspace'ami: nowi kandydaci dziedziczą workspace ze źródła, a joby z kandydata.
 - `make create-user EMAIL=... WORKSPACE=<id>` dołącza konto jako owner istniejącego workspace'u.
-  Seedy przyjmują `WORKSPACE=<id>` (domyślnie najstarszy).
+  Seedy i `wordpress-import` przyjmują `EMAIL=<konto>` albo `WORKSPACE=<id>`; bez nich działają tylko przy
+  jednym workspace'ie, a przy kilku kończą się błędem z listą workspace'ów (`ConsoleWorkspaceResolver`).
 
 ## Budżet AI per workspace
 

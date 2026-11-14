@@ -4,19 +4,21 @@ namespace Modules\Demo\Console;
 
 use Illuminate\Console\Command;
 use Modules\Demo\Services\DemoSeedService;
-use Modules\Workspaces\Queries\OldestWorkspaceQuery;
+use Modules\Workspaces\Exceptions\WorkspaceNotResolvedException;
+use Modules\Workspaces\Services\ConsoleWorkspaceResolver;
 
 final class SeedDemoCommand extends Command
 {
-    protected $signature = 'demo:seed {--workspace= : ID workspace\'u (domyślnie najstarszy)}';
+    protected $signature = 'demo:seed {--workspace= : ID workspace\'u} {--email= : E-mail konta, którego workspace ma dostać tematy}';
 
     protected $description = 'Tworzy tematy demo przechodzące przez cały pipeline bez kosztów AI';
 
-    public function handle(DemoSeedService $demo, OldestWorkspaceQuery $oldest): int
+    public function handle(DemoSeedService $demo, ConsoleWorkspaceResolver $workspaces): int
     {
-        $workspaceId = $this->option('workspace') ? (int) $this->option('workspace') : $oldest->execute()?->id;
-        if ($workspaceId === null) {
-            $this->error('Brak workspace\'u: najpierw załóż konto (php artisan users:create EMAIL).');
+        try {
+            $workspaceId = $workspaces->resolve($this->option('workspace'), $this->option('email'));
+        } catch (WorkspaceNotResolvedException $exception) {
+            $this->error($exception->getMessage());
 
             return self::FAILURE;
         }

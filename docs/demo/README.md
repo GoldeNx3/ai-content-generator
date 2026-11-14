@@ -5,7 +5,7 @@ make dev       # albo make up, jeśli środowisko już jest skonfigurowane
 make seed-demo # wymaga istniejącego workspace'u (zarejestruj konto w panelu)
 ```
 
-Seeder (`php artisan demo:seed`) zapisuje tematy demo w tej samej bazie co aplikacja. Nie korzysta z AI, sieci ani kluczy API. `make seed` nadal dodaje normalne źródła RSS. `make seed-demo` tworzy osobne, nieaktywne źródło `[DEMO] Scenariusze pipeline — 0 kosztów AI`. Na liście tematów wybierz je w filtrze **Źródło**. Dane trafiają do najstarszego workspace'u, a `make seed-demo WORKSPACE=<id>` wybiera inny.
+Seeder (`php artisan demo:seed`) zapisuje tematy demo w tej samej bazie co aplikacja. Nie korzysta z AI, sieci ani kluczy API. `make seed` nadal dodaje normalne źródła RSS. `make seed-demo` tworzy osobne, nieaktywne źródło `[DEMO] Scenariusze pipeline — 0 kosztów AI`. Na liście tematów wybierz je w filtrze **Źródło**. Workspace wskazujesz przez `make seed-demo EMAIL=<konto>` albo `WORKSPACE=<id>`; bez tego seeder działa tylko, gdy istnieje jeden workspace.
 
 Pracę wykonuje worker kolejki (`queue`) uruchamiający proces AI w trybie demo (`ai/demo_providers.py`). Seeder dodaje tylko brakujące tematy; kolejne uruchomienia zachowują dane i zmiany wykonane przez użytkownika. Seeder nie resetuje tematów.
 

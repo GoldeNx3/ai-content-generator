@@ -44,14 +44,14 @@ Produkcyjny build panelu po zmianach: `docker compose up -d --build web`.
 make up / dev / down / logs / build
 make migrate                    php artisan migrate (usługa migrate działa też przy starcie)
 make test                       test-platform (PHPUnit) + test-ai (pytest)
-make seed WORKSPACE=<id>        przykładowe źródła RSS (domyślnie najstarszy workspace)
-make seed-demo WORKSPACE=<id>   tematy demo: pełny pipeline za 0 USD
+make seed EMAIL=<konto>         ~100 źródeł RSS (AI, PHP, frontend, backend, DevOps, security, PL); GROUPS=php,ai; finance opcjonalnie
+make seed-demo EMAIL=<konto>    tematy demo: pełny pipeline za 0 USD
 make pipeline                   jednorazowo to, co scheduler: RSS + zlecenie oceny
 make create-user EMAIL=...      konto bez rejestracji; WORKSPACE=<id> dołącza jako owner
 make set-budget WORKSPACE=<id> USD=<kwota|default>
 make wipe                       kopia bazy do /tmp, data:wipe (dane i zadania kolejki; konta i połączenia WP zostają)
 make deactivate-user EMAIL=...  blokada konta (activate-user odblokowuje)
-make wordpress-import           połączenie WP workspace'u z WORDPRESS_* w .env (WORKSPACE=<id>)
+make wordpress-import EMAIL=<konto>  połączenie WP workspace'u z WORDPRESS_* w .env
 make artisan CMD="route:list"
 ```
 

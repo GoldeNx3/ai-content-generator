@@ -1,6 +1,10 @@
 .PHONY: up dev down build migrate seed seed-demo wipe logs test test-platform test-ai pipeline create-user deactivate-user activate-user set-budget wordpress-import artisan
 
 ARTISAN := docker compose exec platform php artisan
+# Wybór workspace'u dla seedów i importu: EMAIL=<konto> albo WORKSPACE=<id> (wymagane, gdy workspace'ów jest kilka).
+WS_ARGS = $(if $(WORKSPACE),--workspace=$(WORKSPACE)) $(if $(EMAIL),--email=$(EMAIL))
+SEED_ARGS = $(WS_ARGS) $(foreach g,$(subst $(comma), ,$(GROUPS)),--group=$(g))
+comma := ,
 
 up:
 	docker compose up -d --build
@@ -20,13 +24,13 @@ migrate:
 logs:
 	docker compose logs -f
 
-# Przykładowe źródła RSS: WORKSPACE=<id> (domyślnie najstarszy workspace).
+# Przykładowe źródła RSS: EMAIL=<konto> | WORKSPACE=<id>, GROUPS=ai,php,... (domyślnie wszystkie poza finance).
 seed:
-	$(ARTISAN) sources:seed $(if $(WORKSPACE),--workspace=$(WORKSPACE))
+	$(ARTISAN) sources:seed $(SEED_ARGS)
 
 # Tematy demo: pełny pipeline bez wywołań AI i bez kosztów.
 seed-demo:
-	$(ARTISAN) demo:seed $(if $(WORKSPACE),--workspace=$(WORKSPACE))
+	$(ARTISAN) demo:seed $(WS_ARGS)
 
 # Kopia bazy do $TMPDIR (lub /tmp), zatrzymanie queue/scheduler, data:wipe, ponowny start tylko tego, co działało.
 wipe:
@@ -41,7 +45,7 @@ wipe:
 	trap '[ -z "$$stopped" ] || docker compose start $$stopped' EXIT; \
 	[ -z "$$stopped" ] || docker compose stop $$stopped; \
 	docker compose exec -T platform php artisan data:wipe --force; \
-	echo "Aby zasilić źródła: make seed, następnie make pipeline."
+	echo "Aby zasilić źródła: make seed EMAIL=<konto>, następnie make pipeline."
 
 test: test-platform test-ai
 
@@ -70,9 +74,9 @@ activate-user:
 	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
 	$(ARTISAN) users:activate $(EMAIL)
 
-# Połączenie WordPress z WORDPRESS_URL / WORDPRESS_USERNAME / WORDPRESS_APP_PASSWORD (WORKSPACE=<id>, domyślnie najstarszy).
+# Połączenie WordPress z WORDPRESS_URL / WORDPRESS_USERNAME / WORDPRESS_APP_PASSWORD (EMAIL=<konto> | WORKSPACE=<id>).
 wordpress-import:
-	$(ARTISAN) wordpress:import-env $(if $(WORKSPACE),--workspace=$(WORKSPACE))
+	$(ARTISAN) wordpress:import-env $(WS_ARGS)
 
 # Budżet AI workspace'u: make set-budget WORKSPACE=<id> USD=25 (USD=default -> DEFAULT_MONTHLY_BUDGET_USD).
 set-budget:
@@ -143,7 +147,7 @@ migrate-prod:
 	$(DC_PROD) run --rm migrate
 
 seed-prod:
-	$(DC_PROD) exec -T platform php artisan sources:seed $(if $(WORKSPACE),--workspace=$(WORKSPACE))
+	$(DC_PROD) exec -T platform php artisan sources:seed $(SEED_ARGS)
 
 create-user-prod:
 	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
@@ -162,4 +166,4 @@ activate-user-prod:
 	$(DC_PROD) exec -T platform php artisan users:activate $(EMAIL)
 
 wordpress-import-prod:
-	$(DC_PROD) exec -T platform php artisan wordpress:import-env $(if $(WORKSPACE),--workspace=$(WORKSPACE))
+	$(DC_PROD) exec -T platform php artisan wordpress:import-env $(WS_ARGS)
