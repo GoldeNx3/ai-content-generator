@@ -9,6 +9,7 @@ enum JobStatus: string
     case Retrying = 'retrying';
     case Succeeded = 'succeeded';
     case Failed = 'failed';
+    case Cancelled = 'cancelled';
 
     public static function active(): array
     {

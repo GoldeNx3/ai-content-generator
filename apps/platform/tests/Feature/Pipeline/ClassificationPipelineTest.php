@@ -154,7 +154,7 @@ final class ClassificationPipelineTest extends TestCase
 
         $this->getJson('/api/jobs?status=all')->assertJsonPath('total', 1)->assertJsonPath('items.0.candidate_title', 'Kolejka');
         $this->getJson('/api/jobs')->assertJsonPath('total', 0);
-        $this->getJson('/api/jobs/stats')->assertExactJson(['queued' => 0, 'running' => 0, 'retrying' => 0, 'succeeded' => 0, 'failed' => 1, 'total' => 1]);
+        $this->getJson('/api/jobs/stats')->assertExactJson(['queued' => 0, 'running' => 0, 'retrying' => 0, 'succeeded' => 0, 'failed' => 1, 'cancelled' => 0, 'total' => 1]);
         $this->getJson("/api/candidates/{$candidate->id}/jobs")->assertJsonPath('total', 1);
 
         $this->fakeAi(['classify' => self::aiOk(self::SCORES)]);

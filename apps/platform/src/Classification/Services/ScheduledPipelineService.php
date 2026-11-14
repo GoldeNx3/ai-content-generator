@@ -37,7 +37,7 @@ final class ScheduledPipelineService
     {
         $enqueued = 0;
         foreach ($this->workspaces->execute() as $workspaceId) {
-            $ids = $this->unclassified->execute($workspaceId, config('content.ingestion.classify_batch_limit'), withoutClassifyHistory: true);
+            $ids = $this->unclassified->execute($workspaceId, 20, withoutClassifyHistory: true);
             foreach ($ids as $candidateId) {
                 try {
                     $key = Uuid::uuid5(self::NAMESPACE, "scheduled-classify:{$candidateId}")->toString();

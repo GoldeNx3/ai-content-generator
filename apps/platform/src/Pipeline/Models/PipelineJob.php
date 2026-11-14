@@ -16,7 +16,7 @@ use Modules\Pipeline\Enums\JobStatus;
 #[Fillable([
     'id', 'workspace_id', 'candidate_id', 'article_id', 'kind', 'status', 'payload', 'idempotency_key', 'request_hash',
     'stage', 'attempt_count', 'max_attempts', 'available_at', 'started_at', 'finished_at', 'lease_expires_at', 'result_type', 'result_id',
-    'error_code', 'error_message', 'retry_of_job_id', 'checkpoints',
+    'error_code', 'error_message', 'retry_of_job_id', 'checkpoints', 'cancel_requested_at', 'cancelled_by',
 ])]
 class PipelineJob extends Model
 {
@@ -35,6 +35,7 @@ class PipelineJob extends Model
             'started_at' => 'immutable_datetime',
             'finished_at' => 'immutable_datetime',
             'lease_expires_at' => 'immutable_datetime',
+            'cancel_requested_at' => 'immutable_datetime',
         ];
     }
 

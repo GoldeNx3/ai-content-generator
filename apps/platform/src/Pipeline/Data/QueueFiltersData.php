@@ -11,7 +11,7 @@ use Spatie\LaravelData\Data;
 final class QueueFiltersData extends Data
 {
     public function __construct(
-        #[In(['active', 'all', 'queued', 'running', 'retrying', 'succeeded', 'failed'])]
+        #[In(['active', 'all', 'queued', 'running', 'retrying', 'succeeded', 'failed', 'cancelled'])]
         public string $status = 'active',
         public ?JobKind $kind = null,
         #[Min(1)]

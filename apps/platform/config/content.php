@@ -18,11 +18,13 @@ return [
         'registration_window_minutes' => (int) env('AUTH_REGISTRATION_WINDOW_MINUTES', 60),
     ],
 
+    'automation' => [
+        'enabled' => (bool) env('AUTOMATION_ENABLED', true),
+    ],
+
     'ingestion' => [
-        'fetch_interval_minutes' => (int) env('FETCH_INTERVAL_MINUTES', 30),
         'fetch_max_age_days' => (int) env('FETCH_MAX_AGE_DAYS', 14),
         'http_timeout_seconds' => (int) env('HTTP_TIMEOUT_SECONDS', 15),
-        'classify_batch_limit' => (int) env('CLASSIFY_BATCH_LIMIT', 50),
     ],
 
     'jobs' => [

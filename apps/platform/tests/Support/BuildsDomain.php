@@ -4,6 +4,7 @@ namespace Tests\Support;
 
 use Illuminate\Support\Str;
 use Modules\Candidates\Models\Candidate;
+use Modules\Pipeline\Models\PipelineJob;
 use Modules\Sources\Models\Source;
 
 trait BuildsDomain
@@ -26,6 +27,23 @@ trait BuildsDomain
             'source_id' => $source->id,
             'external_url' => 'https://example.com/'.Str::random(10),
             'title' => 'Temat '.Str::random(5),
+            ...$attributes,
+        ]);
+    }
+
+    protected function makeJob(array $attributes = [], ?Candidate $candidate = null): PipelineJob
+    {
+        $candidate ??= $this->makeCandidate();
+
+        return PipelineJob::query()->create([
+            'workspace_id' => $candidate->workspace_id,
+            'candidate_id' => $candidate->id,
+            'kind' => 'classify',
+            'status' => 'queued',
+            'payload' => [],
+            'idempotency_key' => (string) Str::uuid(),
+            'request_hash' => 'x',
+            'available_at' => now(),
             ...$attributes,
         ]);
     }

@@ -22,7 +22,7 @@ final class ClassifyPendingController
 
         return response()->json($this->classification->classifyPending(
             $this->workspace->id(),
-            (int) ($limit ?? config('content.ingestion.classify_batch_limit')),
+            (int) ($limit ?? 20),
             IdempotencyKey::from($request),
         ), 202);
     }
