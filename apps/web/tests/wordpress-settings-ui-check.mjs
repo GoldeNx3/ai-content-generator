@@ -14,7 +14,7 @@ const connected = {site_url:'https://blog.example',api_url:null,username:'editor
 const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
 try {
  const page = await browser.newPage({viewport:{width:1280,height:900}});
- let connection = null; const calls = [];
+ let connection = null; const calls = []; let authorizeUrl = null;
  await page.route('**/*', async route => {
   const url = new URL(route.request().url());
   if (url.hostname === 'localhost' && url.port === port) return route.continue();
@@ -25,7 +25,7 @@ try {
   if (method !== 'GET' && method !== 'OPTIONS') calls.push([method, path, route.request().postDataJSON?.() ?? null]);
   if (path === '/api/usage') body = {period_start:'2026-10-01T00:00:00Z',spent_usd:'10.42',budget_usd:'10.00',remaining_usd:'0',exceeded:true,unknown_cost_calls:1};
   else if (path === '/api/wordpress/connection' && method === 'GET') body = connection;
-  else if (path === '/api/wordpress/connection/authorize') body = {authorize_url:'https://blog.example/wp-admin/authorize-application.php?app_name=Content+Engine'};
+  else if (path === '/api/wordpress/connection/authorize') body = {authorize_url:authorizeUrl};
   else if (path === '/api/wordpress/connection/authorize/complete') { connection = connected; body = connected; }
   else if (path === '/api/wordpress/connection' && method === 'POST') {
    const data = route.request().postDataJSON();
@@ -47,6 +47,13 @@ try {
  assert.equal(await page.getByRole('progressbar', {name:'Wykorzystanie budżetu AI'}).getAttribute('aria-valuenow'), '100');
  await page.getByText('Budżet wyczerpany').waitFor();
  await page.getByLabel('Adres strony WordPress').fill('https://blog.example');
+ // Adres autoryzacji spoza http(s) (np. javascript:) nie może zostać otwarty w panelu.
+ authorizeUrl = 'javascript:document.title="pwned"';
+ await page.getByRole('button', {name:'Połącz z WordPressem'}).click();
+ await page.getByText('WordPress zwrócił nieprawidłowy adres autoryzacji.').waitFor();
+ assert.notEqual(await page.title(), 'pwned');
+ assert.match(page.url(), /\/settings$/);
+ authorizeUrl = 'https://blog.example/wp-admin/authorize-application.php?app_name=Content+Engine';
  await page.getByRole('button', {name:'Połącz z WordPressem'}).click();
  await page.waitForURL(/blog\.example\/wp-admin\/authorize-application\.php/);
  assert.deepEqual(calls.at(-1)[2], {site_url:'https://blog.example', api_url:null});

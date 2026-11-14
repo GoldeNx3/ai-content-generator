@@ -120,7 +120,7 @@ final class ConnectionService
             throw new ApiException($exception->errorCode === 'wordpress_invalid_json' ? 'wordpress_not_wordpress' : $exception->errorCode, 422);
         }
         $endpoint = $index['authentication']['application-passwords']['endpoints']['authorization'] ?? null;
-        if (! is_string($endpoint) || $endpoint === '') {
+        if (! is_string($endpoint) || ! $this->isSiteEndpoint($endpoint, $siteUrl)) {
             throw new ApiException('wordpress_app_passwords_unavailable', 422);
         }
         $state = Str::random(48);
@@ -146,5 +146,15 @@ final class ConnectionService
     private function seoPlugin(array $caps): string
     {
         return in_array($caps['seo_plugin'] ?? null, ['yoast', 'rankmath', 'none'], true) ? $caps['seo_plugin'] : 'none';
+    }
+
+    private function isSiteEndpoint(string $endpoint, string $siteUrl): bool
+    {
+        $scheme = strtolower((string) parse_url($endpoint, PHP_URL_SCHEME));
+        $host = strtolower((string) parse_url($endpoint, PHP_URL_HOST));
+
+        return in_array($scheme, ['http', 'https'], true) && ($scheme === 'https' || parse_url($siteUrl, PHP_URL_SCHEME) === 'http')
+            && $host !== '' && $host === strtolower((string) parse_url($siteUrl, PHP_URL_HOST))
+            && parse_url($endpoint, PHP_URL_USER) === null;
     }
 }

@@ -75,6 +75,8 @@ export function WordPressConnectionCard() {
           <ConnectForm current={connection} busy={busy} onCancel={connection ? () => setEditing(false) : undefined}
             onAuthorize={(site_url, api_url) => run("authorize", async () => {
               const { authorize_url } = await api.authorizeWordPress({ site_url, api_url });
+              // Adres pochodzi od strony WordPress: otwieramy wyłącznie http(s), nigdy javascript:/data:.
+              if (!["http:", "https:"].includes(safeProtocol(authorize_url))) throw new Error("WordPress zwrócił nieprawidłowy adres autoryzacji.");
               // Pełne przejście do WordPressa; wracamy na /settings/wordpress/callback.
               window.location.assign(authorize_url);
             })}
@@ -239,4 +241,8 @@ function BridgeHelp() {
       </ul>
     </details>
   );
+}
+
+function safeProtocol(url: string): string {
+  try { return new URL(url).protocol; } catch { return ""; }
 }

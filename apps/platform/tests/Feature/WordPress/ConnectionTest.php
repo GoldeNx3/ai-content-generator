@@ -17,6 +17,8 @@ final class ConnectionTest extends TestCase
 
     private const GOOD = ['editor', 'good pass 1234'];
 
+    private string $authorizeEndpoint = 'https://wp.example/blog/wp-admin/authorize-application.php';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -30,7 +32,7 @@ final class ConnectionTest extends TestCase
     {
         $path = parse_url($request->url(), PHP_URL_PATH);
         if (str_ends_with($path, '/wp-json/')) {
-            return Http::response(['authentication' => ['application-passwords' => ['endpoints' => ['authorization' => 'https://wp.example/blog/wp-admin/authorize-application.php']]]]);
+            return Http::response(['authentication' => ['application-passwords' => ['endpoints' => ['authorization' => $this->authorizeEndpoint]]]]);
         }
         if (($request->header('Authorization')[0] ?? '') !== 'Basic '.base64_encode(implode(':', self::GOOD))) {
             return Http::response(['code' => 'rest_not_logged_in'], 401);
@@ -82,6 +84,16 @@ final class ConnectionTest extends TestCase
             $this->postJson('/api/wordpress/connection', $this->manual(['site_url' => $url]))->assertStatus(422);
         }
         $this->assertSame(0, WordPressConnection::query()->count());
+    }
+
+    #[Test]
+    public function authorize_endpoint_from_the_site_must_be_an_http_url_on_that_site(): void
+    {
+        foreach (['javascript:fetch(1)//', 'data:text/html,x', 'https://evil.example/authorize-application.php', '//evil.example/a'] as $endpoint) {
+            $this->authorizeEndpoint = $endpoint;
+            $this->postJson('/api/wordpress/connection/authorize', ['site_url' => 'https://wp.example/blog'])
+                ->assertStatus(422)->assertJsonPath('detail.code', 'wordpress_app_passwords_unavailable');
+        }
     }
 
     #[Test]
