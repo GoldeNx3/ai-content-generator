@@ -121,7 +121,13 @@ async def discover(data: dict, ctx: TaskContext) -> dict:
         results.extend(await search.search("", limit=ctx.settings.research_max_extra_sources))
     for query in queries:
         try:
-            results.extend(await search.search(query, limit=RESULTS_PER_QUERY))
+            credits = getattr(search, "credits_per_query", 0)
+            if credits:
+                found = await ctx.call_search("searching_sources", credits,
+                                              lambda q=query: search.search(q, limit=RESULTS_PER_QUERY))
+            else:
+                found = await search.search(query, limit=RESULTS_PER_QUERY)
+            results.extend(found)
         except Exception as exc:
             logger.warning("Search failed query=%r error=%s", query, exc)
 

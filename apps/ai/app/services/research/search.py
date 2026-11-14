@@ -62,6 +62,11 @@ class TavilySearchProvider:
         self._client = client
         self._timeout = timeout
 
+    # Tavily liczy zapytanie basic jako 1 kredyt, a advanced jako 2.
+    @property
+    def credits_per_query(self) -> int:
+        return 2 if self._search_depth == "advanced" else 1
+
     async def search(self, query: str, limit: int = 5) -> list[SearchResult]:
         payload = {"query": query, "max_results": limit, "search_depth": self._search_depth}
         headers = {"Authorization": f"Bearer {self._api_key}"}

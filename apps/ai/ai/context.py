@@ -60,6 +60,15 @@ class TaskContext:
                           "estimated_cost_usd": str(cost) if cost is not None else None}
         return result
 
+    async def call_search(self, stage: str, credits: int, invoke):
+        """Płatne zapytanie wyszukiwarki: koszt = kredyty × cena kredytu; bez modelu, by nie nadpisać modelu LLM."""
+        self.calls.append({"stage": stage, "finished": False, "estimated_cost_usd": None})
+        result = await invoke()
+        cost = (Decimal(credits) * Decimal(str(self.settings.tavily_credit_usd))).quantize(Decimal("0.000001"))
+        self.calls[-1] = {"stage": stage, "finished": True, "response_id": None, "estimated_cost_usd": str(cost),
+                          "usage": {"provider": "tavily", "search_credits": credits, "input_tokens": 0, "output_tokens": 0}}
+        return result
+
     def total_cost(self, stages: set[str] | None = None) -> Decimal | None:
         selected = [c for c in self.calls if stages is None or c["stage"] in stages]
         if not selected or any(c["estimated_cost_usd"] is None for c in selected):

@@ -3,6 +3,8 @@
 namespace Tests\Feature\Candidates;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
+use Modules\Pipeline\Services\JobRunner;
 use Modules\Candidates\Models\Candidate;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\BuildsArticles;
@@ -128,10 +130,44 @@ final class TopicGroupingTest extends TestCase
     }
 
     #[Test]
+    public function vectors_from_another_embedding_model_are_never_compared(): void
+    {
+        $old = $this->makeCandidate(['title' => 'Stary temat', 'total_score' => 90]);
+        DB::table('candidates')->where('id', $old->id)->update(['embedding' => '{1,0,0,0.5}', 'embedding_model' => 'text-embedding-3-small']);
+        $article = $this->makeArticle($this->makeCandidate(['title' => 'Inny']), ['title' => 'Stary artykuł']);
+        DB::table('articles')->where('id', $article->id)->update(['embedding' => '{1,0,0,0.5}', 'embedding_model' => 'text-embedding-3-small']);
+        $mine = $this->makeCandidate(['title' => 'OpenAI wydało nowy model']);
+        $this->aiRequests = [];
+
+        $this->classify($mine);
+
+        $this->assertNull($mine->refresh()->topic_group_id);
+        $this->assertContains('classify', $this->aiTasks());
+        $this->assertArrayNotHasKey('already_covered', collect($this->aiRequests)->firstWhere('task', 'classify')['input']['candidate']);
+    }
+
+    #[Test]
+    public function vectors_of_the_same_length_from_another_model_are_never_compared(): void
+    {
+        $old = $this->makeCandidate(['title' => 'Stary temat', 'total_score' => 90]);
+        DB::table('candidates')->where('id', $old->id)->update(['embedding' => '{1,0,0}', 'embedding_model' => 'text-embedding-ada-002']);
+        $article = $this->makeArticle($this->makeCandidate(['title' => 'Inny']), ['title' => 'Stary artykuł']);
+        DB::table('articles')->where('id', $article->id)->update(['embedding' => '{1,0,0}', 'embedding_model' => 'text-embedding-ada-002']);
+        $mine = $this->makeCandidate(['title' => 'OpenAI wydało nowy model']);
+        $this->aiRequests = [];
+
+        $this->classify($mine);
+
+        $this->assertNull($mine->refresh()->topic_group_id);
+        $this->assertArrayNotHasKey('already_covered', collect($this->aiRequests)->firstWhere('task', 'classify')['input']['candidate']);
+        $this->assertSame('text-embedding-3-small', DB::table('candidates')->where('id', $mine->id)->value('embedding_model'));
+    }
+
+    #[Test]
     public function different_topics_and_other_accounts_are_never_grouped(): void
     {
         $foreign = $this->makeCandidate(['title' => 'OpenAI wydało nowy model'], $this->otherWorkspace()->id);
-        DB::table('candidates')->where('id', $foreign->id)->update(['embedding' => '{1,0,0}', 'total_score' => 90]);
+        DB::table('candidates')->where('id', $foreign->id)->update(['embedding' => '{1,0,0}', 'embedding_model' => 'text-embedding-3-small', 'total_score' => 90]);
         $other = $this->makeCandidate(['title' => 'Kubernetes zmienia API']);
         $this->classify($other);
         $mine = $this->makeCandidate(['title' => 'OpenAI wydało nowy model']);
@@ -147,7 +183,7 @@ final class TopicGroupingTest extends TestCase
     public function a_topic_already_covered_by_an_article_is_flagged_for_the_classifier(): void
     {
         $article = $this->makeArticle($this->makeCandidate(['title' => 'Stary temat']), ['title' => 'OpenAI i nowy model – analiza']);
-        DB::table('articles')->where('id', $article->id)->update(['embedding' => '{1,0,0}']);
+        DB::table('articles')->where('id', $article->id)->update(['embedding' => '{1,0,0}', 'embedding_model' => 'text-embedding-3-small']);
         $candidate = $this->makeCandidate(['title' => 'OpenAI wydało nowy model']);
 
         $this->classify($candidate);
@@ -170,6 +206,82 @@ final class TopicGroupingTest extends TestCase
         $this->getJson('/api/candidates?duplicates=1')->assertJsonPath('total', 2);
         $this->getJson("/api/candidates/{$second->id}")->assertJsonPath('topic_group.primary_id', $first->id)
             ->assertJsonPath('topic_group.members.0.id', $first->id);
+    }
+
+    #[Test]
+    public function a_retry_keeps_the_path_chosen_by_the_first_attempt(): void
+    {
+        Queue::fake();
+        $embed = fn (array $request) => self::aiOk(['vectors' => array_map(fn (string $text) => self::vectorFor($text), $request['input']['texts']), 'model' => 'text-embedding-3-small']);
+        $this->fakeAi(['embed' => $embed, 'classify' => self::aiError('llm_http_503', retryable: true)]);
+        $second = $this->makeCandidate(['title' => 'Nowy model GPT-6 od firmy']);
+        $jobId = $this->postJson("/api/candidates/{$second->id}/classify")->assertStatus(202)->json('id');
+        app(JobRunner::class)->run($jobId);
+        $this->fakeAi(['embed' => $embed, 'classify' => self::aiOk(self::SCORES)]);
+        $first = $this->makeCandidate(['title' => 'OpenAI wydało nowy model']);
+        app(JobRunner::class)->run($this->postJson("/api/candidates/{$first->id}/classify")->assertStatus(202)->json('id'));
+        $this->aiRequests = [];
+
+        app(JobRunner::class)->run($jobId);
+
+        $this->assertSame(['classify'], $this->aiTasks());
+        $this->assertNull($second->refresh()->topic_group_id);
+        $this->assertSame(68, $second->total_score);
+    }
+
+    #[Test]
+    public function only_the_most_recent_topics_are_compared(): void
+    {
+        config(['content.topics.max_compared' => 1]);
+        $first = $this->makeCandidate(['title' => 'OpenAI wydało nowy model', 'created_at' => now()->subDays(2)]);
+        $this->classify($first);
+        $this->classify($this->makeCandidate(['title' => 'Kubernetes zmienia API', 'created_at' => now()->subDay()]));
+        $second = $this->makeCandidate(['title' => 'Nowy model GPT-6 od firmy']);
+        $this->aiRequests = [];
+
+        $this->classify($second);
+
+        $this->assertNull($second->refresh()->topic_group_id);
+        $this->assertContains('classify', $this->aiTasks());
+    }
+
+    #[Test]
+    public function the_topic_list_never_loads_the_stored_vectors(): void
+    {
+        $first = $this->makeCandidate(['title' => 'OpenAI wydało nowy model']);
+        $this->classify($first);
+        DB::enableQueryLog();
+
+        $this->getJson('/api/candidates')->assertJsonPath('total', 1);
+
+        $list = str_replace('"', '', (string) collect(DB::getQueryLog())->pluck('query')->first(fn (string $sql) => str_contains($sql, 'group_size')));
+        $this->assertStringContainsString('group_size', $list);
+        $this->assertStringNotContainsString('candidates.*', $list);
+        $this->assertDoesNotMatchRegularExpression('/candidates\.embedding(?!_)/', $list);
+    }
+
+    #[Test]
+    public function filtering_by_feed_shows_that_feeds_copy_of_a_grouped_story(): void
+    {
+        $first = $this->makeCandidate(['title' => 'OpenAI wydało nowy model']);
+        $this->classify($first);
+        $second = $this->makeCandidate(['title' => 'Nowy model GPT-6 od firmy', 'source_id' => $this->makeSource(null, 'https://b.example/feed.xml')->id]);
+        $this->classify($second);
+
+        $this->getJson("/api/candidates?source_id={$second->source_id}")->assertJsonPath('total', 1)->assertJsonPath('items.0.id', $second->id);
+        $this->getJson("/api/candidates?source_id={$first->source_id}")->assertJsonPath('total', 1)->assertJsonPath('items.0.id', $first->id);
+    }
+
+    #[Test]
+    public function dashboard_stats_count_a_grouped_story_once(): void
+    {
+        $first = $this->makeCandidate(['title' => 'OpenAI wydało nowy model']);
+        $this->classify($first);
+        $second = $this->makeCandidate(['title' => 'Nowy model GPT-6 od firmy']);
+        $this->classify($second);
+        $this->makeCandidate(['title' => 'Kubernetes zmienia API', 'total_score' => 20]);
+
+        $this->getJson('/api/stats')->assertJsonPath('candidates_today', 2)->assertJsonPath('new_today', 2)->assertJsonPath('average_score', 44);
     }
 
     #[Test]

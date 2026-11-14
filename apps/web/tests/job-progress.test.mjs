@@ -43,3 +43,13 @@ test('cancel is offered for waiting jobs and running AI jobs only',()=>{
   assert.equal(exports.cancelAction({...qa,status:'succeeded'}),null);
   assert.equal(exports.cancelAction({...qa,status:'cancelled'}),null);
 });
+test('search calls show Tavily credits instead of an unknown model', () => {
+  assert.equal(exports.callModelLabel({usage:{provider:'tavily',search_credits:2,input_tokens:0,output_tokens:0}}), 'Tavily · 2 kredyty');
+  assert.equal(exports.callModelLabel({usage:{provider:'tavily',search_credits:1,input_tokens:0,output_tokens:0}}), 'Tavily · 1 kredyt');
+  assert.equal(exports.callModelLabel({usage:{model:'gpt-4.1-mini',input_tokens:1,output_tokens:2}}), 'gpt-4.1-mini');
+  assert.equal(exports.callModelLabel({usage:null}), null);
+  assert.equal(exports.callTokensLabel({usage:{provider:'tavily',search_credits:2,input_tokens:0,output_tokens:0}}), 'nie dotyczy');
+  assert.equal(exports.callTokensLabel({usage:{model:'m',input_tokens:5,output_tokens:7}}), '5 / 7');
+  assert.equal(exports.callTokensLabel({usage:{model:'m',input_tokens:5,output_tokens:7,recorded:false}}), 'nieznane');
+  assert.equal(exports.stageLabel('searching_sources'), 'Wyszukiwanie (Tavily)');
+});

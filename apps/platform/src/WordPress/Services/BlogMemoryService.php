@@ -5,6 +5,7 @@ namespace Modules\WordPress\Services;
 use Carbon\CarbonImmutable;
 use Modules\WordPress\Client\WordPressClientFactory;
 use Modules\WordPress\Commands\ReplaceWordPressPostsCommand;
+use Modules\WordPress\Data\BlogMemoryData;
 use Modules\WordPress\Data\ConnectionConfig;
 use Modules\WordPress\Exceptions\WordPressException;
 use Modules\WordPress\Queries\WordPressPostsQuery;
@@ -25,18 +26,18 @@ final class BlogMemoryService
         private readonly WordPressPostsQuery $posts,
     ) {}
 
-    public function summary(int $workspaceId): array
+    public function summary(int $workspaceId): BlogMemoryData
     {
-        $posts = $this->posts->execute($workspaceId);
+        $synced = $this->connections->find($workspaceId)?->posts_synced_at;
 
-        return ['count' => count($posts), 'synced_at' => $posts === [] ? null : CarbonImmutable::parse(max(array_column($posts, 'synced_at')))->toAtomString()];
+        return new BlogMemoryData(count($this->posts->execute($workspaceId)), $synced?->toAtomString());
     }
 
-    public function sync(int $workspaceId): array
+    public function sync(int $workspaceId): BlogMemoryData
     {
         $connection = $this->connections->find($workspaceId);
         if ($connection === null) {
-            $this->replace->execute($workspaceId, []);
+            $this->replace->execute($workspaceId, [], false);
 
             return $this->summary($workspaceId);
         }
@@ -67,7 +68,7 @@ final class BlogMemoryService
                 break;
             }
         }
-        $this->replace->execute($workspaceId, array_values($posts));
+        $this->replace->execute($workspaceId, array_values($posts), true);
 
         return $this->summary($workspaceId);
     }
@@ -79,8 +80,8 @@ final class BlogMemoryService
 
     public function refreshIfStale(int $workspaceId): void
     {
-        $synced = $this->summary($workspaceId)['synced_at'];
-        if ($synced !== null && CarbonImmutable::parse($synced)->greaterThan(CarbonImmutable::now()->subMinutes(self::STALE_AFTER_MINUTES))) {
+        $synced = $this->connections->find($workspaceId)?->posts_synced_at;
+        if ($synced !== null && $synced->greaterThan(CarbonImmutable::now()->subMinutes(self::STALE_AFTER_MINUTES))) {
             return;
         }
         try {
@@ -90,11 +91,14 @@ final class BlogMemoryService
         }
     }
 
-    public function linkCandidates(int $workspaceId, string $text): array
+    public function linkCandidates(int $workspaceId, string $text, ?int $exceptPostId = null): array
     {
         $stems = self::stems($text);
         $scored = [];
         foreach ($this->posts->execute($workspaceId) as $post) {
+            if ($exceptPostId !== null && (int) $post['post_id'] === $exceptPostId) {
+                continue;
+            }
             $score = count(array_intersect($stems, self::stems($post['title'].' '.$post['excerpt'])));
             if ($score >= 2) {
                 $scored[] = ['score' => $score, 'title' => $post['title'], 'url' => $post['url']];

@@ -76,7 +76,7 @@ final class ConnectionService
             $instance = $existing?->instance_id ?? 'ce-'.Str::lower(Str::random(32));
             if ($siteChanged) {
                 $this->unlinkPublications->execute($workspaceId, $existing->instance_id);
-                $this->replacePosts->execute($workspaceId, []);
+                $this->replacePosts->execute($workspaceId, [], false);
                 $instance = 'ce-'.Str::lower(Str::random(32));
             }
 
@@ -114,7 +114,7 @@ final class ConnectionService
     {
         DB::transaction(function () use ($workspaceId): void {
             $this->deleteConnection->execute($workspaceId);
-            $this->replacePosts->execute($workspaceId, []);
+            $this->replacePosts->execute($workspaceId, [], false);
         });
     }
 

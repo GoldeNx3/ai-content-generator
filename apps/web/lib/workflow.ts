@@ -1,4 +1,12 @@
-import type { Research } from "@/types/api";
+import type { Candidate, Research } from "@/types/api";
+
+type ClassificationUsage = Pick<Candidate, "llm_model" | "llm_input_tokens" | "llm_output_tokens" | "estimated_cost_usd" | "topic_group_id">;
+export function classificationUsageRow(candidate: ClassificationUsage) {
+  const usage = { model: candidate.llm_model, input: candidate.llm_input_tokens, output: candidate.llm_output_tokens, cost: candidate.estimated_cost_usd };
+  return candidate.topic_group_id
+    ? { label: "Porównanie z innymi tematami · ocena przejęta z głównego tematu", configured: "embedding" as const, ...usage }
+    : { label: "Ocena tematu", configured: "classifier" as const, ...usage };
+}
 
 export function costLabel(cost: string | null): string {
   return cost !== null && Number.isFinite(Number(cost)) ? `≈ $${Number(cost).toFixed(4)}` : "Koszt nieznany";

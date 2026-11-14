@@ -5,7 +5,7 @@ import { useDemoMode } from "@/components/demo-mode";
 import { CheckCircle2Icon, CircleIcon, AlertCircleIcon, Loader2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api";
-import { isActiveJob, STAGE_LABELS as stages } from "@/lib/jobs";
+import { callModelLabel, callTokensLabel, isActiveJob, STAGE_LABELS as stages } from "@/lib/jobs";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import type { Job, JobAttempt } from "@/types/api";
@@ -62,7 +62,7 @@ export function JobStatus({ jobs, active, error, onRetry }: {
           <p>Próba {attempt.number} · {attempt.outcome}</p>
           {attempt.llm_calls.map((call, index) => <p key={index}>
             {stages[call.stage] ?? call.stage} · {call.finished ? "odpowiedź zapisana" : "brak zapisanej odpowiedzi; koszt nieznany"}
-            {call.finished && <> · {call.usage?.model ?? "model nieznany"} · tokeny {call.usage?.recorded === false ? "nieznane" : call.usage ? `${call.usage.input_tokens} / ${call.usage.output_tokens}` : "nieznane"} · {call.estimated_cost_usd === null ? "koszt nieznany" : `≈ $${call.estimated_cost_usd}`}</>}
+            {call.finished && <> · {callModelLabel(call) ?? "model nieznany"} · tokeny {callTokensLabel(call)} · {call.estimated_cost_usd === null ? "koszt nieznany" : `≈ $${call.estimated_cost_usd}`}</>}
           </p>)}
         </div>)}
       </div>}

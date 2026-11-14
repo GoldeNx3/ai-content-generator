@@ -16,6 +16,6 @@ class WordPressConnection extends Model
 
     protected function casts(): array
     {
-        return ['app_password' => 'encrypted', 'can_publish' => 'boolean', 'last_checked_at' => 'immutable_datetime'];
+        return ['app_password' => 'encrypted', 'can_publish' => 'boolean', 'last_checked_at' => 'immutable_datetime', 'posts_synced_at' => 'immutable_datetime'];
     }
 }

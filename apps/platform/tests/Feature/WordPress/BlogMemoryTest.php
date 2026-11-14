@@ -63,6 +63,22 @@ final class BlogMemoryTest extends TestCase
     }
 
     #[Test]
+    public function a_regenerated_article_never_links_to_its_own_published_post(): void
+    {
+        $this->postJson('/api/wordpress/posts/sync')->assertOk();
+        $this->fakeAi(['article.brief' => self::aiError('invalid_output')]);
+        $candidate = $this->makeCandidate(['title' => 'Laravel 13: nowe kolejki i monitorowanie']);
+        $this->completedResearch($candidate);
+        DB::table('wordpress_publications')->insert(['candidate_id' => $candidate->id, 'article_version_id' => $this->makeArticle($candidate)->id,
+            'wordpress_post_id' => 11, 'wordpress_instance_id' => 'ce-test', 'wordpress_url' => 'https://wp.example/blog/kolejki-w-laravel/',
+            'status' => 'synced', 'created_at' => now(), 'updated_at' => now()]);
+
+        $this->postJson("/api/candidates/{$candidate->id}/article", ['article_format' => 'auto'])->assertStatus(202);
+
+        $this->assertSame([], collect($this->aiRequests)->firstWhere('task', 'article.brief')['input']['internal_links']);
+    }
+
+    #[Test]
     public function a_topic_resembling_a_blog_post_is_flagged_when_classified(): void
     {
         $this->postJson('/api/wordpress/posts/sync')->assertOk();
@@ -85,6 +101,23 @@ final class BlogMemoryTest extends TestCase
     }
 
     #[Test]
+    public function an_empty_blog_counts_as_synced_and_is_not_fetched_before_every_article(): void
+    {
+        $this->wp->published = [];
+        $this->postJson('/api/wordpress/posts/sync')->assertOk()->assertJsonPath('count', 0);
+        $this->assertNotNull($this->getJson('/api/wordpress/posts')->json('synced_at'));
+        $this->fakeAi(['article.brief' => self::aiError('invalid_output')]);
+        $candidate = $this->makeCandidate(['title' => 'Laravel 13']);
+        $this->completedResearch($candidate);
+        $listCalls = fn () => count(Http::recorded(fn ($request) => str_contains($request->url(), 'wp/v2/posts')));
+        $before = $listCalls();
+
+        $this->postJson("/api/candidates/{$candidate->id}/article", ['article_format' => 'auto'])->assertStatus(202);
+
+        $this->assertSame($before, $listCalls());
+    }
+
+    #[Test]
     public function disconnecting_or_changing_the_site_forgets_the_old_posts(): void
     {
         $this->postJson('/api/wordpress/posts/sync')->assertOk();
@@ -92,7 +125,7 @@ final class BlogMemoryTest extends TestCase
         $this->deleteJson('/api/wordpress/connection')->assertNoContent();
 
         $this->assertSame(0, DB::table('wordpress_posts')->count());
-        $this->postJson('/api/wordpress/posts/sync')->assertOk()->assertJsonPath('count', 0);
+        $this->postJson('/api/wordpress/posts/sync')->assertOk()->assertJsonPath('count', 0)->assertJsonPath('synced_at', null);
     }
 
     #[Test]

@@ -46,23 +46,32 @@ final class ClassifyHandler extends BaseStageHandler
             $embedded = ['result' => null, 'calls' => $exception->calls];
         }
         $vector = $embedded['result']['vectors'][0] ?? null;
+        $model = $embedded['result']['model'] ?? null;
         $threshold = (float) config('content.topics.similarity_threshold');
         $force = $vector === null || (bool) ($job->payload['options']['force'] ?? false)
             || $this->groupMembers->execute($job->workspace_id, $job->candidate_id, $job->candidate_id) !== [];
 
-        $topic = $force ? null : $this->nearestTopic->execute($job->workspace_id, $job->candidate_id, $vector, (int) config('content.topics.window_days'));
-        $primaryId = $topic === null ? null : (int) ($topic->topic_group_id ?? $topic->id);
-        if ($topic !== null && $primaryId !== $job->candidate_id && (float) $topic->similarity >= $threshold) {
-            $context->finish(function () use ($job, $vector, $primaryId, $topic, $embedded): StageResult {
+        $match = $context->checkpointValue('topic_match');
+        if (! is_array($match)) {
+            $topic = $force ? null : $this->nearestTopic->execute($job->workspace_id, $job->candidate_id, $vector, $model, (int) config('content.topics.window_days'), (int) config('content.topics.max_compared'));
+            $primaryId = $topic === null ? null : (int) ($topic->topic_group_id ?? $topic->id);
+            $joins = $topic !== null && $primaryId !== $job->candidate_id && (float) $topic->similarity >= $threshold;
+            $match = $joins ? ['primary_id' => $primaryId, 'similarity' => (float) $topic->similarity] : ['primary_id' => null, 'similarity' => null];
+            $context->checkpoint('topic_match', $match);
+        }
+        if ($match['primary_id'] !== null) {
+            $primaryId = (int) $match['primary_id'];
+            $similarity = (float) $match['similarity'];
+            $context->finish(function () use ($job, $vector, $model, $primaryId, $similarity, $embedded): StageResult {
                 $primary = Candidate::query()->findOrFail($primaryId);
                 $this->apply->execute($job->candidate_id, $job->id, [
                     'relevance' => $primary->relevance_score, 'freshness' => $primary->freshness_score,
                     'search_potential' => $primary->search_potential_score, 'commercial_potential' => $primary->commercial_potential_score,
                     'total_score' => $primary->total_score, 'category' => $primary->category?->value,
                     'reason' => sprintf('Ten sam temat co #%d „%s” (podobieństwo %.2f). Ocena przejęta bez ponownej klasyfikacji.',
-                        $primary->id, $primary->title, (float) $topic->similarity),
+                        $primary->id, $primary->title, $similarity),
                 ], CallUsage::of($embedded['calls']));
-                $this->assignGroup->execute($job->candidate_id, $vector, $primaryId, round((float) $topic->similarity, 4));
+                $this->assignGroup->execute($job->candidate_id, $vector, $model, $primaryId, round($similarity, 4));
 
                 return new StageResult('candidate', $job->candidate_id);
             });
@@ -70,7 +79,7 @@ final class ClassifyHandler extends BaseStageHandler
             return;
         }
 
-        $article = $vector === null ? null : $this->nearestArticle->execute($job->workspace_id, $vector);
+        $article = $vector === null ? null : $this->nearestArticle->execute($job->workspace_id, $vector, $model);
         if ($article !== null && (float) $article->similarity >= $threshold) {
             $input['already_covered'] = ['title' => $article->title, 'article_id' => (int) $article->id, 'similarity' => round((float) $article->similarity, 4)];
         } elseif (($post = $this->similarBlogPost->execute($job->workspace_id, $input['title'], (float) config('content.topics.blog_title_similarity'))) !== null) {
@@ -78,9 +87,9 @@ final class ClassifyHandler extends BaseStageHandler
         }
         $context->stage('classifying');
         $response = $context->ai('classify', 'classify', ['candidate' => $input, 'editorial' => $job->payload['editorial'] ?? null]);
-        $context->finish(function () use ($job, $vector, $response, $embedded): StageResult {
+        $context->finish(function () use ($job, $vector, $model, $response, $embedded): StageResult {
             $this->apply->execute($job->candidate_id, $job->id, $response['result'], CallUsage::of([...$embedded['calls'], ...$response['calls']]));
-            $this->assignGroup->execute($job->candidate_id, $vector, null, null);
+            $this->assignGroup->execute($job->candidate_id, $vector, $model, null, null);
 
             return new StageResult('candidate', $job->candidate_id);
         });

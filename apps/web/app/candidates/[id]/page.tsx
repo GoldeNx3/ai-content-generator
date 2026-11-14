@@ -28,6 +28,7 @@ import { CategoryBadge, StatusBadge } from "@/components/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { api, errorText } from "@/lib/api";
 import { formatDate, SCORE_LEVEL_LABEL, scoreLevel } from "@/lib/format";
+import { classificationUsageRow } from "@/lib/workflow";
 import type { Candidate, CandidateStatus, Research } from "@/types/api";
 import { EditorTake } from "@/components/editor-take";
 
@@ -170,7 +171,7 @@ export default function CandidatePage() {
           {classificationHasRun ? "Oceń ponownie" : "Oceń temat"} · {candidate.is_demo ? "demo · bezpłatne" : "płatne"}
         </Button></>}
         activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
-      summary={<UsageSummary rows={[{label: "Ocena tematu", configured: "classifier", model: candidate.llm_model, input: candidate.llm_input_tokens, output: candidate.llm_output_tokens, cost: candidate.estimated_cost_usd}]} note={classified ? `Oceniono: ${formatDate(candidate.classified_at)}. Starsze oceny mogą nie mieć zapisanych danych o zużyciu.` : "Dane zużycia pojawią się po ocenie tematu."} />}>
+      summary={<UsageSummary rows={[classificationUsageRow(candidate)]} note={classified ? `Oceniono: ${formatDate(candidate.classified_at)}. Starsze oceny mogą nie mieć zapisanych danych o zużyciu.` : "Dane zużycia pojawią się po ocenie tematu."} />}>
 
         {classificationError && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{classificationError}</p>}
         {candidate.topic_group && <div className="mb-4 max-w-3xl space-y-2 rounded-xl border border-sky-200 bg-sky-50/50 p-4 text-sm" role="note">

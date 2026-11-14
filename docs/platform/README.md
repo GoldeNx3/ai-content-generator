@@ -86,22 +86,28 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
 - Pobieranie RSS (darmowe) zapisuje `candidates.url_key` (znormalizowany URL: bez `utm_`/`fbclid`, `www`, końcowego
   `/`, http=https) i pomija wpis, którego klucz już istnieje w workspace.
 - Płatny krok 2 „Ocena tematu” najpierw liczy embedding tytułu i opisu (`embed`, etap `comparing_topics`) i porównuje
-  go iloczynem skalarnym (`real[]`, bez pgvector) z ocenionymi tematami tego workspace'u z `TOPIC_WINDOW_DAYS` dni.
+  go iloczynem skalarnym (`real[]`, bez pgvector) z ocenionymi tematami tego workspace'u z `TOPIC_WINDOW_DAYS` dni
+  (najwyżej `TOPIC_MAX_COMPARED` najnowszych, domyślnie 5000). Porównywane są tylko wektory tego samego modelu i
+  długości (`embedding_model`), więc zmiana `OPENAI_EMBEDDING_MODEL` nie daje fałszywych dopasowań. Decyzja (grupa
+  albo pełna ocena) trafia do checkpointu `topic_match` – ponowienie zadania nie zmienia ścieżki.
   Podobieństwo ≥ `TOPIC_SIMILARITY_THRESHOLD`: temat dołącza do grupy (`topic_group_id` = temat główny), przejmuje
   jego ocenę i **nie płaci za klasyfikację**. „Oceń mimo to osobno” (`POST candidates/{id}/classify {force: true}`)
   wymusza pełną ocenę bez grupowania. Gdy temat przypomina już napisany artykuł (`articles.embedding`, liczony w
   kroku 4), klasyfikator dostaje `already_covered` – aktualność ≤ 20 i ostrzeżenie w uzasadnieniu.
-- Lista tematów pokazuje jeden wiersz na grupę z `group_size` („+N źródeł”); `?duplicates=1` pokazuje wszystkie.
+- Lista tematów pokazuje jeden wiersz na grupę z `group_size` („+N źródeł”); `?duplicates=1` pokazuje wszystkie,
+  filtr `source_id` pokazuje też duplikaty z tego kanału. Statystyki pulpitu liczą grupę raz. Lista nie wczytuje
+  wektorów. Duplikat pokazuje w kroku 2 koszt porównania (embedding), nie klasyfikacji.
   Research tematu głównego dodaje URL-e z grupy jako źródła (`origin = sibling`, najwyżej 3).
 
 ## Pamięć wpisów i linki wewnętrzne
 
 - Tabela `wordpress_posts` (per workspace) trzyma opublikowane wpisy bloga: `post_id`, `url`, `title`, `excerpt`,
-  `synced_at`. Pobieranie jest darmowe (REST `wp/v2/posts?status=publish`, do 5 stron po 100):
+  `synced_at`; czas ostatniego pobrania w `wordpress_connections.posts_synced_at` (blog bez wpisów też jest
+  „pobrany”). Pobieranie jest darmowe (REST `wp/v2/posts?status=publish`, do 5 stron po 100):
   `POST wordpress/posts/sync` (przycisk „Odśwież listę wpisów” w Ustawieniach), `GET wordpress/posts` – licznik i
   data. Przed płatnym krokiem 4 lista odświeża się sama, gdy jest starsza niż 60 min (błąd WP nie blokuje pisania).
 - Krok 4: Laravel wybiera do 20 wpisów pasujących słowami do tytułu/opisu tematu (darmowe) i przekazuje je jako
-  `internal_links`. Pisarz może linkować wyłącznie do tej listy; linki spoza niej są usuwane (zostaje tekst) z
+  `internal_links` (bez własnego wpisu tematu, gdy jest już opublikowany). Pisarz może linkować wyłącznie do tej listy; linki spoza niej są usuwane (zostaje tekst) z
   ostrzeżeniem w wersji.
 - Krok 2: gdy nie ma podobnego artykułu z embeddingu, tytuł tematu porównywany jest z tytułami wpisów (`pg_trgm`,
   `BLOG_TITLE_SIMILARITY`, domyślnie 0.6) – trafienie daje `already_covered` z adresem wpisu.
@@ -109,13 +115,17 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
 ## Research i QA – jakość
 
 - Research (krok 3): z `SEARCH_PROVIDER=tavily` wyszukiwanie w trybie `TAVILY_SEARCH_DEPTH` (domyślnie `advanced`),
-  do `RESEARCH_MAX_EXTRA_SOURCES` (domyślnie 8) dodatkowych źródeł.
+  do `RESEARCH_MAX_EXTRA_SOURCES` (domyślnie 8) dodatkowych źródeł. Każde zapytanie Tavily jest zapisywane jako
+  wywołanie `searching_sources` z kosztem `kredyty × TAVILY_CREDIT_USD` (basic 1, advanced 2 kredyty; domyślnie
+  0.008 USD) i wchodzi do kosztu kroku 3 oraz budżetu konta.
 - Każdy fakt ma `basis` (`verifiable` / `vendor_claim` / `secondary`, kolumna `research_facts.basis`; starsze fakty
   `null`). Pisarz dostaje `Basis:` i podaje deklaracje producenta z atrybucją; QA oznacza deklarację podaną jako
   ustalony fakt jako `overclaim`. Panel pokazuje „deklaracja producenta” przy fakcie.
 - QA (krok 5) liczy bez AI udział 8-gramów słów artykułu wspólnych z każdym źródłem (bez kodu i cytatów `>`).
   Powyżej `QA_MAX_SOURCE_OVERLAP` (0.15) dodaje issue `too_close_to_source` (warning, naprawialne przez Auto Fix)
   z najbardziej przepisanym akapitem.
+- „Nasze zdanie” jest zapisywane w zadaniu `write` w chwili zlecenia; późniejsza edycja nie zmienia trwającego
+  zadania.
 - Model: mocniejszy model pisarza/QA (`OPENAI_WRITER_MODEL`, `OPENAI_QA_MODEL`, np. `gpt-5-mini`) to decyzja
   kosztowa – domyślne wartości w kodzie się nie zmieniają.
 

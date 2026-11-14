@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     search_provider: str = "manual"  # manual | tavily
     tavily_api_key: str = ""
     tavily_search_depth: str = "advanced"  # basic | advanced (advanced = 2 kredyty Tavily)
+    # Cena jednego kredytu Tavily (pay-as-you-go); wliczana do kosztu kroku i budżetu konta.
+    tavily_credit_usd: float = Field(default=0.008, ge=0)
     page_fetch_timeout_seconds: float = 20.0
     page_max_bytes: int = 5_000_000
     raw_content_max_chars: int = 300_000

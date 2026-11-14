@@ -13,6 +13,7 @@ final class DashboardStatsQuery
         $today = CarbonImmutable::now('UTC')->startOfDay();
         $row = Candidate::query()
             ->where('workspace_id', $workspaceId)
+            ->whereNull('topic_group_id')
             ->selectRaw('COUNT(*) FILTER (WHERE created_at >= ?) AS candidates_today', [$today])
             ->selectRaw("COUNT(*) FILTER (WHERE created_at >= ? AND status = 'pending') AS new_today", [$today])
             ->selectRaw("COUNT(*) FILTER (WHERE status = 'approved') AS approved")

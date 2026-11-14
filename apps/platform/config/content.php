@@ -26,6 +26,7 @@ return [
     'topics' => [
         'similarity_threshold' => (float) env('TOPIC_SIMILARITY_THRESHOLD', 0.86),
         'window_days' => (int) env('TOPIC_WINDOW_DAYS', 30),
+        'max_compared' => (int) env('TOPIC_MAX_COMPARED', 5000),
         'blog_title_similarity' => (float) env('BLOG_TITLE_SIMILARITY', 0.6),
     ],
 
@@ -69,6 +70,7 @@ return [
         'settings' => [
             'search_provider' => env('SEARCH_PROVIDER', 'manual'),
             'tavily_search_depth' => env('TAVILY_SEARCH_DEPTH', 'advanced'),
+            'tavily_credit_usd' => (float) env('TAVILY_CREDIT_USD', 0.008),
             'llm_timeout_seconds' => (float) env('LLM_TIMEOUT_SECONDS', 60),
             'research_timeout_seconds' => (float) env('RESEARCH_TIMEOUT_SECONDS', 300),
             'writer_timeout_seconds' => (float) env('WRITER_TIMEOUT_SECONDS', 300),

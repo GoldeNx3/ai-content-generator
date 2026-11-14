@@ -82,6 +82,7 @@ final class ArticlesTest extends TestCase
 
         $this->assertSame(['article.brief', 'article.write', 'embed'], array_column($this->aiRequests, 'task'));
         $this->assertNotNull(DB::table('articles')->value('embedding'));
+        $this->assertSame('text-embedding-3-small', DB::table('articles')->value('embedding_model'));
     }
 
     #[Test]

@@ -21,7 +21,7 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
  const stamp = '2026-10-03T10:00:00Z';
  const candidate = {id:1,source_id:1,source_name:'Test RSS',external_url:'https://example.com/article',title:'Testowy temat',summary:'Materiał testowy',original_published_at:stamp,status:'pending',relevance_score:null,freshness_score:null,search_potential_score:null,commercial_potential_score:null,total_score:null,category:null,llm_reason:null,classified_at:null,created_at:stamp,updated_at:stamp};
  const source = {id:1,name:'Test RSS',type:'rss',url:'https://example.com/rss',active:true,last_fetched_at:null,created_at:stamp,updated_at:stamp};
- const report = {id:1,candidate_id:1,status:'completed',summary:'Podsumowanie',why_it_matters:'Znaczenie',suggested_angle:'Perspektywa',search_queries:[],uncertainties:[],conflicts:[],error:null,llm_model:'test-model',llm_input_tokens:10,llm_output_tokens:10,estimated_cost_usd:null,started_at:stamp,completed_at:stamp,created_at:stamp,updated_at:stamp,sources:[],facts:[{id:1,claim:'Potwierdzony fakt',confidence:95,importance:'critical',source_ids:[]}]};
+ const report = {id:1,candidate_id:1,status:'completed',summary:'Podsumowanie',why_it_matters:'Znaczenie',suggested_angle:'Perspektywa',search_queries:[],uncertainties:[],conflicts:[],error:null,llm_model:'test-model',llm_input_tokens:10,llm_output_tokens:10,estimated_cost_usd:null,started_at:stamp,completed_at:stamp,created_at:stamp,updated_at:stamp,sources:[],facts:[{id:1,claim:'Potwierdzony fakt',confidence:95,importance:'critical',basis:'vendor_claim',source_ids:[]},{id:2,claim:'Fakt z relacji',confidence:80,importance:'supporting',basis:'secondary',source_ids:[]}]};
  let posts = 0;
  const jobs=[];
  function job(kind,status='succeeded',result_id=1) {
@@ -62,7 +62,9 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
      warning_count:2,critical_issue_count:0,summary:'Jedno niepoparte twierdzenie.',qa_passed:false,pass_score:85,is_stale:false,
      llm_model:'gpt-4.1',llm_input_tokens:1000,llm_output_tokens:200,estimated_cost_usd:'0.003600',
      issues:[{id:1,type:'unsupported_claim',severity:'high',excerpt:'47%',reason:'Brak takiego faktu w researchu.',
-      suggestion:'Usuń wartość.',section_heading:'Porównanie',fact_ids:[],source_ids:[],auto_fixable:true}]};
+      suggestion:'Usuń wartość.',section_heading:'Porównanie',fact_ids:[],source_ids:[],auto_fixable:true},
+      {id:2,type:'too_close_to_source',severity:'warning',excerpt:'Skopiowany akapit',reason:'Akapit powtarza źródło.',
+      suggestion:'Napisz własnymi słowami.',section_heading:null,fact_ids:[],source_ids:[],auto_fixable:true}]};
     body=job('qa_article','queued',null);body.article_id=id;body.stage=null;status=202;
    } else if (qa && qa.article_id===Number(path.split('/')[3])) body=qa;
    else {status=404;body={detail:'No QA yet'};}
@@ -151,6 +153,8 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
  await page.waitForFunction(()=> [...document.querySelectorAll('button')].some(b=>b.textContent.includes('Generuj artykuł · płatne')&&!b.disabled));
  await page.locator('section[data-workflow-step="3"] footer').getByText('Koszt i szczegóły uruchomienia',{exact:true}).click();
  await page.locator('section[data-workflow-step="3"] footer').getByText('Koszt nieznany',{exact:true,includeHidden:true}).first().waitFor();
+ await page.locator('section[data-workflow-step="3"]').getByText('deklaracja producenta',{exact:true,includeHidden:true}).first().waitFor({state:'attached'});
+ await page.locator('section[data-workflow-step="3"]').getByText('z drugiej ręki',{exact:true,includeHidden:true}).first().waitFor({state:'attached'});
  await go(4);
  await generate.click();
  await page.getByRole('button',{name:'Generuj · płatne wywołanie AI',exact:true,includeHidden:true}).waitFor();
@@ -194,6 +198,7 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
  await qaStep.locator('[data-qa-target-status]').getByText(/QA wykonane ·/).waitFor();
  await qaStep.getByText('23',{exact:true,includeHidden:true}).waitFor();
  await qaStep.getByText('Niepoparte twierdzenie',{exact:true,includeHidden:true}).waitFor();
+ await qaStep.getByText('Zbyt blisko tekstu źródła',{exact:true,includeHidden:true}).first().waitFor({state:'attached'});
  assert.equal(await qaStep.getAttribute('data-stage-tone'),'attention');
  await qaStep.locator('footer').getByText('Koszt i szczegóły uruchomienia',{exact:true}).click();
  await qaStep.locator('footer').getByText('≈ $0.0036',{exact:true,includeHidden:true}).first().waitFor();

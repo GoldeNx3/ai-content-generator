@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Candidates;
 
+use Illuminate\Support\Facades\Queue;
+use Modules\Pipeline\Services\JobRunner;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\BuildsArticles;
 use Tests\Support\BuildsDomain;
@@ -44,5 +46,21 @@ final class EditorTakeTest extends TestCase
         $this->postJson("/api/candidates/{$candidate->id}/article", ['article_format' => 'auto'])->assertStatus(202);
 
         $this->assertSame('Nasza opinia.', collect($this->aiRequests)->firstWhere('task', 'article.brief')['input']['editor_take']);
+    }
+
+    #[Test]
+    public function the_take_is_frozen_when_the_article_is_ordered(): void
+    {
+        $this->fakeAi(['article.brief' => self::aiError('invalid_output')]);
+        $candidate = $this->makeCandidate();
+        $this->completedResearch($candidate);
+        $this->patchJson("/api/candidates/{$candidate->id}/editor-take", ['editor_take' => 'Zdanie z chwili zlecenia.'])->assertOk();
+        Queue::fake();
+        $jobId = $this->postJson("/api/candidates/{$candidate->id}/article", ['article_format' => 'auto'])->assertStatus(202)->json('id');
+
+        $this->patchJson("/api/candidates/{$candidate->id}/editor-take", ['editor_take' => 'Zmiana po zleceniu.'])->assertOk();
+        app(JobRunner::class)->run($jobId);
+
+        $this->assertSame('Zdanie z chwili zlecenia.', collect($this->aiRequests)->firstWhere('task', 'article.brief')['input']['editor_take']);
     }
 }

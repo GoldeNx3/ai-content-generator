@@ -11,11 +11,23 @@ export const STAGE_LABELS: Record<string, string> = {
   preparing_seo: "Przygotowanie SEO", publishing_wordpress: "Synchronizacja WordPress", fact_checking: "Weryfikacja faktów", validating_references: "Sprawdzanie referencji", validating_qa: "Walidacja raportu QA",
   fixing_article: "Poprawianie artykułu", validating_fix: "Walidacja poprawek",
   classifying: "Ocena tematu", comparing_topics: "Porównanie z innymi tematami", fetching_original: "Pobieranie oryginału",
-  discovering_sources: "Szukanie źródeł", fetching_sources: "Pobieranie źródeł",
+  discovering_sources: "Szukanie źródeł", searching_sources: "Wyszukiwanie (Tavily)", fetching_sources: "Pobieranie źródeł",
   analysing: "Analiza faktów", building_brief: "Przygotowanie briefu",
   writing: "Pisanie artykułu", validating: "Sprawdzenie artykułu", saving: "Zapis wyniku",
 };
 export const stageLabel = (stage: string | null) => stage ? STAGE_LABELS[stage] ?? stage : "Czeka na workera";
+type CallUsageView = { usage?: { model?: string; input_tokens: number; output_tokens: number; recorded?: boolean; provider?: string; search_credits?: number } | null };
+const credits = (count: number) => count === 1 ? "kredyt" : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 10 || count % 100 >= 20) ? "kredyty" : "kredytów";
+export const callModelLabel = (call: CallUsageView): string | null => {
+  if (!call.usage) return null;
+  if (call.usage.search_credits !== undefined) return `Tavily · ${call.usage.search_credits} ${credits(call.usage.search_credits)}`;
+  return call.usage.model ?? null;
+};
+export const callTokensLabel = (call: CallUsageView): string => {
+  if (!call.usage || call.usage.recorded === false) return "nieznane";
+  if (call.usage.search_credits !== undefined) return "nie dotyczy";
+  return `${call.usage.input_tokens} / ${call.usage.output_tokens}`;
+};
 export const STATUS_STYLES: Record<JobStatus, string> = {
   queued: "bg-zinc-100 text-zinc-700 ring-zinc-200",
   running: "bg-sky-50 text-sky-800 ring-sky-200",

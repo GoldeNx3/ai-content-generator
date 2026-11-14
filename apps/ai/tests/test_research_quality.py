@@ -144,3 +144,32 @@ def test_blog_links_are_checked_even_when_no_post_matched_the_topic():
     cleaned, removed = _enforce_links(output, [], BLOG)
     assert cleaned.lead == 'Zobacz stary.'
     assert removed == ['https://wp.example/blog/zmyslony/']
+
+
+async def test_tavily_searches_are_recorded_with_their_credit_cost(monkeypatch):
+    from decimal import Decimal
+
+    from ai.context import TaskContext
+    from ai.runtime import run
+    from tests.research_fakes import FakeResearchLLM
+
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json={'results': []}))
+    provider = TavilySearchProvider('tvly-test', client=httpx.AsyncClient(transport=transport), search_depth='advanced')
+    settings = Settings(search_provider='tavily', tavily_api_key='tvly-test', tavily_search_depth='advanced', tavily_credit_usd=0.008)
+    ctx = TaskContext(settings=settings)
+    ctx._providers = {'research': FakeResearchLLM(queries=['turbo x', 'turbo x cena'])}
+    monkeypatch.setattr(TaskContext, 'search', property(lambda self: provider))
+
+    response = await run({'task': 'research.discover', 'input': {
+        'candidate': {'title': 'Turbo X', 'source': 'Acme'}, 'original_url': 'https://acme.example/turbo'}}, ctx)
+
+    searches = [call for call in response['calls'] if call['stage'] == 'searching_sources']
+    assert [call['usage']['search_credits'] for call in searches] == [2, 2]
+    assert [call['estimated_cost_usd'] for call in searches] == ['0.016000', '0.016000']
+    assert 'model' not in searches[0]['usage']
+    assert ctx.total_cost() == Decimal('0.032') + Decimal(response['calls'][0]['estimated_cost_usd'])
+
+
+def test_basic_tavily_search_costs_one_credit():
+    assert TavilySearchProvider('k', search_depth='basic').credits_per_query == 1
+    assert TavilySearchProvider('k', search_depth='advanced').credits_per_query == 2

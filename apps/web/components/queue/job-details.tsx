@@ -5,7 +5,7 @@ import { AgentProgress } from "@/components/agent-progress";
 import { useEffect, useState } from "react";
 import { api, errorText } from "@/lib/api";
 import { formatDate } from "@/lib/format";
-import { cancelAction, KIND_LABELS, STATUS_LABELS, stageLabel } from "@/lib/jobs";
+import { callModelLabel, callTokensLabel, cancelAction, KIND_LABELS, STATUS_LABELS, stageLabel } from "@/lib/jobs";
 import { Button } from "@/components/ui/button";
 import type { Job, JobAttempt } from "@/types/api";
 
@@ -94,12 +94,12 @@ export function JobDetails({ initial, onRetried, onCancelled }: { initial: Job; 
         {attempt.llm_calls.length === 0 && <p className="text-xs text-muted-foreground">Brak wywołań AI w tej próbie.</p>}
         {attempt.llm_calls.map((call, index) => <div key={index} className="rounded-md bg-muted/40 p-2 text-xs">
           <p className="font-medium">{stageLabel(call.stage)} · {call.finished ? "Odpowiedź zapisana" : "Przerwane lub nadal wykonywane"}</p>
-          <p className="mt-1">Model: {call.usage?.model ?? "nieznany"}</p>
-          <p>Tokeny wejścia / wyjścia: {call.usage && call.usage.recorded !== false ? `${call.usage.input_tokens} / ${call.usage.output_tokens}` : "nieznane"}</p>
+          <p className="mt-1">Model: {callModelLabel(call) ?? "nieznany"}</p>
+          <p>Tokeny wejścia / wyjścia: {callTokensLabel(call)}</p>
           <p>{call.estimated_cost_usd === null ? "Koszt nieznany" : `Zapisany koszt: ≈ $${call.estimated_cost_usd}`}</p>
         </div>)}
       </div>)}
-      <p className="text-xs text-muted-foreground">Brak zapisanej odpowiedzi może oznaczać naliczony koszt. Historia nie obejmuje opłat wyszukiwarki.</p>
+      <p className="text-xs text-muted-foreground">Brak zapisanej odpowiedzi może oznaczać naliczony koszt.</p>
     </section>
   </div>;
 }

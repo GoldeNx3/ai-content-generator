@@ -7,8 +7,8 @@ use Modules\Candidates\Support\Embedding;
 
 final class StoreArticleEmbeddingCommand
 {
-    public function execute(int $articleId, array $vector): void
+    public function execute(int $articleId, array $vector, ?string $model): void
     {
-        DB::table('articles')->where('id', $articleId)->update(['embedding' => Embedding::literal($vector)]);
+        DB::table('articles')->where('id', $articleId)->update(['embedding' => Embedding::literal($vector), 'embedding_model' => $model]);
     }
 }

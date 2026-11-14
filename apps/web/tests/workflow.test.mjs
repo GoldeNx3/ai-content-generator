@@ -34,3 +34,14 @@ test('QA distinguishes stale reports and queue status', () => {
   assert.equal(output.qaState({status: 'completed', is_stale: false}, true), 'Zakończony');
   assert.equal(output.qaState({status: 'pending'}, true), 'W kolejce');
 });
+test('a grouped duplicate reports its embedding call, not a classification', () => {
+  const usage = {llm_model:'text-embedding-3-small',llm_input_tokens:12,llm_output_tokens:0,estimated_cost_usd:'0.000001'};
+  const grouped = output.classificationUsageRow({...usage, topic_group_id: 1});
+  assert.equal(grouped.label, 'Porównanie z innymi tematami · ocena przejęta z głównego tematu');
+  assert.equal(grouped.configured, 'embedding');
+  assert.equal(grouped.model, 'text-embedding-3-small');
+  const own = output.classificationUsageRow({...usage, llm_model:'gpt-4.1-mini', topic_group_id: null});
+  assert.equal(own.label, 'Ocena tematu');
+  assert.equal(own.configured, 'classifier');
+  assert.equal(own.input, 12);
+});
