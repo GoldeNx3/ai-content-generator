@@ -204,7 +204,8 @@ add_action('rest_api_init', function () {
     register_rest_route('content-engine/v1','/operation',['methods'=>'GET','permission_callback'=>'ce_bridge_allowed','callback'=>function ($request) {
         global $wpdb;
         $row=$wpdb->get_row($wpdb->prepare("SELECT post_id FROM {$wpdb->prefix}ce_operations WHERE operation=%s",(string)$request->get_param('operation')));
-        return ['exists'=>$row && current_user_can('edit_post',$row->post_id),'post_id'=>$row ? (int)$row->post_id : null];
+        $allowed=$row && current_user_can('edit_post',(int)$row->post_id);
+        return ['exists'=>$allowed,'post_id'=>$allowed ? (int)$row->post_id : null];
     }]);
     register_rest_route('content-engine/v1','/resolve' ,['methods'=>'GET','permission_callback'=>'ce_bridge_allowed','callback'=>function ($request) {
         $url=esc_url_raw($request->get_param('url'));
