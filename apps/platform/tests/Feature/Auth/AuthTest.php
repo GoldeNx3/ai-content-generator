@@ -67,6 +67,23 @@ final class AuthTest extends TestCase
     }
 
     #[Test]
+    public function one_workspace_migration_refuses_shared_workspaces_and_changes_nothing(): void
+    {
+        $this->signIn();
+        $second = User::query()->create(['email' => 'drugi@example.com', 'password' => 'secret-password']);
+        DB::statement('DROP INDEX uq_workspace_members_user');
+        DB::statement('DROP INDEX uq_workspace_members_workspace');
+        WorkspaceMember::query()->create(['workspace_id' => $this->workspace->id, 'user_id' => $second->id, 'role' => 'owner']);
+        DB::table('workspace_members')->where('user_id', $second->id)->update(['role' => 'member']);
+        $migration = require base_path('src/Workspaces/Database/Migrations/2026_11_15_000001_one_account_one_workspace.php');
+
+        $this->assertThrows(fn () => $migration->up(), \RuntimeException::class, "shared workspaces [{$this->workspace->id}]");
+
+        $this->assertSame('member', DB::table('workspace_members')->where('user_id', $second->id)->value('role'));
+        $this->assertSame(0, DB::table('pg_indexes')->where('indexname', 'uq_workspace_members_user')->count());
+    }
+
+    #[Test]
     public function register_validates_input_and_rejects_duplicates(): void
     {
         $this->register(password: 'short')->assertStatus(422)->assertJsonPath('detail.0.loc', ['body', 'password']);
