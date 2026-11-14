@@ -15,7 +15,7 @@ use Modules\Sources\Models\Source;
     'workspace_id', 'source_id', 'external_url', 'title', 'summary', 'original_published_at', 'status',
     'relevance_score', 'freshness_score', 'search_potential_score', 'commercial_potential_score', 'total_score',
     'category', 'llm_reason', 'llm_model', 'llm_input_tokens', 'llm_output_tokens', 'estimated_cost_usd',
-    'classified_at', 'classification_job_id',
+    'classified_at', 'classification_job_id', 'topic_group_id', 'duplicate_similarity', 'url_key',
 ])]
 class Candidate extends Model
 {
@@ -31,6 +31,8 @@ class Candidate extends Model
             'original_published_at' => 'immutable_datetime',
             'classified_at' => 'immutable_datetime',
             'estimated_cost_usd' => 'decimal:6',
+            'topic_group_id' => 'integer',
+            'duplicate_similarity' => 'float',
         ];
     }
 

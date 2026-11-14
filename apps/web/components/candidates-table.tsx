@@ -61,6 +61,8 @@ export function CandidatesTable({ candidates, busyId, onStatusChange, onClassify
                   >
                     {candidate.title}
                   </Link>
+                  {(candidate.group_size ?? 1) > 1 && <span className="mt-1 inline-block rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-800 ring-1 ring-sky-200" title="Ten sam temat z kilku kanałów RSS">+{(candidate.group_size ?? 1) - 1} {(candidate.group_size ?? 1) - 1 === 1 ? "źródło" : "źródła"}</span>}
+                  {candidate.topic_group_id && <span className="mt-1 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">duplikat #{candidate.topic_group_id}</span>}
                 </TableCell>
                 <TableCell className="text-muted-foreground">{candidate.source_name}</TableCell>
                 <TableCell>

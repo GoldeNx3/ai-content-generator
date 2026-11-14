@@ -58,6 +58,10 @@ export interface Candidate {
   classified_at: string | null;
   created_at: string;
   updated_at: string;
+  group_size?: number;
+  topic_group_id?: number | null;
+  duplicate_similarity?: number | null;
+  topic_group?: { primary_id: number; members: { id: number; title: string; external_url: string; source_name: string }[] } | null;
 }
 
 export interface CandidatePage {
@@ -80,6 +84,7 @@ export interface CandidateQuery {
   order?: "asc" | "desc";
   page?: number;
   page_size?: number;
+  duplicates?: 1;
 }
 
 export interface FetchResult {
@@ -146,7 +151,7 @@ export type ResearchSourceType =
 export interface ResearchSource {
   id: number;
   url: string;
-  origin: "original" | "search" | "manual";
+  origin: "original" | "search" | "manual" | "sibling";
   title: string | null;
   publisher: string | null;
   source_type: ResearchSourceType;

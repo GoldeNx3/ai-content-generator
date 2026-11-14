@@ -19,6 +19,9 @@ final class ClassifyCandidateController
     #[Post('candidates/{candidate}/classify')]
     public function __invoke(Candidate $candidate, Request $request): JsonResponse
     {
-        return JobResponse::accepted($this->classification->classify($candidate, IdempotencyKey::from($request)));
+        $request->validate(['force' => ['sometimes', 'boolean']]);
+        $force = $request->boolean('force');
+
+        return JobResponse::accepted($this->classification->classify($candidate, IdempotencyKey::from($request), $force));
     }
 }

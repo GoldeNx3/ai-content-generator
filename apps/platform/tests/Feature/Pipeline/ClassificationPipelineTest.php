@@ -43,9 +43,9 @@ final class ClassificationPipelineTest extends TestCase
         $this->getJson("/api/candidates/{$candidate->id}")
             ->assertJsonPath('total_score', 79)->assertJsonPath('category', 'news')
             ->assertJsonPath('llm_model', 'gpt-4.1-mini')->assertJsonPath('estimated_cost_usd', '0.000720');
-        $this->assertSame('classify', $this->aiRequests[0]['task']);
-        $this->assertFalse($this->aiRequests[0]['demo']);
-        $this->assertSame('Opis', $this->aiRequests[0]['input']['candidate']['summary']);
+        $this->assertSame(['embed', 'classify'], array_column($this->aiRequests, 'task'));
+        $this->assertFalse($this->aiRequests[1]['demo']);
+        $this->assertSame('Opis', $this->aiRequests[1]['input']['candidate']['summary']);
         $this->getJson("/api/jobs/{$jobId}/attempts")->assertJsonPath('0.outcome', 'succeeded')
             ->assertJsonPath('0.llm_calls.0.estimated_cost_usd', '0.000720');
     }

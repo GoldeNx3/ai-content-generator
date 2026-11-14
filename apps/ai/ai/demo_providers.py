@@ -193,6 +193,21 @@ class DemoFix:
         return FixResult(FixOutput(summary='Symulowana korekta na podstawie aktualnego QA.', patches=patches, fix_results=results), USAGE)
 
 
+class DemoEmbedder:
+    """Deterministyczne wektory bez API: wspólne słowa dają podobne wektory, więc demo grupuje podobne tytuły."""
+    async def embed(self, texts):
+        import hashlib, math, re
+        from app.services.llm.embeddings import DIMENSIONS, EmbedResult
+        vectors = []
+        for text in texts:
+            vector = [0.0] * DIMENSIONS
+            for word in re.findall(r'\w{3,}', text.lower()):
+                vector[int(hashlib.sha256(word.encode()).hexdigest(), 16) % DIMENSIONS] += 1.0
+            norm = math.sqrt(sum(v * v for v in vector)) or 1.0
+            vectors.append([v / norm for v in vector])
+        return EmbedResult(vectors, USAGE)
+
+
 def demo_providers():
-    return {'classify': DemoClassifier(), 'research': DemoResearcher(), 'write': DemoWriter(),
+    return {'classify': DemoClassifier(), 'embed': DemoEmbedder(), 'research': DemoResearcher(), 'write': DemoWriter(),
         'qa_article': DemoQA(), 'auto_fix_article': DemoFix(), 'extractor': DemoExtractor(), 'search': DemoSearch()}

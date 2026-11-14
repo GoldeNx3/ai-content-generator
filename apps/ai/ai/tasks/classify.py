@@ -9,11 +9,18 @@ from app.services.llm.base import CandidateInput
 from app.services.scoring import compute_total_score
 
 
+class CoveredBy(BaseModel):
+    title: str
+    article_id: int
+    similarity: float
+
+
 class CandidatePayload(BaseModel):
     title: str
     summary: str | None = None
     source: str
     published_at: datetime | None = None
+    already_covered: CoveredBy | None = None
 
 
 class ClassifyInput(BaseModel):
@@ -25,6 +32,14 @@ async def run(data: dict, ctx: TaskContext) -> dict:
     candidate = CandidateInput(payload.title, payload.summary, payload.source, payload.published_at)
     classifier = ctx.providers["classify"]
     classification = await ctx.call("classifying", lambda: classifier.classify_candidate(candidate))
+    if payload.already_covered is not None:
+        # Temat bardzo podobny do już napisanego artykułu: świeżość dla bloga niska, decyzja zostaje u redaktora.
+        covered = payload.already_covered
+        classification = classification.model_copy(update={
+            "freshness": min(classification.freshness, 20),
+            "reason": f"Uwaga: podobny temat już opisany w artykule #{covered.article_id} „{covered.title}” "
+                      f"(podobieństwo {covered.similarity:.2f}). {classification.reason}",
+        })
     return {
         "relevance": classification.relevance,
         "freshness": classification.freshness,

@@ -2,6 +2,7 @@
 
 namespace Modules\Articles\Handlers;
 
+use Modules\Articles\Commands\StoreArticleEmbeddingCommand;
 use Modules\Articles\Queries\RecentArticlesQuery;
 use Modules\Articles\Services\ArticleVersionService;
 use Modules\Candidates\Models\Candidate;
@@ -22,6 +23,7 @@ final class WriteHandler extends BaseStageHandler
         private readonly ResearchForCandidateQuery $researchFor,
         private readonly RecentArticlesQuery $recentArticles,
         private readonly ArticleVersionService $versions,
+        private readonly StoreArticleEmbeddingCommand $storeEmbedding,
     ) {}
 
     public function kind(): JobKind
@@ -68,11 +70,13 @@ final class WriteHandler extends BaseStageHandler
             'warnings' => $brief['result']['warnings'],
         ]);
 
+        $embedded = $context->ai('embed', 'embed', ['texts' => [trim(($written['result']['title'] ?? '')."\n".($written['result']['lead'] ?? ''))]]);
+
         $context->stage('validating');
-        $context->finish(function () use ($job, $research, $brief, $written): StageResult {
+        $context->finish(function () use ($job, $research, $brief, $written, $embedded): StageResult {
             $briefUsage = CallUsage::of($brief['calls']);
             $writerUsage = CallUsage::of($written['calls']);
-            $total = CallUsage::of([...$brief['calls'], ...$written['calls']]);
+            $total = CallUsage::of([...$brief['calls'], ...$written['calls'], ...$embedded['calls']]);
             $parent = $job->payload['options']['parent_version_id'] ?? null;
             $article = $this->versions->store($job->candidate_id, [
                 ...$written['result'],
@@ -92,6 +96,8 @@ final class WriteHandler extends BaseStageHandler
                 'writer_output_tokens' => $writerUsage->outputTokens,
                 'writer_cost_usd' => $writerUsage->costUsd,
             ]);
+
+            $this->storeEmbedding->execute($article->id, $embedded['result']['vectors'][0]);
 
             return new StageResult('article', $article->id);
         });

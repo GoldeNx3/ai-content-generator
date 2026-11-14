@@ -244,6 +244,10 @@ export default function DashboardPage() {
           options={SORT_OPTIONS}
           onChange={(value) => updateQuery({ sort: (value as CandidateSort) ?? "total_score" })}
         />
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input type="checkbox" className="size-4" checked={query.duplicates === 1} onChange={(event) => updateQuery({ duplicates: event.target.checked ? 1 : undefined })} />
+          Pokaż duplikaty
+        </label>
         <Button
           variant="ghost"
           size="sm"

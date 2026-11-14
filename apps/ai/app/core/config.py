@@ -19,6 +19,7 @@ DEFAULT_LLM_PRICING: dict[str, dict[str, float]] = {
     "gpt-5": {"input": 1.25, "output": 10.00},
     "gpt-5-mini": {"input": 0.25, "output": 2.00},
     "gpt-5-nano": {"input": 0.05, "output": 0.40},
+    "text-embedding-3-small": {"input": 0.02, "output": 0.0},
 }
 
 
@@ -35,6 +36,7 @@ class Settings(BaseSettings):
     openai_auto_fix_model: str = ""
     auto_fix_timeout_seconds: float = Field(default=300, gt=0)
     openai_qa_model: str = ""
+    openai_embedding_model: str = "text-embedding-3-small"
     qa_timeout_seconds: float = Field(default=300, gt=0)
     writer_timeout_seconds: float = 300.0
     llm_pricing: dict[str, dict[str, float]] = DEFAULT_LLM_PRICING

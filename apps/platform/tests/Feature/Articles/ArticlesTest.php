@@ -67,7 +67,20 @@ final class ArticlesTest extends TestCase
         $this->assertSame('regenerated', $versions[0]['created_by']);
         $this->assertSame($article->id, $versions[0]['parent_version_id']);
         $this->assertSame([true, false], array_column($versions, 'is_current'));
-        $this->assertSame('Nowy kąt', end($this->aiRequests)['input']['request']['angle']);
+        $this->assertSame('Nowy kąt', collect($this->aiRequests)->where('task', 'article.write')->last()['input']['request']['angle']);
+    }
+
+    #[Test]
+    public function generated_article_remembers_its_topic_for_duplicate_checks(): void
+    {
+        $this->fakeAi($this->writerFakes());
+        $candidate = $this->makeCandidate();
+        $this->completedResearch($candidate);
+
+        $this->postJson("/api/candidates/{$candidate->id}/article", ['article_format' => 'auto'])->assertStatus(202);
+
+        $this->assertSame(['article.brief', 'article.write', 'embed'], array_column($this->aiRequests, 'task'));
+        $this->assertNotNull(\Illuminate\Support\Facades\DB::table('articles')->value('embedding'));
     }
 
     #[Test]

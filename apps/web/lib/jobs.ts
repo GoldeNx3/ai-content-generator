@@ -10,7 +10,7 @@ export const KIND_LABELS: Record<Job["kind"], string> = {
 export const STAGE_LABELS: Record<string, string> = {
   preparing_seo: "Przygotowanie SEO", publishing_wordpress: "Synchronizacja WordPress", fact_checking: "Weryfikacja faktów", validating_references: "Sprawdzanie referencji", validating_qa: "Walidacja raportu QA",
   fixing_article: "Poprawianie artykułu", validating_fix: "Walidacja poprawek",
-  classifying: "Ocena tematu", fetching_original: "Pobieranie oryginału",
+  classifying: "Ocena tematu", comparing_topics: "Porównanie z innymi tematami", fetching_original: "Pobieranie oryginału",
   discovering_sources: "Szukanie źródeł", fetching_sources: "Pobieranie źródeł",
   analysing: "Analiza faktów", building_brief: "Przygotowanie briefu",
   writing: "Pisanie artykułu", validating: "Sprawdzenie artykułu", saving: "Zapis wyniku",

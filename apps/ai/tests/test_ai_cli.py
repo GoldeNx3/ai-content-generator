@@ -52,3 +52,12 @@ def test_cli_rejects_malformed_json():
     response = cli("{not json")
     assert response["ok"] is False
     assert response["error"]["code"] == "invalid_input"
+
+
+async def test_already_covered_topic_gets_low_freshness_and_a_warning():
+    candidate = {**CANDIDATE, "already_covered": {"title": "Stary wpis", "article_id": 7, "similarity": 0.91}}
+    covered = (await run({"task": "classify", "demo": True, "input": {"candidate": candidate}}))["result"]
+    fresh = (await run({"task": "classify", "demo": True, "input": {"candidate": CANDIDATE}}))["result"]
+    assert covered["freshness"] <= 20 < fresh["freshness"]
+    assert covered["total_score"] < fresh["total_score"]
+    assert covered["reason"].startswith("Uwaga: podobny temat już opisany w artykule #7")

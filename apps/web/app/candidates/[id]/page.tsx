@@ -59,10 +59,10 @@ export default function CandidatePage() {
 
   const jobs = useCandidateJobs(id, "classify", load);
 
-  async function classify() {
+  async function classify(force = false) {
     setBusy("classify");
     setClassificationError(null);
-    try { await jobs.enqueue(() => api.classifyCandidate(id)); toast.success("Ocena zapisana w kolejce"); }
+    try { await jobs.enqueue(() => api.classifyCandidate(id, force)); toast.success("Ocena zapisana w kolejce"); }
     catch (failure) { setClassificationError(errorText(failure)); }
     finally { setBusy(null); }
   }
@@ -172,6 +172,15 @@ export default function CandidatePage() {
       summary={<UsageSummary rows={[{label: "Ocena tematu", configured: "classifier", model: candidate.llm_model, input: candidate.llm_input_tokens, output: candidate.llm_output_tokens, cost: candidate.estimated_cost_usd}]} note={classified ? `Oceniono: ${formatDate(candidate.classified_at)}. Starsze oceny mogą nie mieć zapisanych danych o zużyciu.` : "Dane zużycia pojawią się po ocenie tematu."} />}>
 
         {classificationError && <p className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{classificationError}</p>}
+        {candidate.topic_group && <div className="mb-4 max-w-3xl space-y-2 rounded-xl border border-sky-200 bg-sky-50/50 p-4 text-sm" role="note">
+          <p className="font-medium">{candidate.topic_group_id ? "Ten sam temat co inne wpisy z RSS" : "Ten temat podały też inne kanały RSS"}</p>
+          <ul className="space-y-1">{candidate.topic_group.members.map((member) => <li key={member.id}>
+            <Link href={`/candidates/${member.id}`} className="underline underline-offset-4">{member.title}</Link>
+            <span className="text-muted-foreground"> · {member.source_name}{member.id === candidate.topic_group?.primary_id ? " · główny temat" : ""}</span>
+          </li>)}</ul>
+          <p className="text-xs text-muted-foreground">Research głównego tematu użyje tych artykułów jako dodatkowych źródeł.</p>
+          {candidate.topic_group_id && <Button size="sm" variant="outline" disabled={busy !== null || Boolean(jobs.active)} onClick={() => void classify(true)}>Oceń mimo to osobno · {candidate.is_demo ? "demo · bezpłatne" : "płatne"}</Button>}
+        </div>}
         <div className="max-w-3xl">
           <div className="space-y-4">            {classified ? (
               <>

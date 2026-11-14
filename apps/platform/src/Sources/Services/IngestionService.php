@@ -6,7 +6,9 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Candidates\Commands\InsertCandidatesCommand;
+use Modules\Candidates\Queries\ExistingCandidateUrlKeysQuery;
 use Modules\Candidates\Queries\ExistingCandidateUrlsQuery;
+use Modules\Shared\Support\UrlNormalizer;
 use Modules\Sources\Commands\MarkSourceFetchedCommand;
 use Modules\Sources\Data\FeedEntryData;
 use Modules\Sources\Data\FetchResultData;
@@ -23,6 +25,7 @@ final class IngestionService
         private readonly ExistingCandidateUrlsQuery $existingUrls,
         private readonly InsertCandidatesCommand $insertCandidates,
         private readonly MarkSourceFetchedCommand $markFetched,
+        private readonly ExistingCandidateUrlKeysQuery $existingKeys,
     ) {}
 
     public function fetchAllActive(int $workspaceId): FetchResultData
@@ -85,16 +88,18 @@ final class IngestionService
     {
         $unique = [];
         foreach ($entries as $entry) {
-            $unique[$entry->url] ??= $entry;
+            $unique[UrlNormalizer::normalize($entry->url)] ??= $entry;
         }
-        $existing = array_flip($this->existingUrls->execute($source->workspace_id, array_keys($unique)));
+        $existingKeys = array_flip($this->existingKeys->execute($source->workspace_id, array_keys($unique)));
+        $existingUrls = array_flip($this->existingUrls->execute($source->workspace_id, array_map(fn ($entry) => $entry->url, array_values($unique))));
         $rows = [];
-        foreach ($unique as $url => $entry) {
-            if (! isset($existing[$url])) {
+        foreach ($unique as $key => $entry) {
+            if (! isset($existingKeys[$key]) && ! isset($existingUrls[$entry->url])) {
                 $rows[] = [
                     'workspace_id' => $source->workspace_id,
                     'source_id' => $source->id,
-                    'external_url' => $url,
+                    'external_url' => $entry->url,
+                    'url_key' => $key,
                     'title' => $entry->title,
                     'summary' => $entry->summary,
                     'original_published_at' => $entry->published_at,

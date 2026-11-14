@@ -3,6 +3,7 @@
 namespace Modules\Research\Handlers;
 
 use Modules\Candidates\Models\Candidate;
+use Modules\Candidates\Queries\TopicGroupMembersQuery;
 use Modules\Pipeline\Contracts\BaseStageHandler;
 use Modules\Pipeline\Data\StageResult;
 use Modules\Pipeline\Enums\JobKind;
@@ -10,11 +11,11 @@ use Modules\Pipeline\Exceptions\JobInputException;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Services\JobRunContext;
 use Modules\Pipeline\Support\CallUsage;
-use Modules\Research\Commands\FailResearchCommand;
-use Modules\Research\Commands\SaveResearchAnalysisCommand;
 use Modules\Research\Commands\ApplySourceExtractionCommand;
 use Modules\Research\Commands\CreateResearchSourceCommand;
+use Modules\Research\Commands\FailResearchCommand;
 use Modules\Research\Commands\ResumeResearchCommand;
+use Modules\Research\Commands\SaveResearchAnalysisCommand;
 use Modules\Research\Commands\SaveSearchQueriesCommand;
 use Modules\Research\Commands\StartResearchCommand;
 use Modules\Research\Enums\FetchStatus;
@@ -26,6 +27,8 @@ use Modules\Research\Queries\ResearchSourcesQuery;
 
 final class ResearchHandler extends BaseStageHandler
 {
+    private const MAX_SIBLING_SOURCES = 3;
+
     public function __construct(
         private readonly ResearchForCandidateQuery $researchFor,
         private readonly ResearchSourcesQuery $sources,
@@ -36,6 +39,7 @@ final class ResearchHandler extends BaseStageHandler
         private readonly SaveSearchQueriesCommand $saveQueries,
         private readonly SaveResearchAnalysisCommand $saveAnalysis,
         private readonly FailResearchCommand $failResearch,
+        private readonly TopicGroupMembersQuery $groupMembers,
     ) {}
 
     public function kind(): JobKind
@@ -59,6 +63,7 @@ final class ResearchHandler extends BaseStageHandler
         $original = $job->payload['original_url'];
 
         $context->stage('fetching_original');
+        $this->addSiblings($job, $context, $research);
         $this->fetchMissing($context, $research, $original);
 
         $context->stage('discovering_sources');
@@ -103,6 +108,20 @@ final class ResearchHandler extends BaseStageHandler
         $context->checkpoint('research_id', $research->id);
 
         return $research;
+    }
+
+    private function addSiblings(PipelineJob $job, JobRunContext $context, Research $research): void
+    {
+        $candidate = Candidate::query()->findOrFail($job->candidate_id);
+        $members = $this->groupMembers->execute($candidate->workspace_id, $candidate->topic_group_id ?? $candidate->id, $candidate->id);
+        $urls = array_slice(array_column($members, 'external_url'), 0, self::MAX_SIBLING_SOURCES);
+        if ($urls !== []) {
+            $context->transaction(function () use ($research, $urls): void {
+                foreach ($urls as $url) {
+                    $this->createSource->execute($research->id, $url, SourceOrigin::Sibling);
+                }
+            });
+        }
     }
 
     private function fetchMissing(JobRunContext $context, Research $research, string $original): void

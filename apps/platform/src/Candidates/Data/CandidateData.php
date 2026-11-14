@@ -36,6 +36,10 @@ final class CandidateData extends Data
         public ?CarbonImmutable $classified_at,
         public CarbonImmutable $created_at,
         public CarbonImmutable $updated_at,
+        public int $group_size = 1,
+        public ?int $topic_group_id = null,
+        public ?float $duplicate_similarity = null,
+        public ?array $topic_group = null,
     ) {}
 
     public static function fromModel(Candidate $candidate): self
@@ -48,6 +52,7 @@ final class CandidateData extends Data
             $candidate->commercial_potential_score, $candidate->total_score, $candidate->category, $candidate->llm_reason,
             $candidate->llm_model, $candidate->llm_input_tokens, $candidate->llm_output_tokens, $candidate->estimated_cost_usd,
             $candidate->classified_at, $candidate->created_at->toImmutable(), $candidate->updated_at->toImmutable(),
+            (int) ($candidate->group_size ?? 1), $candidate->topic_group_id, $candidate->duplicate_similarity,
         );
     }
 }

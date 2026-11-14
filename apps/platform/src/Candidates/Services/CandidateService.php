@@ -11,6 +11,7 @@ use Modules\Candidates\Models\Candidate;
 use Modules\Candidates\Queries\CandidateDetailsQuery;
 use Modules\Candidates\Queries\CandidateSearchQuery;
 use Modules\Candidates\Queries\DashboardStatsQuery;
+use Modules\Candidates\Queries\TopicGroupMembersQuery;
 use Modules\Shared\Data\PageData;
 
 final class CandidateService
@@ -20,6 +21,7 @@ final class CandidateService
         private readonly CandidateDetailsQuery $details,
         private readonly DashboardStatsQuery $stats,
         private readonly UpdateCandidateStatusCommand $updateStatus,
+        private readonly TopicGroupMembersQuery $groupMembers,
     ) {}
 
     public function search(int $workspaceId, CandidateFiltersData $filters): PageData
@@ -34,7 +36,12 @@ final class CandidateService
 
     public function details(Candidate $candidate): CandidateData
     {
-        return CandidateData::fromModel($this->details->execute($candidate->id));
+        $data = CandidateData::fromModel($this->details->execute($candidate->id));
+        $primaryId = $candidate->topic_group_id ?? $candidate->id;
+        $members = $this->groupMembers->execute($candidate->workspace_id, $primaryId, $candidate->id);
+        $data->topic_group = $members === [] ? null : ['primary_id' => $primaryId, 'members' => $members];
+
+        return $data;
     }
 
     public function updateStatus(Candidate $candidate, CandidateStatus $status): CandidateData

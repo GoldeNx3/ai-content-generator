@@ -39,7 +39,7 @@ final class WorkerBudgetTest extends TestCase
 
         $this->assertSame(JobStatus::Failed, $second->fresh()->status);
         $this->assertSame('budget_exceeded', $second->fresh()->error_code);
-        $this->assertCount(1, $this->aiRequests);
+        $this->assertSame(['embed', 'classify'], array_column($this->aiRequests, 'task'), 'second job makes no AI call, not even the comparison step');
     }
 
     #[Test]

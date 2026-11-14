@@ -49,6 +49,7 @@ final class AiRunner
             'OPENAI_WRITER_MODEL' => $ai['models']['writer'],
             'OPENAI_QA_MODEL' => $ai['models']['qa'],
             'OPENAI_AUTO_FIX_MODEL' => $ai['models']['auto_fix'],
+            'OPENAI_EMBEDDING_MODEL' => $ai['models']['embedding'],
             'LLM_PRICING' => json_encode($ai['pricing'], JSON_THROW_ON_ERROR),
             ...array_combine(
                 array_map('strtoupper', array_keys($ai['settings'])),

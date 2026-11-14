@@ -9,6 +9,8 @@ The browser check intercepts **all** API requests, returns fixtures, and blocks 
 
 `node tests/automation-ui-check.mjs` verifies the Settings → Automatyka card (saves, pause/resume, global-switch banner, mobile) with intercepted API.
 
+`node tests/topic-group-ui-check.mjs` verifies topic grouping: "+N źródeł" badge, hidden duplicates with the "Pokaż duplikaty" filter, the step-2 group note and the forced separate classification.
+
 `npm run test:queue` verifies the global queue panel with intercepted API (including cancel, stop-after-step, cancel-all and the pause banner):
 status counts, filters, pagination, attempts/costs, safe manual retry, automatic
 updates, temporary read failures, reload and mobile width. Use the same

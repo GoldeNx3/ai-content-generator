@@ -30,5 +30,6 @@ final class CandidateFiltersData extends Data
         public int $page = 1,
         #[Between(1, 100)]
         public int $page_size = 25,
+        public bool $duplicates = false,
     ) {}
 }

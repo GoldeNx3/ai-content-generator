@@ -47,7 +47,8 @@ Wywołanie z `finished: false` to przerwane płatne wywołanie: koszt nieznany, 
 
 | Zadanie | Wejście | Wynik |
 |---|---|---|
-| `classify` | kandydat | oceny, kategoria, uzasadnienie, `total_score` |
+| `embed` | teksty (≤ 16) | `vectors` (1536 wymiarów, `text-embedding-3-small`), `model` |
+| `classify` | kandydat (+ opcjonalnie `already_covered`) | oceny, kategoria, uzasadnienie, `total_score` |
 | `research.extract` | lista URL + domena oryginału | dla każdego: status pobrania, tytuł, wydawca, data, treść, typ i ocena źródła |
 | `research.discover` | kandydat, treść oryginału, znane URL | zapytania, nowe źródła (już pobrane i ocenione) |
 | `research.analyse` | kandydat, pobrane źródła | podsumowanie, fakty z `source_ids`, niepewności, konflikty, korekty typów źródeł |
@@ -63,6 +64,19 @@ Wywołanie z `finished: false` to przerwane płatne wywołanie: koszt nieznany, 
 
 Każdy krok jest osobnym wywołaniem. Wynik trafia do checkpointu joba (`ai:<krok>`) przed następnym krokiem,
 więc ponowienie nie płaci ponownie za ukończone kroki (np. brief).
+
+## Grupowanie tematów (ten sam news z kilku RSS)
+
+- Pobieranie RSS (darmowe) zapisuje `candidates.url_key` (znormalizowany URL: bez `utm_`/`fbclid`, `www`, końcowego
+  `/`, http=https) i pomija wpis, którego klucz już istnieje w workspace.
+- Płatny krok 2 „Ocena tematu” najpierw liczy embedding tytułu i opisu (`embed`, etap `comparing_topics`) i porównuje
+  go iloczynem skalarnym (`real[]`, bez pgvector) z ocenionymi tematami tego workspace'u z `TOPIC_WINDOW_DAYS` dni.
+  Podobieństwo ≥ `TOPIC_SIMILARITY_THRESHOLD`: temat dołącza do grupy (`topic_group_id` = temat główny), przejmuje
+  jego ocenę i **nie płaci za klasyfikację**. „Oceń mimo to osobno” (`POST candidates/{id}/classify {force: true}`)
+  wymusza pełną ocenę bez grupowania. Gdy temat przypomina już napisany artykuł (`articles.embedding`, liczony w
+  kroku 4), klasyfikator dostaje `already_covered` – aktualność ≤ 20 i ostrzeżenie w uzasadnieniu.
+- Lista tematów pokazuje jeden wiersz na grupę z `group_size` („+N źródeł”); `?duplicates=1` pokazuje wszystkie.
+  Research tematu głównego dodaje URL-e z grupy jako źródła (`origin = sibling`, najwyżej 3).
 
 ## Kolejka
 

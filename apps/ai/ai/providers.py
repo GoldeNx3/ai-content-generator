@@ -3,6 +3,7 @@
 
 from app.services.llm.classify import OpenAIClassifier
 from app.services.llm.client import OpenAIClient
+from app.services.llm.embeddings import OpenAIEmbedder
 from app.services.llm.research import OpenAIResearcher
 from app.services.llm.write import OpenAIWriter
 from app.services.llm.qa import OpenAIQA
@@ -18,5 +19,6 @@ def providers_for(settings):
         'auto_fix_article': OpenAIAutoFix(client, settings.auto_fix_model, settings.auto_fix_timeout_seconds),
         'qa_article': OpenAIQA(client, settings.qa_model, settings.qa_timeout_seconds),
         'write': OpenAIWriter(client, settings.brief_model, settings.writer_model, settings.writer_timeout_seconds),
+        'embed': OpenAIEmbedder(client, settings.openai_embedding_model),
         '_client': client,
     }

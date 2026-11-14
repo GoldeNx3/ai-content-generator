@@ -30,9 +30,9 @@ final class ClassificationService
         private readonly BudgetService $budget,
     ) {}
 
-    public function classify(Candidate $candidate, ?string $key): PipelineJob
+    public function classify(Candidate $candidate, ?string $key, bool $force = false): PipelineJob
     {
-        return $this->enqueue->enqueue(JobKind::Classify, $candidate->id, [], $key);
+        return $this->enqueue->enqueue(JobKind::Classify, $candidate->id, $force ? ['force' => true] : [], $key);
     }
 
     public function classifyPending(int $workspaceId, int $limit, ?string $key): EnqueuedBatchData

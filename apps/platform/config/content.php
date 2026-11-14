@@ -23,6 +23,11 @@ return [
         'enabled' => (bool) env('AUTOMATION_ENABLED', true),
     ],
 
+    'topics' => [
+        'similarity_threshold' => (float) env('TOPIC_SIMILARITY_THRESHOLD', 0.86),
+        'window_days' => (int) env('TOPIC_WINDOW_DAYS', 30),
+    ],
+
     'sources' => [
         'allow_private_urls' => (bool) env('SOURCES_ALLOW_PRIVATE_URLS', false),
     ],
@@ -58,6 +63,7 @@ return [
             'writer' => $writer,
             'qa' => env('OPENAI_QA_MODEL') ?: $research,
             'auto_fix' => env('OPENAI_AUTO_FIX_MODEL') ?: $writer,
+            'embedding' => env('OPENAI_EMBEDDING_MODEL') ?: 'text-embedding-3-small',
         ],
         'settings' => [
             'search_provider' => env('SEARCH_PROVIDER', 'manual'),
@@ -88,6 +94,7 @@ return [
             'gpt-5' => ['input' => 1.25, 'output' => 10.00],
             'gpt-5-mini' => ['input' => 0.25, 'output' => 2.00],
             'gpt-5-nano' => ['input' => 0.05, 'output' => 0.40],
+            'text-embedding-3-small' => ['input' => 0.02, 'output' => 0.0],
         ],
     ],
 

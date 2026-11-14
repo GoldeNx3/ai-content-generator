@@ -53,7 +53,7 @@ function SourceItem({ source }: { source: ResearchSource }) {
             <span className="rounded bg-slate-100 px-2 py-1 text-[11px] text-slate-700">
               {({official:"Oficjalne źródło",documentation:"Dokumentacja",github:"GitHub",news:"Wiadomości",blog:"Blog",community:"Społeczność",other:"Inne"})[source.source_type]}
             </span>
-            <span className="text-xs text-muted-foreground">{source.origin === "original" ? "Materiał oryginalny" : source.origin === "manual" ? "Dodane ręcznie" : "Dodatkowe źródło"}</span>
+            <span className="text-xs text-muted-foreground">{source.origin === "original" ? "Materiał oryginalny" : source.origin === "manual" ? "Dodane ręcznie" : source.origin === "sibling" ? "Ten sam temat z innego RSS" : "Dodatkowe źródło"}</span>
             <span
               className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium ring-1", FETCH_STYLES[source.fetch_status])}
               title={source.error ?? undefined}
