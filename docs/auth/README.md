@@ -74,8 +74,10 @@ niezaufanych serwisów (np. WordPress); w takim przypadku panel i API powinny mi
 - Po przekroczeniu nowe płatne zadania dostają `402 budget_exceeded`. Publikacja w WordPressie i scenariusze
   demo są wolne od limitu. Powtórzenie żądania z tym samym `Idempotency-Key` nadal zwraca istniejący job.
   Zadanie już zlecone może przekroczyć limit o swój koszt.
-- Klasyfikacja zbiorcza zwraca `skipped_budget`. Scheduler stosuje `CLASSIFY_BATCH_LIMIT` per workspace
-  i pomija workspace'y po przekroczeniu budżetu.
+- Klasyfikacja zbiorcza zwraca `skipped_budget`. Automatyka stosuje limit ocen z ustawień workspace'u
+  (`auto_classify_batch_limit`) i przerywa ocenę workspace'u po przekroczeniu budżetu.
+- Uprawnienia sterowania jobami: ustawienia automatyki, pauza/wznowienie i „anuluj wszystkie oczekujące” – tylko
+  owner; anulowanie pojedynczego joba – każdy członek workspace'u. Odczyt ustawień automatyki – każdy członek.
 - Panel: Ustawienia → Zużycie AI (`GET /api/usage`).
 
 ## Ograniczenia

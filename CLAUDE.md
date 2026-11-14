@@ -22,7 +22,7 @@ make dev           # same, but web runs `next dev` with apps/web mounted (hot re
 make test          # test-platform (php artisan test) + test-ai (pytest in /opt/ai venv); needs running stack
 make migrate       # php artisan migrate (also runs via the `migrate` service)
 make seed [GROUPS=ai,php,...] / seed-demo  [EMAIL=<user>|WORKSPACE=<id>]  # RSS sources by topic group (finance opt-in) / demo topics (zero-cost)
-make pipeline      # one-off scheduler run: fetch RSS + enqueue classification
+make pipeline EMAIL=<user>|WORKSPACE=<id>  # one-off run for one workspace: fetch RSS + enqueue classification (paid)
 make create-user EMAIL=... [WORKSPACE=<id>]     # interactive password; WORKSPACE joins as owner
 make set-budget WORKSPACE=<id> USD=<amount|default>
 make wipe          # pg_dump to /tmp, stop queue/scheduler, `artisan data:wipe` (domain tables + pipeline queue; accounts, WP connections kept)
@@ -84,7 +84,8 @@ All paid/slow steps (`classify`, `research`, `write`, `qa_article`, `auto_fix_ar
 - `JobRunner` claims with a lease, dispatches via `HandlerRegistry` to per-module handlers. **Fencing**: every durable write goes through `RunningJobWriter` (locks row, checks attempt token); result + `succeeded` in one transaction (`JobRunContext::finish`).
 - **Checkpoints**: `JobRunContext::ai($step, $task, $input)` runs the Python task and stores `{result, calls}` under `ai:<step>`, so retries reuse finished steps instead of paying again. Crashed calls are recorded with unknown cost.
 - `FailurePolicy`: retryable errors (429/5xx/timeout/connection/`ai_process_failed`) up to `JOB_MAX_ATTEMPTS`, delay ~15 s then ~60 s (respects `Retry-After`); others fail.
-- Scheduler (`routes/console.php`): `pipeline:recover` every minute (lost/interrupted jobs re-dispatched), `pipeline:scheduled` every `FETCH_INTERVAL_MINUTES` (0 = off).
+- Scheduler (`routes/console.php`): `pipeline:recover` every minute (lost/interrupted jobs re-dispatched); with `AUTOMATION_ENABLED` also `pipeline:scheduled` every minute, which runs only workspaces whose own automation (`workspaces.auto_*`, panel Settings → Automatyka, default off) is due and not paused.
+- **Brakes**: status `cancelled` (terminal). `POST jobs/{job}/cancel` cancels queued/retrying at once and flags running jobs (`cancel_requested_at`), which stop before the next `JobRunContext::ai()` step; `POST jobs/cancel-pending` (owner). `workspaces.paused_at` (`POST workspace/pause|resume`, owner) blocks claim, recover redispatch and enqueue (`409 workspace_paused`).
 
 ### AI process
 

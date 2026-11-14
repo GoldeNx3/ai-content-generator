@@ -66,7 +66,7 @@ więc ponowienie nie płaci ponownie za ukończone kroki (np. brief).
 
 ## Kolejka
 
-- `pipeline_jobs` (UUID, kind, status `queued/running/retrying/succeeded/failed`, stage, próby, checkpointy,
+- `pipeline_jobs` (UUID, kind, status `queued/running/retrying/succeeded/failed/cancelled`, stage, próby, checkpointy,
   wynik, błąd) + `pipeline_job_attempts` (wywołania LLM z kosztami) – źródło stanu dla UI i budżetu;
   `pipeline_job_batches` – członkostwo partii `classify-pending`.
 - API zapisuje job i wysyła `RunPipelineJob` do kolejki Redis `pipeline`; odpowiedź `202` + obiekt joba + `Location`.
@@ -76,8 +76,20 @@ więc ponowienie nie płaci ponownie za ukończone kroki (np. brief).
   (fencing: blokada wiersza i sprawdzenie tokenu próby), wynik i `succeeded` w jednej transakcji.
 - Ponowienia (`FailurePolicy`): błędy `retryable` (429/5xx/timeout/połączenie/awaria procesu AI) do
   `JOB_MAX_ATTEMPTS` z opóźnieniem ~15 s, potem ~60 s (z uwzględnieniem `Retry-After`); pozostałe → `failed`.
-- Scheduler (`routes/console.php`): `pipeline:recover` co minutę (zgubione/przerwane joby wracają do kolejki),
-  `pipeline:scheduled` co `FETCH_INTERVAL_MINUTES` (RSS + klasyfikacja per workspace w granicach budżetu).
+- Anulowanie: `POST /api/jobs/{job}/cancel` – job `queued`/`retrying` od razu dostaje `cancelled` (handler etapu
+  zwalnia swój stan, więc etap można zlecić ponownie); job `running` dostaje `cancel_requested_at` i zatrzymuje się
+  przed kolejnym płatnym krokiem (`JobRunContext::ai()` sprawdza flagę, `JobCancelledException`). Trwające wywołanie
+  AI jest dokańczane i liczone; `publish_wordpress` nie ma kroków AI, więc dobiega końca. Terminalny job → `409
+  job_not_cancellable`. `POST /api/jobs/cancel-pending` (owner) anuluje wszystkie oczekujące joby workspace'u.
+- Pauza: `POST /api/workspace/pause` / `resume` (owner) ustawia `workspaces.paused_at`. Wstrzymanego workspace'u
+  nie przejmuje worker (`ClaimJobCommand`), nie wznawia `pipeline:recover`, a zlecenie nowego joba daje `409
+  workspace_paused`. Wznowienie od razu oddaje zaległe joby do kolejki.
+- Automatyka per workspace (`GET`/`PATCH /api/workspace/automation`, panel: Ustawienia → Automatyka): pobieranie
+  RSS wł./wył. z interwałem (15 min – 24 h), ocena po pobraniu wł./wył. z limitem 1–200; domyślnie wyłączona.
+- Scheduler (`routes/console.php`): `pipeline:recover` co minutę (zgubione/przerwane joby wracają do kolejki) oraz,
+  przy `AUTOMATION_ENABLED=true`, `pipeline:scheduled` co minutę: obsługuje tylko workspace'y z włączoną automatyką,
+  bez pauzy i z minionym interwałem; zapisuje `last_auto_run_at`/`last_auto_run_result`. Ręcznie dla jednego konta:
+  `make pipeline EMAIL=<konto>` (pomija wł./wył. i interwał, respektuje pauzę i budżet).
 - Budżet: `Usage/BudgetService` sumuje koszty wywołań workspace'u w bieżącym miesiącu UTC; nowe płatne joby
   (nie `publish_wordpress`, nie demo) dostają `402 budget_exceeded`.
 

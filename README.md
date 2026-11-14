@@ -46,7 +46,7 @@ make migrate                    php artisan migrate (usługa migrate działa te�
 make test                       test-platform (PHPUnit) + test-ai (pytest)
 make seed EMAIL=<konto>         ~100 źródeł RSS (AI, PHP, frontend, backend, DevOps, security, PL); GROUPS=php,ai; finance opcjonalnie
 make seed-demo EMAIL=<konto>    tematy demo: pełny pipeline za 0 USD
-make pipeline                   jednorazowo to, co scheduler: RSS + zlecenie oceny
+make pipeline EMAIL=<konto>     jednorazowo dla jednego konta: RSS + zlecenie oceny (płatne)
 make create-user EMAIL=...      konto bez rejestracji; WORKSPACE=<id> dołącza jako owner
 make set-budget WORKSPACE=<id> USD=<kwota|default>
 make wipe                       kopia bazy do /tmp, data:wipe (dane i zadania kolejki; konta i połączenia WP zostają)
@@ -64,8 +64,8 @@ Dev: `apps/platform/.env`. Prod: root `.env` (opis w `.env.example`). Najważnie
 | `OPENAI_API_KEY` | klucz OpenAI (Laravel przekazuje go procesowi AI) |
 | `OPENAI_*_MODEL` | modele etapów: classifier, research, brief, writer, qa, auto_fix (puste = model poprzedniego etapu) |
 | `SEARCH_PROVIDER`, `TAVILY_API_KEY` | `manual` (źródła dodawane ręcznie) albo `tavily` |
-| `FETCH_INTERVAL_MINUTES` | co ile minut scheduler pobiera RSS i zleca ocenę (`0` = wyłączony) |
-| `FETCH_MAX_AGE_DAYS`, `CLASSIFY_BATCH_LIMIT` | filtr wieku wpisów i limit ocen na przebieg |
+| `AUTOMATION_ENABLED` | główny wyłącznik automatyki (`false` = scheduler nic nie pobiera ani nie zleca); samą automatykę ustawia każdy workspace w panelu: Ustawienia → Automatyka |
+| `FETCH_MAX_AGE_DAYS` | filtr wieku wpisów RSS |
 | `DEFAULT_MONTHLY_BUDGET_USD` | miesięczny budżet AI workspace'u (domyślnie 10; puste = bez limitu) |
 | `ALLOW_REGISTRATION` | publiczna rejestracja (każde konto dostaje własny workspace) |
 | `QA_PASS_SCORE`, `AUTO_FIX_MAX_*` | próg QA i limity Auto Fix |
