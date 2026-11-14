@@ -7,6 +7,7 @@ use Modules\Ai\Exceptions\AiTaskException;
 use Modules\Ai\Services\AiRunner;
 use Modules\Pipeline\Commands\SucceedJobCommand;
 use Modules\Pipeline\Data\StageResult;
+use Modules\Pipeline\Exceptions\JobCancelledException;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Models\PipelineJobAttempt;
 
@@ -37,6 +38,9 @@ final class JobRunContext
 
     public function ai(string $step, string $task, array $input): array
     {
+        if (PipelineJob::query()->whereKey($this->job->id)->value('cancel_requested_at') !== null) {
+            throw new JobCancelledException("Job {$this->job->id} was cancelled.");
+        }
         $cached = $this->checkpointValue('ai:'.$step);
         if ($cached !== null) {
             return $cached;

@@ -30,6 +30,7 @@ final class JobData extends Data
         public ?string $error_message,
         public ?array $result,
         public ?array $error,
+        public ?CarbonImmutable $cancel_requested_at = null,
     ) {}
 
     public static function fromModel(PipelineJob $job, ?string $candidateTitle = null): self
@@ -40,6 +41,7 @@ final class JobData extends Data
             $job->started_at, $job->finished_at, $job->result_type, $job->result_id, $job->error_code, $job->error_message,
             $job->result_id !== null ? ['type' => $job->result_type, 'id' => $job->result_id] : null,
             $job->error_code !== null ? ['code' => $job->error_code, 'message' => $job->error_message] : null,
+            $job->cancel_requested_at,
         );
     }
 }

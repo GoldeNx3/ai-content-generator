@@ -10,6 +10,7 @@ use Modules\Pipeline\Commands\ClaimJobCommand;
 use Modules\Pipeline\Commands\FailJobCommand;
 use Modules\Pipeline\Commands\SucceedJobCommand;
 use Modules\Pipeline\Enums\JobStatus;
+use Modules\Pipeline\Exceptions\JobCancelledException;
 use Modules\Pipeline\Exceptions\LeaseLostException;
 use Modules\Pipeline\Jobs\RunPipelineJob;
 use Modules\Pipeline\Models\PipelineJob;
@@ -29,6 +30,7 @@ final class JobRunner
         private readonly HandlerRegistry $handlers,
         private readonly FailurePolicy $policy,
         private readonly AiRunner $ai,
+        private readonly JobCancellationService $cancellation,
     ) {}
 
     public function run(string $jobId): void
@@ -46,6 +48,12 @@ final class JobRunner
         $context = new JobRunContext($job, $this->update, $this->succeed, $this->ai, $timeout);
         try {
             $this->handlers->for($job->kind)->run($job, $context);
+        } catch (JobCancelledException) {
+            try {
+                $this->update->fenced($job, fn (PipelineJob $locked, PipelineJobAttempt $attempt) => $this->cancellation->cancelRunning($locked, $attempt));
+            } catch (LeaseLostException) {
+                Log::warning('Pipeline job lease lost while saving cancellation', ['job_id' => $job->id]);
+            }
         } catch (LeaseLostException $exception) {
             Log::warning('Pipeline job lease lost', ['job_id' => $job->id, 'error' => $exception->getMessage()]);
         } catch (Throwable $exception) {
