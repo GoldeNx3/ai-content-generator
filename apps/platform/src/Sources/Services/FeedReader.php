@@ -3,6 +3,7 @@
 namespace Modules\Sources\Services;
 
 use Carbon\CarbonImmutable;
+use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
 use Illuminate\Http\Client\ConnectionException;
@@ -99,7 +100,11 @@ final class FeedReader
                 'User-Agent' => self::USER_AGENT,
                 'Accept' => 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
             ])
-            ->withOptions(['curl' => [CURLOPT_MAXFILESIZE => self::MAX_BYTES]]);
+            ->withOptions(['progress' => function ($total, $downloaded): void {
+                if ($total > self::MAX_BYTES || $downloaded > self::MAX_BYTES) {
+                    throw new FeedFetchException('Feed larger than '.self::MAX_BYTES.' bytes');
+                }
+            }]);
         if (! config('content.sources.allow_private_urls')) {
             if (PublicNetwork::hasCredentialsOrBadScheme($url)) {
                 throw new FeedFetchException("Unsupported feed URL {$url}");
@@ -112,12 +117,13 @@ final class FeedReader
             }
             $port = $parts['port'] ?? (strtolower($parts['scheme']) === 'https' ? 443 : 80);
             $request = $request->withOptions(['curl' => [
-                CURLOPT_MAXFILESIZE => self::MAX_BYTES,
                 CURLOPT_RESOLVE => [PublicNetwork::curlResolveEntry($host, $port, $addresses)],
             ]]);
         }
         try {
             return $request->get($url);
+        } catch (RequestException $exception) {
+            throw $exception->getPrevious() instanceof FeedFetchException ? $exception->getPrevious() : new FeedFetchException("Request failed for {$url}: {$exception->getMessage()}", previous: $exception);
         } catch (ConnectionException $exception) {
             throw new FeedFetchException("Request failed for {$url}: {$exception->getMessage()}", previous: $exception);
         }
