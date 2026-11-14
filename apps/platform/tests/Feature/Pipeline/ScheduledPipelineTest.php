@@ -4,7 +4,9 @@ namespace Tests\Feature\Pipeline;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Modules\Candidates\Models\Candidate;
+use Modules\Classification\Services\ScheduledPipelineService;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Workspaces\Models\Workspace;
 use PHPUnit\Framework\Attributes\Test;
@@ -95,6 +97,21 @@ final class ScheduledPipelineTest extends TestCase
         $this->artisan('pipeline:scheduled', ['--email' => $this->user->email])->expectsOutputToContain('wstrzymany')->assertFailed();
 
         $this->assertSame(0, Candidate::query()->count());
+    }
+
+    #[Test]
+    public function automatic_run_of_workspace_paused_meanwhile_is_a_quiet_skip(): void
+    {
+        $this->makeSource();
+        $this->automate(['auto_fetch_enabled' => true, 'paused_at' => now()]);
+        Log::spy();
+
+        $result = app(ScheduledPipelineService::class)->runWorkspace($this->workspace->id, automatic: true);
+
+        $this->assertSame(['new_candidates' => 0, 'enqueued' => 0, 'errors' => 0, 'budget_exceeded' => false], $result);
+        $this->assertSame(0, Candidate::query()->count());
+        $this->assertNull($this->settings()->last_auto_run_at);
+        Log::shouldNotHaveReceived('error');
     }
 
     #[Test]

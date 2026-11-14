@@ -89,6 +89,11 @@ final class JobRunner
     {
         $retry = false;
         $write = function (PipelineJob $locked, ?PipelineJobAttempt $attempt) use ($code, $message, $retryable, $retryAfter, $details, $outcome, &$retry): void {
+            if ($locked->cancel_requested_at !== null) {
+                $this->cancellation->cancelRunning($locked, $attempt);
+
+                return;
+            }
             $retry = $retryable && $locked->attempt_count < $locked->max_attempts;
             $available = CarbonImmutable::now()->addSeconds($this->policy->delaySeconds($locked->attempt_count, $retryAfter));
             $this->failJob->execute($locked, $attempt, $retry, $code, $message, $available, $outcome ?? ($retry ? 'retryable_error' : 'failed'));

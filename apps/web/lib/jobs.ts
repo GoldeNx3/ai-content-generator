@@ -27,7 +27,8 @@ export const STATUS_STYLES: Record<JobStatus, string> = {
 
 export const isActiveJob = (job: Job) => ["queued", "running", "retrying"].includes(job.status);
 
-// "stop" zatrzymuje biegnący job przed kolejnym płatnym krokiem AI; publikacja WP nie ma takich kroków.
+// "stop" zatrzymuje biegnący job przed kolejnym płatnym krokiem AI. Publikacji WP nie wolno przerwać w trakcie
+// (zapis wpisu i meta SEO musi się dokończyć), więc dla niej przycisku nie ma, a API zwraca job_not_stoppable.
 export type CancelAction = "cancel" | "stop" | "stopping" | null;
 export function cancelAction(job: Pick<Job, "status" | "kind" | "cancel_requested_at">): CancelAction {
   if (job.status === "queued" || job.status === "retrying") return "cancel";

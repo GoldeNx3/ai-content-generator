@@ -13,6 +13,7 @@ final class PendingJobsQuery
         return PipelineJob::query()
             ->where('workspace_id', $workspaceId)
             ->whereIn('status', [JobStatus::Queued->value, JobStatus::Retrying->value])
+            ->orderBy('id')
             ->lockForUpdate()
             ->get();
     }

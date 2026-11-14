@@ -28,6 +28,7 @@ let resumePosts=0;
 const automation={auto_fetch_enabled:false,auto_fetch_interval_minutes:60,auto_classify_enabled:false,auto_classify_batch_limit:20,last_auto_run_at:null,last_auto_run_result:null,next_auto_run_at:null,paused_at:null,automation_enabled_globally:true,can_edit:true};
 let staleAttemptReads=0;
 let temporaryListFailure=false;
+let automationFailure=true;
 const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
 try {
  const page=await browser.newPage({viewport:{width:1440,height:1000}});
@@ -47,7 +48,9 @@ try {
     const number=Number(url.searchParams.get('page')||1);const size=Number(url.searchParams.get('page_size')||25);
     body={items:selected.slice((number-1)*size,number*size),total:selected.length,page:number,page_size:size};
    }
-  } else if (url.pathname==='/api/workspace/automation') body=automation;
+  } else if (url.pathname==='/api/workspace/automation') {
+   if (automationFailure) {status=503;body={detail:'Testowy błąd ustawień'};} else body=automation;
+  }
   else if (url.pathname==='/api/workspace/resume') {
    assert.equal(route.request().method(),'POST');resumePosts++;automation.paused_at=null;body={paused_at:null,resumed_jobs:3};
   } else if (url.pathname==='/api/jobs/cancel-pending') {
@@ -80,7 +83,8 @@ try {
  await authenticate(page);
  await page.goto(`http://localhost:${port}/queue`);
  await page.getByRole('heading',{name:'Kolejka zadań',exact:true}).waitFor();
- await page.getByText('27 zadań · strona 1/2',{exact:true}).waitFor();
+ await page.getByText('27 zadań · strona 1/2',{exact:true}).waitFor({timeout:8000}); // błąd ustawień automatyki nie blokuje listy
+ automationFailure=false;
  assert.equal(await page.getByRole('table',{name:'Zadania w kolejce'}).count(),1,'queue table has a navigable accessible name');
  assert.equal(await page.locator('thead th:not([scope="col"])').count(),0,'headers identify their columns');
  await page.getByRole('combobox',{name:'Status',exact:true}).click();

@@ -19,7 +19,7 @@ final class CandidateJobsController
     public function __invoke(Candidate $candidate, Request $request): PageData
     {
         $query = $request->validate([
-            'status' => ['nullable', Rule::in(['active', 'queued', 'running', 'retrying', 'succeeded', 'failed'])],
+            'status' => ['nullable', Rule::in(['active', 'queued', 'running', 'retrying', 'succeeded', 'failed', 'cancelled'])],
             'page' => ['nullable', 'integer', 'min:1'],
             'page_size' => ['nullable', 'integer', 'between:1,100'],
         ]);

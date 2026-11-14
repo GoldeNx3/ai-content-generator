@@ -112,6 +112,10 @@ LLM, HTTP i wyszukiwarka są w testach podmienione – testy nie wykonują płat
 
 ## Produkcja
 
+**Po wdrożeniu automatyki per workspace:** `FETCH_INTERVAL_MINUTES` i `CLASSIFY_BATCH_LIMIT` przestały działać, a automatyka
+każdego workspace'u startuje wyłączona. Właściciel konta włącza pobieranie RSS (i ewentualnie ocenę) w panelu: Ustawienia →
+Automatyka. `AUTOMATION_ENABLED=false` w `.env` wyłącza automatykę całej instancji.
+
 `docker-compose.prod.yml` (nie łączyć z `docker-compose.yml`): php-fpm za nginx, queue, scheduler, Redis z AOF,
 PostgreSQL bez publikowanego portu, panel. API i panel są bindowane na `127.0.0.1` (`API_BIND`, `WEB_BIND`) –
 publiczny ruch przez reverse proxy z TLS.

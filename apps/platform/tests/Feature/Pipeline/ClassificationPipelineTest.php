@@ -7,8 +7,9 @@ use Illuminate\Support\Str;
 use Modules\Candidates\Models\Candidate;
 use Modules\Pipeline\Jobs\RunPipelineJob;
 use Modules\Pipeline\Models\PipelineJob;
-use Modules\Pipeline\Services\JobRunner;
 use Modules\Pipeline\Models\PipelineJobAttempt;
+use Modules\Pipeline\Services\JobRunner;
+use Modules\Workspaces\Models\Workspace;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\BuildsDomain;
 use Tests\Support\FakesAi;
@@ -151,7 +152,7 @@ final class ClassificationPipelineTest extends TestCase
         $this->fakeAi(['classify' => self::aiOk(self::SCORES)]);
         $this->makeCandidate();
         $this->makeCandidate();
-        \Modules\Workspaces\Models\Workspace::query()->whereKey($this->workspace->id)->update(['auto_classify_batch_limit' => 1]);
+        Workspace::query()->whereKey($this->workspace->id)->update(['auto_classify_batch_limit' => 1]);
 
         $this->postJson('/api/candidates/classify-pending')->assertStatus(202)->assertJsonPath('enqueued', 1);
         $this->postJson('/api/candidates/classify-pending', ['limit' => 5])->assertStatus(202)->assertJsonPath('enqueued', 1);

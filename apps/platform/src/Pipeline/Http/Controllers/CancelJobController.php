@@ -5,6 +5,7 @@ namespace Modules\Pipeline\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\Pipeline\Data\JobData;
+use Modules\Pipeline\Enums\JobStatus;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Services\JobCancellationService;
 use Spatie\RouteAttributes\Attributes\Middleware;
@@ -18,6 +19,8 @@ final class CancelJobController
     #[Post('jobs/{job}/cancel')]
     public function __invoke(PipelineJob $job, Request $request): JsonResponse
     {
-        return response()->json(JobData::fromModel($this->cancellation->cancel($job, $request->user()?->id)));
+        $cancelled = $this->cancellation->cancel($job, $request->user()?->id);
+
+        return response()->json(JobData::fromModel($cancelled), $cancelled->status === JobStatus::Running ? 202 : 200);
     }
 }

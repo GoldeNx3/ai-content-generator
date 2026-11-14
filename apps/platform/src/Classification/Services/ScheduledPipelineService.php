@@ -53,7 +53,12 @@ final class ScheduledPipelineService
     {
         $workspace = $this->settings->execute($workspaceId);
         if ($workspace->paused_at !== null) {
-            throw new ApiException('workspace_paused', 409);
+            if (! $automatic) {
+                throw new ApiException('workspace_paused', 409);
+            }
+            Log::info('Scheduler: workspace paused before its run, skipping', ['workspace_id' => $workspaceId]);
+
+            return ['new_candidates' => 0, 'enqueued' => 0, 'errors' => 0, 'budget_exceeded' => false];
         }
         $startedAt = CarbonImmutable::now();
         if ($automatic) {

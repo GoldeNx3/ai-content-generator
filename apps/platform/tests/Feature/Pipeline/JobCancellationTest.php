@@ -99,7 +99,7 @@ final class JobCancellationTest extends TestCase
         $job = $this->makeJob(['status' => 'running', 'attempt_count' => 1]);
         PipelineJobAttempt::query()->create(['pipeline_job_id' => $job->id, 'number' => 1, 'started_at' => now()]);
 
-        $this->postJson("/api/jobs/{$job->id}/cancel")->assertOk()->assertJsonPath('status', 'running');
+        $this->postJson("/api/jobs/{$job->id}/cancel")->assertStatus(202)->assertJsonPath('status', 'running');
         $this->assertNotNull($job->fresh()->cancel_requested_at);
 
         $context = new JobRunContext($job->fresh(), app(RunningJobWriter::class), app(SucceedJobCommand::class), app(AiRunner::class), 60);
@@ -157,6 +157,48 @@ final class JobCancellationTest extends TestCase
 
         $this->postJson('/api/jobs/cancel-pending')->assertStatus(403)->assertJsonPath('detail.code', 'owner_required');
         $this->postJson("/api/jobs/{$job->id}/cancel")->assertOk()->assertJsonPath('status', 'cancelled');
+    }
+
+    #[Test]
+    public function running_wordpress_publication_cannot_be_stopped_midway(): void
+    {
+        $running = $this->makeJob(['kind' => 'publish_wordpress', 'status' => 'running', 'attempt_count' => 1]);
+        $queued = $this->makeJob(['kind' => 'publish_wordpress']);
+
+        $this->postJson("/api/jobs/{$running->id}/cancel")->assertStatus(409)->assertJsonPath('detail.code', 'job_not_stoppable');
+        $this->assertNull($running->fresh()->cancel_requested_at);
+        $this->assertSame(JobStatus::Running, $running->fresh()->status);
+        $this->postJson("/api/jobs/{$queued->id}/cancel")->assertOk()->assertJsonPath('status', 'cancelled');
+    }
+
+    #[Test]
+    public function flagged_job_with_retryable_error_ends_cancelled_not_retrying(): void
+    {
+        $this->fakeAi([
+            'research.extract' => function () {
+                PipelineJob::query()->where('status', JobStatus::Running->value)->update(['cancel_requested_at' => now()]);
+
+                return self::aiError('llm_http_503', retryable: true);
+            },
+        ]);
+        $candidate = $this->makeCandidate();
+
+        $jobId = $this->postJson("/api/candidates/{$candidate->id}/research")->assertStatus(202)->json('id');
+
+        $job = PipelineJob::query()->find($jobId);
+        $this->assertSame(JobStatus::Cancelled, $job->status);
+        $this->assertSame(1, $job->attempt_count);
+        $this->assertSame(['research.extract'], $this->aiTasks());
+    }
+
+    #[Test]
+    public function candidate_jobs_can_be_filtered_by_cancelled(): void
+    {
+        $job = $this->makeJob(['status' => 'cancelled']);
+        $this->makeJob(['status' => 'failed'], $job->candidate);
+
+        $this->getJson("/api/candidates/{$job->candidate_id}/jobs?status=cancelled")->assertOk()
+            ->assertJsonPath('total', 1)->assertJsonPath('items.0.id', $job->id);
     }
 
     #[Test]

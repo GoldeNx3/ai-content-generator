@@ -35,12 +35,14 @@ export default function QueuePage() {
     const number = ++requestNumber.current;
     setRefreshing(true);
     try {
-      const [list, counts, settings] = await Promise.all([api.queueJobs(query), api.queueStats(), api.automation()]);
+      // Ustawienia automatyki są pomocnicze: ich błąd nie może zablokować listy zadań.
+      api.automation().then((settings) => { if (number === requestNumber.current) setAutomation(settings); }, () => undefined);
+      const [list, counts] = await Promise.all([api.queueJobs(query), api.queueStats()]);
       if (number !== requestNumber.current) return;
       // Gdy liczba wyników maleje podczas pracy, wracamy na istniejącą stronę.
       const lastPage = Math.max(1, Math.ceil(list.total / PAGE_SIZE));
       if ((query.page ?? 1) > lastPage) { setQuery((current) => ({ ...current, page: lastPage })); return; }
-      setPage(list); setStats(counts); setAutomation(settings); setError(null); setUpdatedAt(new Date().toISOString());
+      setPage(list); setStats(counts); setError(null); setUpdatedAt(new Date().toISOString());
     } catch (failure) { if (number === requestNumber.current) setError(errorText(failure)); }
     finally { if (number === requestNumber.current) setRefreshing(false); }
   }, [query]);

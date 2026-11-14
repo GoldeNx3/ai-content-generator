@@ -5,6 +5,7 @@ namespace Modules\Pipeline\Services;
 use Illuminate\Support\Facades\DB;
 use Modules\Pipeline\Commands\CancelJobCommand;
 use Modules\Pipeline\Commands\RequestJobCancelCommand;
+use Modules\Pipeline\Enums\JobKind;
 use Modules\Pipeline\Enums\JobStatus;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Models\PipelineJobAttempt;
@@ -27,7 +28,9 @@ final class JobCancellationService
             $locked = PipelineJob::query()->whereKey($job->id)->lockForUpdate()->firstOrFail();
             match ($locked->status) {
                 JobStatus::Queued, JobStatus::Retrying => $this->cancelWaiting($locked, $userId),
-                JobStatus::Running => $this->requestCancel->execute($locked, $userId),
+                JobStatus::Running => $locked->kind === JobKind::PublishWordPress
+                    ? throw new ApiException('job_not_stoppable', 409)
+                    : $this->requestCancel->execute($locked, $userId),
                 default => throw new ApiException('job_not_cancellable', 409),
             };
 
@@ -47,7 +50,7 @@ final class JobCancellationService
         });
     }
 
-    public function cancelRunning(PipelineJob $locked, PipelineJobAttempt $attempt): void
+    public function cancelRunning(PipelineJob $locked, ?PipelineJobAttempt $attempt): void
     {
         $this->cancelJob->execute($locked, $attempt, null);
         $this->handlers->for($locked->kind)->failed($locked, true, ErrorMessages::for('cancelled'), null);

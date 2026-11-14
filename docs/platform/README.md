@@ -79,7 +79,10 @@ więc ponowienie nie płaci ponownie za ukończone kroki (np. brief).
 - Anulowanie: `POST /api/jobs/{job}/cancel` – job `queued`/`retrying` od razu dostaje `cancelled` (handler etapu
   zwalnia swój stan, więc etap można zlecić ponownie); job `running` dostaje `cancel_requested_at` i zatrzymuje się
   przed kolejnym płatnym krokiem (`JobRunContext::ai()` sprawdza flagę, `JobCancelledException`). Trwające wywołanie
-  AI jest dokańczane i liczone; `publish_wordpress` nie ma kroków AI, więc dobiega końca. Terminalny job → `409
+  AI jest dokańczane i liczone. Biegnącej `publish_wordpress` nie można zatrzymać (`409 job_not_stoppable`), bo przerwanie
+  między zapisem wpisu a meta SEO zostawiłoby niekompletny wpis; czekającą w kolejce można anulować. Kod odpowiedzi: `200`
+  po anulowaniu, `202` gdy job tylko oflagowano. Oflagowany job z błędem przejściowym kończy jako `cancelled`, bez
+  ponowienia. Terminalny job → `409
   job_not_cancellable`. `POST /api/jobs/cancel-pending` (owner) anuluje wszystkie oczekujące joby workspace'u.
 - Pauza: `POST /api/workspace/pause` / `resume` (owner) ustawia `workspaces.paused_at`. Wstrzymanego workspace'u
   nie przejmuje worker (`ClaimJobCommand`), nie wznawia `pipeline:recover`, a zlecenie nowego joba daje `409
