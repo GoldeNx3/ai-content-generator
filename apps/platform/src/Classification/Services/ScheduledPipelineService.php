@@ -2,17 +2,20 @@
 
 namespace Modules\Classification\Services;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
+use Modules\Classification\Queries\DueAutomationWorkspacesQuery;
 use Modules\Classification\Queries\UnclassifiedCandidatesQuery;
-use Modules\Classification\Queries\WorkspacesWithPendingClassificationQuery;
 use Modules\Pipeline\Enums\JobKind;
 use Modules\Pipeline\Exceptions\JobConflictException;
 use Modules\Pipeline\Exceptions\JobInputException;
 use Modules\Pipeline\Services\EnqueueService;
-use Modules\Sources\Data\FetchResultData;
+use Modules\Shared\Exceptions\ApiException;
 use Modules\Sources\Services\IngestionService;
+use Modules\Workspaces\Commands\RecordAutomationRunCommand;
+use Modules\Workspaces\Queries\AutomationSettingsQuery;
 use Ramsey\Uuid\Uuid;
+use Throwable;
 
 final class ScheduledPipelineService
 {
@@ -20,41 +23,82 @@ final class ScheduledPipelineService
 
     public function __construct(
         private readonly IngestionService $ingestion,
-        private readonly WorkspacesWithPendingClassificationQuery $workspaces,
+        private readonly DueAutomationWorkspacesQuery $due,
+        private readonly AutomationSettingsQuery $settings,
+        private readonly RecordAutomationRunCommand $recordRun,
         private readonly UnclassifiedCandidatesQuery $unclassified,
         private readonly EnqueueService $enqueue,
     ) {}
 
-    public function run(): array
+    public function runDue(): array
     {
-        $fetched = $this->ingestion->fetchAllActive(null);
-        $enqueued = config('content.ai.openai_api_key') === '' ? 0 : $this->classify();
+        $total = ['workspaces' => 0, 'new_candidates' => 0, 'enqueued' => 0];
+        foreach ($this->due->execute(CarbonImmutable::now()) as $workspaceId) {
+            try {
+                $result = $this->runWorkspace($workspaceId, automatic: true);
+            } catch (Throwable $exception) {
+                Log::error('Scheduler: automation run failed', ['workspace_id' => $workspaceId, 'error' => $exception->getMessage()]);
 
-        return ['fetch' => $fetched, 'enqueued' => $enqueued];
+                continue;
+            }
+            $total['workspaces']++;
+            $total['new_candidates'] += $result['new_candidates'];
+            $total['enqueued'] += $result['enqueued'];
+        }
+
+        return $total;
     }
 
-    private function classify(): int
+    public function runWorkspace(int $workspaceId, bool $automatic): array
     {
+        $workspace = $this->settings->execute($workspaceId);
+        if ($workspace->paused_at !== null) {
+            throw new ApiException('workspace_paused', 409);
+        }
+        $startedAt = CarbonImmutable::now();
+        if ($automatic) {
+            $this->recordRun->execute($workspaceId, $startedAt, null);
+        }
+        $fetched = $this->ingestion->fetchAllActive($workspaceId);
+        [$enqueued, $budgetExceeded] = ! $automatic || $workspace->auto_classify_enabled
+            ? $this->classify($workspaceId, $workspace->auto_classify_batch_limit)
+            : [0, false];
+        $result = [
+            'new_candidates' => $fetched->new_candidates,
+            'enqueued' => $enqueued,
+            'errors' => $fetched->errors,
+            'budget_exceeded' => $budgetExceeded,
+        ];
+        if ($automatic) {
+            $this->recordRun->execute($workspaceId, $startedAt, $result);
+        }
+
+        return $result;
+    }
+
+    private function classify(int $workspaceId, int $limit): array
+    {
+        if (config('content.ai.openai_api_key') === '') {
+            return [0, false];
+        }
         $enqueued = 0;
-        foreach ($this->workspaces->execute() as $workspaceId) {
-            $ids = $this->unclassified->execute($workspaceId, 20, withoutClassifyHistory: true);
-            foreach ($ids as $candidateId) {
-                try {
-                    $key = Uuid::uuid5(self::NAMESPACE, "scheduled-classify:{$candidateId}")->toString();
-                    $this->enqueue->enqueue(JobKind::Classify, $candidateId, [], $key);
-                    $enqueued++;
-                } catch (JobConflictException) {
-                    continue;
-                } catch (JobInputException $exception) {
-                    if ($exception->status !== 402) {
-                        throw $exception;
-                    }
-                    Log::info('Scheduler: workspace over AI budget, skipping classification', ['workspace_id' => $workspaceId]);
-                    break;
+        foreach ($this->unclassified->execute($workspaceId, $limit, withoutClassifyHistory: true) as $candidateId) {
+            try {
+                $key = Uuid::uuid5(self::NAMESPACE, "scheduled-classify:{$candidateId}")->toString();
+                $this->enqueue->enqueue(JobKind::Classify, $candidateId, [], $key);
+                $enqueued++;
+            } catch (JobConflictException) {
+                continue;
+            } catch (JobInputException $exception) {
+                if ($exception->status !== 402) {
+                    throw $exception;
                 }
+                Log::info('Scheduler: workspace over AI budget, skipping classification', ['workspace_id' => $workspaceId]);
+
+                return [$enqueued, true];
             }
         }
 
-        return $enqueued;
+        return [$enqueued, false];
     }
 }

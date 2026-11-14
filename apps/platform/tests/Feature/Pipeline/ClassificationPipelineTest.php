@@ -146,6 +146,18 @@ final class ClassificationPipelineTest extends TestCase
     }
 
     #[Test]
+    public function classify_pending_defaults_to_workspace_batch_limit(): void
+    {
+        $this->fakeAi(['classify' => self::aiOk(self::SCORES)]);
+        $this->makeCandidate();
+        $this->makeCandidate();
+        \Modules\Workspaces\Models\Workspace::query()->whereKey($this->workspace->id)->update(['auto_classify_batch_limit' => 1]);
+
+        $this->postJson('/api/candidates/classify-pending')->assertStatus(202)->assertJsonPath('enqueued', 1);
+        $this->postJson('/api/candidates/classify-pending', ['limit' => 5])->assertStatus(202)->assertJsonPath('enqueued', 1);
+    }
+
+    #[Test]
     public function queue_endpoints_list_stats_and_retry(): void
     {
         $this->fakeAi(['classify' => self::aiError('invalid_output')]);

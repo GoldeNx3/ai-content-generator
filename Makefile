@@ -55,9 +55,11 @@ test-platform:
 test-ai:
 	docker compose exec -T -w /srv/ai platform /opt/ai/bin/python -m pytest -q
 
-# Jednorazowo to, co robi scheduler: pobranie RSS ze wszystkich aktywnych źródeł i zlecenie oceny.
+# Jednorazowy przebieg dla jednego konta: pobranie RSS jego workspace'u i zlecenie oceny (płatne, limit z Ustawień).
+# Działa też przy wyłączonej automatyce; odmawia przy wstrzymanym workspace'ie. EMAIL=<konto> albo WORKSPACE=<id>.
 pipeline:
-	$(ARTISAN) pipeline:scheduled
+	@test -n "$(EMAIL)$(WORKSPACE)" || { echo "Podaj EMAIL=<konto> albo WORKSPACE=<id>"; exit 1; }
+	$(ARTISAN) pipeline:scheduled $(WS_ARGS)
 
 # Konto bez publicznej rejestracji: make create-user EMAIL=jan@example.com (hasło pyta interaktywnie).
 # WORKSPACE=<id> dołącza konto jako owner istniejącego workspace'u.
