@@ -89,6 +89,9 @@ REPO_URL ?= git@gitlab.com:goldendev42/ai-content-app.git
 BRANCH ?= main
 PROD_DIR ?= /srv/content-engine
 DC_PROD := docker compose -f docker-compose.prod.yml
+PROD_ARTISAN := $(DC_PROD) exec -T platform php artisan
+GREEN := \033[32m
+RESET := \033[0m
 
 .PHONY: deploy-init deploy build-prod up-prod down-prod restart-prod logs-prod ps-prod migrate-prod seed-prod create-user-prod deactivate-user-prod activate-user-prod set-budget-prod wordpress-import-prod
 deploy-init:
@@ -103,16 +106,20 @@ deploy-init:
 	fi
 	$(MAKE) -C $(PROD_DIR) deploy
 
-# Migracja przed restartem usług: błąd migracji zostawia działającą poprzednią wersję.
-deploy:
+deploy: ## Pull $(BRANCH), rebuild, migrate, restart, cache. Uruchamiaj wewnątrz $(PROD_DIR) (lub przez deploy-init).
 	@test -f .env || { echo "Brak .env - skopiuj .env.example i uzupełnij."; exit 1; }
 	git fetch origin $(BRANCH)
 	git reset --hard origin/$(BRANCH)
 	$(DC_PROD) build --pull
 	$(DC_PROD) up -d --wait db redis
-	$(DC_PROD) run --rm migrate
+	# Migracja przed restartem usług: błąd migracji zostawia działającą poprzednią wersję.
+	$(DC_PROD) run --rm --no-deps migrate
 	$(DC_PROD) up -d --remove-orphans
-	@echo "Deployed $(BRANCH)@$$(git rev-parse --short HEAD)"
+	# Cache config/route/event/view po migracji: nieudana migracja nie zostawia cache z nowego kodu.
+	# bootstrap/cache jest w obrazie, więc każdy długo żyjący kontener PHP buduje własny.
+	$(PROD_ARTISAN) optimize
+	$(DC_PROD) exec -T scheduler php artisan optimize
+	@printf '$(GREEN)Deployed $(BRANCH)@%s$(RESET)\n' "$$(git rev-parse --short HEAD)"
 
 build-prod:
 	$(DC_PROD) build --pull
