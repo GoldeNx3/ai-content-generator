@@ -69,3 +69,37 @@ def test_editor_take_is_the_only_place_for_opinion_and_must_be_labelled():
 def test_qa_knows_editor_take_is_allowed_opinion():
     from app.services.llm.qa import QA_SYSTEM_PROMPT
     assert 'editor_take' in QA_SYSTEM_PROMPT
+
+
+LINKS = [{'title': 'Kolejki w Laravel', 'url': 'https://wp.example/blog/kolejki/'}]
+
+
+def links_context(links=None) -> ArticleContext:
+    return ArticleContext(candidate_title='Laravel 13', candidate_source='Laravel News', published_at=None, research_summary='s',
+        why_it_matters='w', suggested_angle='a', facts=[], sources=[], uncertainties=[], conflicts=[], article_type='news',
+        type_guide='g', length_hint='l', angle=None, instructions=None, article_format='news', internal_links=links)
+
+
+def test_writer_may_link_only_to_listed_blog_posts():
+    prompt = build_writer_prompt(links_context(LINKS), make_brief([1]))
+    assert 'LINKI WEWNĘTRZNE' in prompt and 'https://wp.example/blog/kolejki/' in prompt
+    assert 'LINKI WEWNĘTRZNE' not in build_writer_prompt(links_context(None), make_brief([1]))
+
+
+def test_links_to_the_blog_outside_the_list_are_unlinked():
+    from app.services.article.validation import enforce_internal_links
+    text = ('Zobacz [kolejki](https://wp.example/blog/kolejki/) i [stary wpis](https://wp.example/blog/nie-ma/) '
+            'oraz [dokumentację](https://laravel.com/docs).')
+    cleaned, removed = enforce_internal_links(text, LINKS)
+    assert '[kolejki](https://wp.example/blog/kolejki/)' in cleaned
+    assert 'stary wpis' in cleaned and 'blog/nie-ma' not in cleaned
+    assert '[dokumentację](https://laravel.com/docs)' in cleaned
+    assert removed == ['https://wp.example/blog/nie-ma/']
+
+
+async def test_classifier_warns_about_a_similar_blog_post():
+    from ai.runtime import run
+    candidate = {'title': 'Kolejki w Laravel', 'summary': None, 'source': 'RSS', 'published_at': None,
+                 'already_covered': {'title': 'Kolejki w Laravel – monitoring', 'url': 'https://wp.example/blog/kolejki/', 'similarity': 0.8}}
+    result = (await run({'task': 'classify', 'demo': True, 'input': {'candidate': candidate}}))['result']
+    assert 'https://wp.example/blog/kolejki/' in result['reason'] and result['freshness'] <= 20

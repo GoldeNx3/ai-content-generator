@@ -1,4 +1,5 @@
 import type {
+  BlogMemory,
   Credentials,
   Me,
   WordPressState, WordPressProfile, WordPressConnection, WordPressManualConnect, Usage, AutomationSettings, AutomationUpdate, EditorialProfile,
@@ -252,6 +253,8 @@ export const api = {
   testWordPressConnection: () => post<WordPressConnection>("/wordpress/connection/test"),
   updateWordPressDefaults: (body: Partial<Pick<WordPressConnection, "default_status" | "default_author_id" | "default_category_id">>) =>
     patch<WordPressConnection>("/wordpress/connection", body),
+  wordpressPosts: () => request<BlogMemory>("/wordpress/posts"),
+  syncWordPressPosts: () => post<BlogMemory>("/wordpress/posts/sync"),
   disconnectWordPress: () => request<void>("/wordpress/connection", { method: "DELETE" }),
   getJob: (id: string) => request<Job>(`/jobs/${id}`),
   listJobs: (candidateId: number) => request<JobPage>(`/candidates/${candidateId}/jobs`),

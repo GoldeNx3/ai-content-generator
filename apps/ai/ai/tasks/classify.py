@@ -12,7 +12,8 @@ from app.services.scoring import compute_total_score
 
 class CoveredBy(BaseModel):
     title: str
-    article_id: int
+    article_id: int | None = None
+    url: str | None = None
     similarity: float
 
 
@@ -40,8 +41,10 @@ async def run(data: dict, ctx: TaskContext) -> dict:
         covered = payload.already_covered
         classification = classification.model_copy(update={
             "freshness": min(classification.freshness, 20),
-            "reason": f"Uwaga: podobny temat już opisany w artykule #{covered.article_id} „{covered.title}” "
-                      f"(podobieństwo {covered.similarity:.2f}). {classification.reason}",
+            "reason": (f"Uwaga: podobny temat już opisany w artykule #{covered.article_id} „{covered.title}” "
+                       if covered.article_id is not None else
+                       f"Uwaga: podobny wpis jest już na blogu: „{covered.title}” ({covered.url}) ")
+                      + f"(podobieństwo {covered.similarity:.2f}). {classification.reason}",
         })
     return {
         "relevance": classification.relevance,

@@ -427,6 +427,11 @@ export interface WordPressState {
   wordpress_connected: boolean;
 }
 
+export interface BlogMemory {
+  count: number;
+  synced_at: string | null;
+}
+
 export interface WordPressConnection {
   site_url: string;
   api_url: string | null;

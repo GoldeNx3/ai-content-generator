@@ -14,7 +14,7 @@ const connected = {site_url:'https://blog.example',api_url:null,username:'editor
 const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
 try {
  const page = await browser.newPage({viewport:{width:1280,height:900}});
- let connection = null; const calls = []; let authorizeUrl = null;
+ let connection = null; let posts = {count:0,synced_at:null}; const calls = []; let authorizeUrl = null;
  await page.route('**/*', async route => {
   const url = new URL(route.request().url());
   if (url.hostname === 'localhost' && url.port === port) return route.continue();
@@ -34,6 +34,8 @@ try {
   }
   else if (path === '/api/wordpress/connection' && method === 'DELETE') { connection = null; status = 204; }
   else if (path === '/api/wordpress/connection/test') body = connection;
+  else if (path === '/api/wordpress/posts' && method === 'GET') body = posts;
+  else if (path === '/api/wordpress/posts/sync') { posts = {count:42,synced_at:'2026-11-14T10:00:00Z'}; body = posts; }
   else body = {};
   await route.fulfill({status,contentType:'application/json',headers:corsHeaders(route),body:status === 204 ? '' : JSON.stringify(body)});
  });
@@ -68,6 +70,10 @@ try {
  await page.getByText('Połączono', {exact:true}).waitFor();
  await page.getByText('Ed Itor').waitFor();
  assert.equal(await page.getByText('abcd efgh ijkl').count(), 0);
+ await page.getByText('Pamięć wpisów: jeszcze nie pobrano listy wpisów.').waitFor();
+ await page.getByRole('button', {name:'Odśwież listę wpisów · bezpłatne'}).click();
+ await page.getByText(/Pamięć wpisów: 42 wpisów/).waitFor();
+ assert.ok(calls.some(([method, path]) => method === 'POST' && path === '/api/wordpress/posts/sync'));
 
  // 3. Odrzucenie w WP: komunikat, bez wywołania API.
  const before = calls.length;
@@ -94,7 +100,7 @@ try {
  // 5. Telefon: bez poziomego przewijania.
  await page.setViewportSize({width:375,height:800});
  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'brak poziomego scrolla');
- console.log('PASS: usage card (exceeded budget), authorize redirect, callback strips password and completes, reject, disconnect, manual connect (401 + success), mobile. All API mocked.');
+ console.log('PASS: usage card (exceeded budget), authorize redirect, callback strips password and completes, blog memory sync, reject, disconnect, manual connect (401 + success), mobile. All API mocked.');
 } finally {
  await browser.close();
 }

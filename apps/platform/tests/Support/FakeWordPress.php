@@ -19,6 +19,8 @@ final class FakeWordPress
 
     public ?int $error = null;
 
+    public array $published = [];
+
     public array $metaKeys = ['_yoast_wpseo_title', '_yoast_wpseo_metadesc', '_yoast_wpseo_canonical'];
 
     public function handle(Request $request)
@@ -85,6 +87,14 @@ final class FakeWordPress
         }
         if (str_contains($path, '/content-engine/v1/operation')) {
             return Http::response(['exists' => false]);
+        }
+        if (str_ends_with($path, '/wp/v2/posts') && $request->method() === 'GET') {
+            parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+            $page = (int) ($query['page'] ?? 1);
+            $chunk = array_slice($this->published, ($page - 1) * 100, 100);
+
+            return Http::response(array_map(fn (array $post) => ['id' => $post['id'], 'link' => $post['link'], 'title' => ['rendered' => $post['title']],
+                'excerpt' => ['rendered' => '<p>'.($post['excerpt'] ?? '').'</p>']], $chunk), 200, ['X-WP-TotalPages' => (string) max(1, (int) ceil(count($this->published) / 100))]);
         }
         if (preg_match('#/wp/v2/posts/(\d+)$#', $path, $match)) {
             return isset($this->posts[(int) $match[1]]) ? Http::response($this->posts[(int) $match[1]]) : Http::response(['code' => 'rest_post_invalid_id'], 404);

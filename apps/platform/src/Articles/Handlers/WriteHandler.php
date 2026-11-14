@@ -16,6 +16,7 @@ use Modules\Pipeline\Support\CallUsage;
 use Modules\Research\Enums\ResearchStatus;
 use Modules\Research\Models\Research;
 use Modules\Research\Queries\ResearchForCandidateQuery;
+use Modules\WordPress\Services\BlogMemoryService;
 
 final class WriteHandler extends BaseStageHandler
 {
@@ -24,6 +25,7 @@ final class WriteHandler extends BaseStageHandler
         private readonly RecentArticlesQuery $recentArticles,
         private readonly ArticleVersionService $versions,
         private readonly StoreArticleEmbeddingCommand $storeEmbedding,
+        private readonly BlogMemoryService $blogMemory,
     ) {}
 
     public function kind(): JobKind
@@ -47,6 +49,9 @@ final class WriteHandler extends BaseStageHandler
         $research = Research::query()->with(['sources', 'facts.sources'])->findOrFail($job->payload['research_id']);
         $request = array_diff_key($job->payload['options'], ['parent_version_id' => true]);
 
+        $this->blogMemory->refreshIfStale($candidate->workspace_id);
+        $internalLinks = $this->blogMemory->linkCandidates($candidate->workspace_id, $candidate->title.' '.($research->summary ?? ''));
+
         $context->stage('building_brief');
         $brief = $context->ai('brief', 'article.brief', [
             'candidate' => [
@@ -59,6 +64,7 @@ final class WriteHandler extends BaseStageHandler
             'recent_articles' => $this->recentArticles->execute($candidate->workspace_id),
             'editorial' => $job->payload['editorial'] ?? null,
             'editor_take' => $candidate->editor_take,
+            'internal_links' => $internalLinks,
         ]);
 
         $context->stage('writing');

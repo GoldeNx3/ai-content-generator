@@ -13,6 +13,7 @@ use Modules\Pipeline\Enums\JobKind;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Services\JobRunContext;
 use Modules\Pipeline\Support\CallUsage;
+use Modules\WordPress\Queries\SimilarBlogPostQuery;
 
 final class ClassifyHandler extends BaseStageHandler
 {
@@ -21,6 +22,7 @@ final class ClassifyHandler extends BaseStageHandler
         private readonly AssignTopicGroupCommand $assignGroup,
         private readonly NearestTopicQuery $nearestTopic,
         private readonly NearestArticleQuery $nearestArticle,
+        private readonly SimilarBlogPostQuery $similarBlogPost,
     ) {}
 
     public function kind(): JobKind
@@ -60,6 +62,8 @@ final class ClassifyHandler extends BaseStageHandler
         $article = $this->nearestArticle->execute($job->workspace_id, $vector);
         if ($article !== null && (float) $article->similarity >= $threshold) {
             $input['already_covered'] = ['title' => $article->title, 'article_id' => (int) $article->id, 'similarity' => round((float) $article->similarity, 4)];
+        } elseif (($post = $this->similarBlogPost->execute($job->workspace_id, $input['title'], (float) config('content.topics.blog_title_similarity'))) !== null) {
+            $input['already_covered'] = ['title' => $post->title, 'url' => $post->url, 'similarity' => round((float) $post->similarity, 4)];
         }
         $context->stage('classifying');
         $response = $context->ai('classify', 'classify', ['candidate' => $input, 'editorial' => $job->payload['editorial'] ?? null]);

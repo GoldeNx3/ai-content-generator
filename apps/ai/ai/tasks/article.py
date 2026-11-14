@@ -20,7 +20,7 @@ from app.services.article.composition import (
 )
 from app.services.article.editorial import describe_structure
 from app.services.article.sections import rebuild_sections
-from app.services.article.validation import banned_phrases_found, validate_brief, validate_writer_output
+from app.services.article.validation import banned_phrases_found, enforce_internal_links, validate_brief, validate_writer_output
 from app.services.llm.base import ArticleContext, FactInput, SourceInput
 from app.services.research.content_budget import fit_documents
 from app.services.wordpress.preparation import plain, seo_profile
@@ -72,6 +72,7 @@ class BriefInput(BaseModel):
     recent_articles: list[dict[str, Any]] = []
     editorial: EditorialProfile | None = None
     editor_take: str | None = Field(default=None, max_length=3000)
+    internal_links: list[dict[str, str]] = Field(default_factory=list, max_length=30)
 
 
 class WriteInput(BaseModel):
@@ -133,6 +134,7 @@ def _context(payload: BriefInput, ctx: TaskContext) -> ArticleContext:
                            for a in payload.recent_articles],
         editorial=payload.editorial.model_dump() if payload.editorial else None,
         editor_take=(payload.editor_take or "").strip() or None,
+        internal_links=payload.internal_links or None,
     )
 
 
@@ -172,6 +174,19 @@ async def brief(data: dict, ctx: TaskContext) -> dict:
     return {"context": context_data, "brief": validated.model_dump(mode="json"), "warnings": warnings}
 
 
+def _enforce_links(output, allowed):
+    if not allowed:
+        return output, []
+    removed: list[str] = []
+    lead, gone = enforce_internal_links(output.lead, allowed); removed += gone
+    conclusion, gone = enforce_internal_links(output.conclusion, allowed); removed += gone
+    sections = []
+    for section in output.sections:
+        content, gone = enforce_internal_links(section.content, allowed); removed += gone
+        sections.append(section.model_copy(update={"content": content}))
+    return output.model_copy(update={"lead": lead, "conclusion": conclusion, "sections": sections}), removed
+
+
 def _reference_texts(context: ArticleContext) -> list[str]:
     texts = [fact.claim for fact in context.facts]
     texts += [f"{s.title or ''} {s.publisher or ''} {s.content}" for s in context.sources]
@@ -202,9 +217,12 @@ async def write(data: dict, ctx: TaskContext) -> dict:
     writer = ctx.providers["write"]
     result = await ctx.call("writing", lambda: writer.write_article(writer_context, brief_model))
     output = sanitize_output(result.output)
+    output, removed_links = _enforce_links(output, context.internal_links)
     validated = validate_writer_output(output, context.facts, {s.id for s in context.sources},
                                        brief_model.required_facts, reference_texts=_reference_texts(context))
     warnings = [*payload.warnings, *validated.warnings]
+    if removed_links:
+        warnings.append("Usunięto linki do bloga spoza listy istniejących wpisów: " + ", ".join(removed_links))
     content = compose_content(output)
     banned = banned_phrases_found(output.title + "\n" + output.lead + "\n" + content, list((context.editorial or {}).get("banned_phrases", [])))
     if banned:

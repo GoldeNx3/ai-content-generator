@@ -26,6 +26,7 @@ return [
     'topics' => [
         'similarity_threshold' => (float) env('TOPIC_SIMILARITY_THRESHOLD', 0.86),
         'window_days' => (int) env('TOPIC_WINDOW_DAYS', 30),
+        'blog_title_similarity' => (float) env('BLOG_TITLE_SIMILARITY', 0.6),
     ],
 
     'sources' => [

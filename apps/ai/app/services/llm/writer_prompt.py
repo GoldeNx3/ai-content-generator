@@ -225,6 +225,17 @@ def _editor_take_block(context: ArticleContext) -> str:
     )
 
 
+def _internal_links_block(context: ArticleContext) -> str:
+    if not context.internal_links:
+        return ""
+    listed = "\n".join(f"- {link['title']}: {link['url']}" for link in context.internal_links)
+    return (
+        "\n\nLINKI WEWNĘTRZNE (wcześniejsze wpisy tego bloga). Możesz wstawić 1-3 z nich w treści jako zwykłe linki "
+        "Markdown, tylko tam, gdzie naturalnie pogłębiają temat. Nie linkuj do innych adresów tego bloga i nie zmieniaj "
+        f"podanych URL-i:\n{listed}"
+    )
+
+
 # Brief planuje artykuł z kontekstu researchu i referencji do faktów.
 def build_brief_prompt(context: ArticleContext) -> str:
     angle = context.angle or context.suggested_angle or "brak - zaproponuj na podstawie faktów"
@@ -256,6 +267,7 @@ def build_writer_prompt(context: ArticleContext, brief: ArticleBrief) -> str:
         f"{_instructions_block(context)}"
         f"{_editorial_block(context)}"
         f"{_editor_take_block(context)}"
+        f"{_internal_links_block(context)}"
     )
 
 

@@ -223,3 +223,22 @@ def banned_phrases_found(text: str, phrases: list[str]) -> list[str]:
     lowered = text.lower()
     return [phrase for phrase in phrases if phrase.strip() and phrase.lower() in lowered]
 
+
+def enforce_internal_links(text: str, allowed: list[dict[str, str]] | None) -> tuple[str, list[str]]:
+    """Linki do bloga spoza listy dozwolonych wpisów zamienia na sam tekst; linki zewnętrzne zostawia."""
+    import re
+    from urllib.parse import urlsplit
+    allowed = allowed or []
+    hosts = {urlsplit(link["url"]).netloc.lower() for link in allowed}
+    urls = {link["url"] for link in allowed}
+    removed: list[str] = []
+
+    def replace(match: "re.Match[str]") -> str:
+        label, url = match.group(1), match.group(2)
+        if urlsplit(url).netloc.lower() in hosts and url not in urls:
+            removed.append(url)
+            return label
+        return match.group(0)
+
+    return re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", replace, text), removed
+

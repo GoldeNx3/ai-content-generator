@@ -131,6 +131,7 @@ class ArticleContext:
     recent_structures: list[dict[str, object]] = field(default_factory=list)
     editorial: dict[str, object] | None = None
     editor_take: str | None = None
+    internal_links: list[dict[str, str]] | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { CheckCircle2Icon, ExternalLinkIcon, Loader2Icon, PlugIcon, TriangleAlertIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { BlogMemory } from "@/components/settings/blog-memory";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -152,6 +153,8 @@ function ConnectedView({ connection, busy, onTest, onDefaults, onChange, onDisco
         </div>
         <div className="sm:col-span-3"><Button type="submit" variant="outline" disabled={busy !== null}>{busy === "defaults" && <Loader2Icon className="size-4 animate-spin" />}Zapisz ustawienia publikacji</Button></div>
       </form>
+
+      <BlogMemory />
 
       <div className="flex flex-wrap gap-2 border-t pt-4">
         <Button variant="outline" disabled={busy !== null} onClick={onTest}>{busy === "test" && <Loader2Icon className="size-4 animate-spin" />}Sprawdź połączenie</Button>

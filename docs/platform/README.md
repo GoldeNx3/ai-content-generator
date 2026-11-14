@@ -94,6 +94,18 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
 - Lista tematów pokazuje jeden wiersz na grupę z `group_size` („+N źródeł”); `?duplicates=1` pokazuje wszystkie.
   Research tematu głównego dodaje URL-e z grupy jako źródła (`origin = sibling`, najwyżej 3).
 
+## Pamięć wpisów i linki wewnętrzne
+
+- Tabela `wordpress_posts` (per workspace) trzyma opublikowane wpisy bloga: `post_id`, `url`, `title`, `excerpt`,
+  `synced_at`. Pobieranie jest darmowe (REST `wp/v2/posts?status=publish`, do 5 stron po 100):
+  `POST wordpress/posts/sync` (przycisk „Odśwież listę wpisów” w Ustawieniach), `GET wordpress/posts` – licznik i
+  data. Przed płatnym krokiem 4 lista odświeża się sama, gdy jest starsza niż 60 min (błąd WP nie blokuje pisania).
+- Krok 4: Laravel wybiera do 20 wpisów pasujących słowami do tytułu/opisu tematu (darmowe) i przekazuje je jako
+  `internal_links`. Pisarz może linkować wyłącznie do tej listy; linki spoza niej są usuwane (zostaje tekst) z
+  ostrzeżeniem w wersji.
+- Krok 2: gdy nie ma podobnego artykułu z embeddingu, tytuł tematu porównywany jest z tytułami wpisów (`pg_trgm`,
+  `BLOG_TITLE_SIMILARITY`, domyślnie 0.6) – trafienie daje `already_covered` z adresem wpisu.
+
 ## Kolejka
 
 - `pipeline_jobs` (UUID, kind, status `queued/running/retrying/succeeded/failed/cancelled`, stage, próby, checkpointy,
