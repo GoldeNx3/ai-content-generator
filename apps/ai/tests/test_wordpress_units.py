@@ -68,3 +68,13 @@ def test_writer_requires_nonempty_extended_seo_when_supplied():
     assert seo['properties']['focus_keyword']['minLength']==1
     assert seo['properties']['tags']['minItems']==3
     assert 'seo_data' in schema['required']
+
+
+def test_text_fields_sent_to_wordpress_are_plain_text():
+    xss='</title><script>alert(1)</script>Tytuł'
+    p=seo_profile(article(title=xss,meta_title=xss,meta_description='<img src=x onerror=alert(1)>Opis',lead='&lt;script&gt;x&lt;/script&gt; Lead',
+        seo_data={'tags':['<img src=x onerror=alert(1)>','AI','C++','<b>Laravel</b>'],'focus_keyword':'<b>klucz</b>'}))
+    for key in ('title','seo_title','meta_description','excerpt','og_title','og_description','twitter_title','twitter_description','focus_keyword'):
+        assert '<' not in p[key] and '>' not in p[key], (key,p[key])
+    assert p['title']=='Tytuł' and p['meta_description']=='Opis'
+    assert p['tags']==['AI','C++','Laravel']

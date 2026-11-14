@@ -48,7 +48,7 @@ Featured image jest opcjonalny. Upload mediów deduplikuje zawartość; lokalny 
 
 Po zapisie publisher pobiera post i sprawdza title, slug, raw HTML, status, category, tags, author, featured image i dostępne SEO metadata.
 
-Testy: `make test` (Laravel: `tests/Feature/WordPress`, Python: renderowanie HTML i adaptery SEO); frontend `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build -- --webpack`. Testy HTTP WP są mockowane. PHP `integrations/wordpress/tests/schema.php` sprawdza kontrakty filtrów schema.
+Testy: `make test` (Laravel: `tests/Feature/WordPress`, Python: renderowanie HTML i adaptery SEO); frontend `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build -- --webpack`. Testy HTTP WP są mockowane. PHP `integrations/wordpress/tests/schema.php` sprawdza kontrakty filtrów schema, a `tests/sanitize.php` oczyszczanie `ce_seo` przy zapisie i tekstowy `<title>` (uruchamiane `php integrations/wordpress/tests/<plik>.php`).
 
 RankMath ma adapter i testy kontraktowe; pełny test z aktywnym pluginem wykonano dla Yoast. Dla draftów Yoast nie emituje canonical w uwierzytelnionym preview, mimo zapisanego canonical meta. Publiczny permalink draftu nie jest publicznym artykułem. Globalne ustawienie WP „nie indeksuj” jest respektowane.
 

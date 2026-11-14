@@ -26,6 +26,14 @@ def category_name(article):
 def plain(value):
     return BeautifulSoup(MarkdownIt('commonmark',{'html':False}).render(value or ''),'html.parser').get_text(' ',strip=True)
 
+def plain_text(value):
+    """Plain text for WordPress fields that themes may print unescaped (title, excerpt, tags, meta)."""
+    value=BeautifulSoup(str(value or ''),'html.parser').get_text('')
+    value=re.sub(r'<[^>]*>','',value).replace('<','').replace('>','')
+    return re.sub(r'\s+',' ',value).strip()
+
+TEXT_FIELDS=('title','seo_title','meta_description','excerpt','og_title','og_description','twitter_title','twitter_description','focus_keyword')
+
 def seo_profile(article, overrides=None):
     data=SEOData.model_validate(getattr(article,'seo_data',None) or {}).model_dump()
     profile={**data,'title':article.title,'slug':article.slug,'seo_title':article.meta_title,'meta_description':article.meta_description}
@@ -46,10 +54,13 @@ def seo_profile(article, overrides=None):
         profile['schema_type']=default
     tags=[]
     for tag in profile.get('tags',[]):
-        tag=tag.strip()
+        tag=plain_text(tag)
         if tag and len(tag)<=50 and len(tag.split())<=5 and not re.search(r'[.!?;\n]',tag) and tag.casefold() not in {t.casefold() for t in tags}:
             tags.append(tag)
     profile['tags']=tags[:8]
+    for key in TEXT_FIELDS:
+        if profile.get(key) is not None:
+            profile[key]=plain_text(profile[key])
     return profile
 
 def content_html(article, profile=None):

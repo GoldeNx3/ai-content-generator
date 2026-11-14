@@ -94,7 +94,7 @@ final class PublisherService
         } else {
             $rendered = $context->ai('render', 'wordpress.render', ['article' => $this->profiles->article($article), 'profile' => $profile])['result'];
             $profile['slug'] = $rendered['slug'];
-            $payload = ['title' => $article->title, 'slug' => $profile['slug'], 'content' => $rendered['html'], 'excerpt' => $profile['excerpt'] ?? '',
+            $payload = ['title' => trim(strip_tags($article->title)), 'slug' => $profile['slug'], 'content' => $rendered['html'], 'excerpt' => $profile['excerpt'] ?? '',
                 'categories' => $categories, 'tags' => $tags];
             if ($author) {
                 $payload['author'] = (int) $author;

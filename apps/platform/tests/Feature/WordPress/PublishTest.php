@@ -47,9 +47,9 @@ final class PublishTest extends TestCase
             'app_password' => 'secret', 'instance_id' => 'ce-test', 'seo_plugin' => 'yoast']);
     }
 
-    private function approvedArticle(): Article
+    private function approvedArticle(array $overrides = []): Article
     {
-        $article = $this->makeArticle($this->makeCandidate(), ['status' => 'approved']);
+        $article = $this->makeArticle($this->makeCandidate(), ['status' => 'approved', ...$overrides]);
         $snapshot = QaSnapshot::build($article);
         ArticleQa::query()->create(['article_id' => $article->id, 'article_version' => 1, 'status' => 'completed', 'input_snapshot' => $snapshot,
             'input_hash' => QaSnapshot::hash($snapshot), 'overall_score' => 95, 'qa_passed' => true, 'pass_score' => 85]);
@@ -78,6 +78,18 @@ final class PublishTest extends TestCase
 
         $this->postJson("/api/article-versions/{$article->id}/wordpress/sync", [])->assertStatus(202);
         $this->assertSame(1, $this->wp->creates);
+    }
+
+    #[Test]
+    public function title_sent_to_wordpress_is_plain_text(): void
+    {
+        $this->connect();
+        $article = $this->approvedArticle(['title' => '</title><script>alert(1)</script>Tytuł']);
+
+        $this->postJson("/api/article-versions/{$article->id}/wordpress", ['status' => 'draft'])->assertStatus(202);
+
+        $this->assertStringNotContainsString('<', $this->wp->posts[101]['title']['raw']);
+        $this->assertStringContainsString('Tytuł', $this->wp->posts[101]['title']['raw']);
     }
 
     #[Test]

@@ -60,6 +60,23 @@ function ce_bridge_schema() {
     $properties['version_id']=['type'=>'integer'];
     return ['type'=>'object','properties'=>$properties,'additionalProperties'=>false];
 }
+// ce_seo is printed by themes/SEO plugins and in the no-plugin fallback: store it as plain text and http(s) URLs only.
+function ce_bridge_sanitize_seo($value) {
+    if (!is_array($value)) { return []; }
+    $text=function ($v) { return is_scalar($v) ? sanitize_text_field((string) $v) : ''; };
+    $clean=[];
+    foreach ($value as $key=>$item) {
+        if (in_array($key,['canonical_url','featured_image_url'],true)) { $clean[$key]=$item===null ? null : esc_url_raw((string) $item); }
+        elseif (in_array($key,['robots_index','robots_follow','include_sources','category_override'],true)) { $clean[$key]=(bool) $item; }
+        elseif (in_array($key,['author_id','version_id'],true)) { $clean[$key]=$item===null ? null : (int) $item; }
+        elseif (in_array($key,['tags','secondary_keywords'],true)) { $clean[$key]=array_values(array_filter(array_map($text,(array) $item),'strlen')); }
+        elseif (in_array($key,['faq','howto_steps'],true)) {
+            $clean[$key]=array_map(function ($entry) use ($text) { return is_array($entry) ? array_map($text,$entry) : []; },(array) $item);
+        }
+        else { $clean[$key]=$item===null ? null : $text($item); }
+    }
+    return $clean;
+}
 add_action('init', function () {
     foreach (ce_bridge_meta_keys() as $key) {
         $type=$key==='ce_seo' ? 'object' : ($key==='rank_math_robots' ? 'array' : 'string');
@@ -67,7 +84,7 @@ add_action('init', function () {
         if ($type==='object') { $rest=['schema'=>ce_bridge_schema()]; }
         if ($type==='array') { $rest=['schema'=>['type'=>'array','items'=>['type'=>'string']]]; }
         register_post_meta('post', $key, ['single'=>true,'type'=>$type,'show_in_rest'=>$rest,
-            'auth_callback'=>'ce_bridge_auth_meta', 'sanitize_callback'=>$type==='string' ? 'sanitize_text_field' : null]);
+            'auth_callback'=>'ce_bridge_auth_meta', 'sanitize_callback'=>$type==='string' ? 'sanitize_text_field' : ($key==='ce_seo' ? 'ce_bridge_sanitize_seo' : null)]);
     }
 });
 function ce_bridge_permalink($post) {
@@ -257,7 +274,7 @@ function ce_bridge_faq_entities($faq) {
 add_action('wp',function () {
     if (ce_bridge_plugin()==='none' && is_singular('post') && ce_bridge_seo()) {
         remove_action('wp_head','rel_canonical');remove_action('wp_head','wp_robots');
-        add_filter('pre_get_document_title',function ($title) { return ce_bridge_seo()['seo_title'] ?? $title; });
+        add_filter('pre_get_document_title',function ($title) { $seo=ce_bridge_seo(); return !empty($seo['seo_title']) ? wp_strip_all_tags($seo['seo_title']) : $title; });
         add_action('wp_head',function () {
             $seo=ce_bridge_seo();
             echo '<meta name="description" content="'.esc_attr($seo['meta_description']).'">';
