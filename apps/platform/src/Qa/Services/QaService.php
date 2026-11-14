@@ -37,7 +37,9 @@ final class QaService
 
     public function retry(Article $article, ?string $key): PipelineJob
     {
-        if ($key !== null && ($replay = $this->byKey->execute($key)) !== null && $replay->retry_of_job_id !== null) {
+        $workspaceId = $article->candidate->workspace_id;
+        if ($key !== null && ($replay = $this->byKey->execute($workspaceId, $key)) !== null && $replay->retry_of_job_id !== null
+            && $replay->kind === JobKind::QaArticle && $replay->candidate_id === $article->candidate_id) {
             return $replay;
         }
         $report = $this->latestQa->execute($article->id);

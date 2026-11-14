@@ -56,7 +56,7 @@ final class ClassificationService
                 continue;
             }
             $childKey = Uuid::uuid5($key, (string) $candidateId)->toString();
-            $existed = $this->byKey->execute($childKey) !== null;
+            $existed = $this->byKey->execute($workspaceId, $childKey) !== null;
             try {
                 $job = $this->enqueue->enqueue(JobKind::Classify, $candidateId, [], $childKey);
                 $result->job_ids[] = $job->id;
@@ -68,7 +68,7 @@ final class ClassificationService
                 $result->skipped_budget = count($ids) - $index;
                 break;
             } catch (JobConflictException) {
-                $child = $this->byKey->execute($childKey);
+                $child = $this->byKey->execute($workspaceId, $childKey);
                 if ($child !== null) {
                     $result->job_ids[] = $child->id;
                     $result->existing++;

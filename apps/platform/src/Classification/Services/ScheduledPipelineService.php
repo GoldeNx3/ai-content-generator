@@ -89,7 +89,7 @@ final class ScheduledPipelineService
         $enqueued = 0;
         foreach ($this->unclassified->execute($workspaceId, $limit, withoutClassifyHistory: true) as $candidateId) {
             try {
-                $key = Uuid::uuid5(self::NAMESPACE, "scheduled-classify:{$candidateId}")->toString();
+                $key = $this->scheduledKey($candidateId);
                 $this->enqueue->enqueue(JobKind::Classify, $candidateId, [], $key);
                 $enqueued++;
             } catch (JobConflictException) {
@@ -105,5 +105,12 @@ final class ScheduledPipelineService
         }
 
         return [$enqueued, false];
+    }
+
+    private function scheduledKey(int $candidateId): string
+    {
+        $hash = hash_hmac('sha256', "scheduled-classify:{$candidateId}", (string) config('app.key'));
+
+        return Uuid::uuid5(self::NAMESPACE, $hash)->toString();
     }
 }

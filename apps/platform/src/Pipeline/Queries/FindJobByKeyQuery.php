@@ -6,8 +6,8 @@ use Modules\Pipeline\Models\PipelineJob;
 
 final class FindJobByKeyQuery
 {
-    public function execute(string $key): ?PipelineJob
+    public function execute(int $workspaceId, string $key): ?PipelineJob
     {
-        return PipelineJob::query()->where('idempotency_key', $key)->first();
+        return PipelineJob::query()->where('workspace_id', $workspaceId)->where('idempotency_key', $key)->first();
     }
 }

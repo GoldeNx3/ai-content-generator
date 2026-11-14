@@ -14,6 +14,7 @@ use Modules\Pipeline\Exceptions\JobInputException;
 use Modules\Pipeline\Jobs\RunPipelineJob;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Queries\ActiveCandidateJobQuery;
+use Modules\Pipeline\Queries\CandidateWorkspaceQuery;
 use Modules\Pipeline\Queries\FindJobByKeyQuery;
 use Modules\Pipeline\Queries\LockCandidateQuery;
 use Modules\Shared\Exceptions\ApiException;
@@ -30,19 +31,21 @@ final class EnqueueService
         private readonly HandlerRegistry $handlers,
         private readonly BudgetService $budget,
         private readonly WorkspacePausedQuery $paused,
+        private readonly CandidateWorkspaceQuery $candidateWorkspace,
     ) {}
 
     public function enqueue(JobKind $kind, int $candidateId, array $options = [], ?string $key = null, ?string $retryOf = null): PipelineJob
     {
         $key ??= (string) Str::uuid();
         $hash = $this->requestHash($kind, $candidateId, $options);
-        if ($previous = $this->replay($key, $hash)) {
+        $workspaceId = $this->candidateWorkspace->execute($candidateId) ?? throw new JobInputException('Candidate not found', 404);
+        if ($previous = $this->replay($workspaceId, $key, $hash)) {
             return $previous;
         }
         try {
-            $job = DB::transaction(function () use ($kind, $candidateId, $options, $key, $hash, $retryOf): PipelineJob {
+            $job = DB::transaction(function () use ($kind, $candidateId, $options, $key, $hash, $retryOf, $workspaceId): PipelineJob {
                 $candidate = $this->lockCandidate->execute($candidateId);
-                if ($previous = $this->replay($key, $hash)) {
+                if ($previous = $this->replay($workspaceId, $key, $hash)) {
                     return $previous;
                 }
                 if ($active = $this->activeJob->execute($candidateId)) {
@@ -66,7 +69,7 @@ final class EnqueueService
                 return $job;
             });
         } catch (UniqueConstraintViolationException $exception) {
-            if ($previous = $this->replay($key, $hash)) {
+            if ($previous = $this->replay($workspaceId, $key, $hash)) {
                 return $previous;
             }
             throw new JobConflictException('candidate_busy');
@@ -78,9 +81,9 @@ final class EnqueueService
         return $job->refresh();
     }
 
-    private function replay(string $key, string $hash): ?PipelineJob
+    private function replay(int $workspaceId, string $key, string $hash): ?PipelineJob
     {
-        $previous = $this->byKey->execute($key);
+        $previous = $this->byKey->execute($workspaceId, $key);
         if ($previous !== null && $previous->request_hash !== $hash) {
             throw new JobConflictException('idempotency_conflict', $previous->id);
         }
