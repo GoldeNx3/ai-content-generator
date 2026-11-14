@@ -6,6 +6,7 @@ from app.schemas.qa import QAIssueOutput
 
 N = 8
 WORD = re.compile(r"\w+", re.UNICODE)
+FENCE = re.compile(r"^[ \t]*(```|~~~).*?^[ \t]*\1[^\n]*$", re.S | re.M)
 
 
 def _grams(text: str) -> set[tuple[str, ...]]:
@@ -17,13 +18,10 @@ def _paragraphs(content: str) -> list[tuple[str | None, str]]:
     """Akapity prozy z nagłówkiem sekcji; kod i cytaty pominięte."""
     heading: str | None = None
     found: list[tuple[str | None, str]] = []
-    in_code = False
-    for block in re.split(r"\n\s*\n", content):
+    prose = FENCE.sub("\n\n", content)
+    for block in re.split(r"\n\s*\n", prose):
         stripped = block.strip()
-        if stripped.startswith("```"):
-            in_code = not in_code if stripped.count("```") % 2 else in_code
-            continue
-        if in_code or not stripped or stripped.startswith(">"):
+        if not stripped or stripped.startswith(">"):
             continue
         if stripped.startswith("#"):
             heading = stripped.lstrip("#").strip()

@@ -59,6 +59,7 @@ final class BlogMemoryTest extends TestCase
 
         $links = collect($this->aiRequests)->firstWhere('task', 'article.brief')['input']['internal_links'];
         $this->assertSame([['title' => 'Kolejki w Laravel – jak je monitorować', 'url' => 'https://wp.example/blog/kolejki-w-laravel/']], $links);
+        $this->assertSame('https://wp.example/blog', collect($this->aiRequests)->firstWhere('task', 'article.brief')['input']['blog_url']);
     }
 
     #[Test]
@@ -73,5 +74,37 @@ final class BlogMemoryTest extends TestCase
         $covered = collect($this->aiRequests)->firstWhere('task', 'classify')['input']['candidate']['already_covered'];
         $this->assertSame('Kolejki w Laravel – jak je monitorować', $covered['title']);
         $this->assertSame('https://wp.example/blog/kolejki-w-laravel/', $covered['url']);
+    }
+
+    #[Test]
+    public function a_blog_with_exactly_one_full_page_of_posts_is_synced(): void
+    {
+        $this->wp->published = array_map(fn (int $i) => ['id' => $i, 'link' => "https://wp.example/blog/p{$i}/", 'title' => "Wpis {$i}", 'excerpt' => ''], range(1, 100));
+
+        $this->postJson('/api/wordpress/posts/sync')->assertOk()->assertJsonPath('count', 100);
+    }
+
+    #[Test]
+    public function disconnecting_or_changing_the_site_forgets_the_old_posts(): void
+    {
+        $this->postJson('/api/wordpress/posts/sync')->assertOk();
+
+        $this->deleteJson('/api/wordpress/connection')->assertNoContent();
+
+        $this->assertSame(0, DB::table('wordpress_posts')->count());
+        $this->postJson('/api/wordpress/posts/sync')->assertOk()->assertJsonPath('count', 0);
+    }
+
+    #[Test]
+    public function a_broken_blog_response_never_fails_the_paid_writing_step(): void
+    {
+        $this->wp->postsListBody = [['link' => 'https://wp.example/blog/bez-id/', 'title' => 'Kolejki w Laravel']];
+        $this->fakeAi(['article.brief' => self::aiError('invalid_output')]);
+        $candidate = $this->makeCandidate(['title' => 'Laravel 13: nowe kolejki']);
+        $this->completedResearch($candidate);
+
+        $this->postJson("/api/candidates/{$candidate->id}/article", ['article_format' => 'auto'])->assertStatus(202);
+
+        $this->assertSame([], collect($this->aiRequests)->firstWhere('task', 'article.brief')['input']['internal_links']);
     }
 }

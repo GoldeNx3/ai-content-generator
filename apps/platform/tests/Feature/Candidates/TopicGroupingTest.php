@@ -80,6 +80,54 @@ final class TopicGroupingTest extends TestCase
     }
 
     #[Test]
+    public function reclassifying_a_group_primary_classifies_it_again_and_keeps_its_group(): void
+    {
+        $first = $this->makeCandidate(['title' => 'OpenAI wydało nowy model']);
+        $this->classify($first);
+        $second = $this->makeCandidate(['title' => 'Nowy model GPT-6 od firmy']);
+        $this->classify($second);
+        $this->aiRequests = [];
+
+        $this->classify($first);
+
+        $this->assertContains('classify', $this->aiTasks());
+        $this->assertNull($first->refresh()->topic_group_id);
+        $this->assertSame($first->id, $second->refresh()->topic_group_id);
+        $this->getJson('/api/candidates')->assertJsonPath('items.0.id', $first->id)->assertJsonPath('items.0.group_size', 2);
+    }
+
+    #[Test]
+    public function a_group_primary_never_joins_another_group(): void
+    {
+        $other = $this->makeCandidate(['title' => 'OpenAI pokazało model']);
+        $first = $this->makeCandidate(['title' => 'Kubernetes zmienia API']);
+        $this->classify($first);
+        $member = $this->makeCandidate(['title' => 'Kubernetes i nowe API']);
+        DB::table('candidates')->where('id', $member->id)->update(['topic_group_id' => $first->id]);
+        $this->classify($other);
+        DB::table('candidates')->where('id', $first->id)->update(['title' => 'OpenAI wydało nowy model']);
+        $this->aiRequests = [];
+
+        $this->classify($first->refresh());
+
+        $this->assertContains('classify', $this->aiTasks());
+        $this->assertNull($first->refresh()->topic_group_id);
+    }
+
+    #[Test]
+    public function a_failed_embedding_falls_back_to_a_normal_classification(): void
+    {
+        $this->fakeAi(['embed' => self::aiError('openai_bad_request'), 'classify' => self::aiOk(self::SCORES)]);
+        $candidate = $this->makeCandidate(['title' => 'OpenAI wydało nowy model']);
+
+        $this->classify($candidate);
+
+        $candidate->refresh();
+        $this->assertSame(68, $candidate->total_score);
+        $this->assertNull(DB::table('candidates')->where('id', $candidate->id)->value('embedding'));
+    }
+
+    #[Test]
     public function different_topics_and_other_accounts_are_never_grouped(): void
     {
         $foreign = $this->makeCandidate(['title' => 'OpenAI wydało nowy model'], $this->otherWorkspace()->id);

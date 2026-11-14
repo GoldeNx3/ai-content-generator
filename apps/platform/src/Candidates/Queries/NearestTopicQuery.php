@@ -13,6 +13,7 @@ final class NearestTopicQuery
         return DB::table('candidates')
             ->where('workspace_id', $workspaceId)
             ->where('id', '!=', $candidateId)
+            ->where(fn ($query) => $query->whereNull('topic_group_id')->orWhere('topic_group_id', '!=', $candidateId))
             ->whereNotNull('embedding')
             ->whereNotNull('total_score')
             ->where('created_at', '>=', CarbonImmutable::now()->subDays($windowDays))

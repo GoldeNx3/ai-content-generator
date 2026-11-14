@@ -2,6 +2,7 @@
 
 namespace Modules\Articles\Handlers;
 
+use Modules\Ai\Exceptions\AiTaskException;
 use Modules\Articles\Commands\StoreArticleEmbeddingCommand;
 use Modules\Articles\Queries\RecentArticlesQuery;
 use Modules\Articles\Services\ArticleVersionService;
@@ -10,6 +11,7 @@ use Modules\Pipeline\Contracts\BaseStageHandler;
 use Modules\Pipeline\Data\StageResult;
 use Modules\Pipeline\Enums\JobKind;
 use Modules\Pipeline\Exceptions\JobInputException;
+use Modules\Pipeline\Exceptions\StageFailedException;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Services\JobRunContext;
 use Modules\Pipeline\Support\CallUsage;
@@ -65,6 +67,7 @@ final class WriteHandler extends BaseStageHandler
             'editorial' => $job->payload['editorial'] ?? null,
             'editor_take' => $candidate->editor_take,
             'internal_links' => $internalLinks,
+            'blog_url' => $this->blogMemory->blogUrl($candidate->workspace_id),
         ]);
 
         $context->stage('writing');
@@ -78,7 +81,7 @@ final class WriteHandler extends BaseStageHandler
             'warnings' => $brief['result']['warnings'],
         ]);
 
-        $embedded = $context->ai('embed', 'embed', ['texts' => [trim(($written['result']['title'] ?? '')."\n".($written['result']['lead'] ?? ''))]]);
+        $embedded = $this->embedArticle($context, $written['result']);
 
         $context->stage('validating');
         $context->finish(function () use ($job, $research, $brief, $written, $embedded): StageResult {
@@ -105,7 +108,9 @@ final class WriteHandler extends BaseStageHandler
                 'writer_cost_usd' => $writerUsage->costUsd,
             ]);
 
-            $this->storeEmbedding->execute($article->id, $embedded['result']['vectors'][0]);
+            if ($embedded['result'] !== null) {
+                $this->storeEmbedding->execute($article->id, $embedded['result']['vectors'][0]);
+            }
 
             return new StageResult('article', $article->id);
         });
@@ -130,5 +135,24 @@ final class WriteHandler extends BaseStageHandler
             'uncertainties' => $research->uncertainties ?? [],
             'conflicts' => $research->conflicts ?? [],
         ];
+    }
+
+    private function embedArticle(JobRunContext $context, array $article): array
+    {
+        try {
+            return $context->ai('embed', 'embed', ['texts' => [trim(($article['title'] ?? '')."\n".($article['lead'] ?? ''))]]);
+        } catch (AiTaskException $exception) {
+            if ($exception->retryable) {
+                throw $exception;
+            }
+
+            return ['result' => null, 'calls' => $exception->calls];
+        } catch (StageFailedException $exception) {
+            if ($exception->errorCode !== 'budget_exceeded') {
+                throw $exception;
+            }
+
+            return ['result' => null, 'calls' => []];
+        }
     }
 }

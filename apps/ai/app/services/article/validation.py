@@ -224,21 +224,41 @@ def banned_phrases_found(text: str, phrases: list[str]) -> list[str]:
     return [phrase for phrase in phrases if phrase.strip() and phrase.lower() in lowered]
 
 
-def enforce_internal_links(text: str, allowed: list[dict[str, str]] | None) -> tuple[str, list[str]]:
-    """Linki do bloga spoza listy dozwolonych wpisów zamienia na sam tekst; linki zewnętrzne zostawia."""
+def _link_key(url: str) -> tuple[str, str, str]:
+    from urllib.parse import parse_qsl, urlencode, urlsplit
+    parts = urlsplit(url)
+    host = parts.netloc.lower().removeprefix("www.")
+    query = urlencode(sorted((k, v) for k, v in parse_qsl(parts.query) if not k.lower().startswith("utm_") and k.lower() not in {"fbclid", "gclid"}))
+    return host, parts.path.rstrip("/"), query
+
+
+def enforce_internal_links(text: str, allowed: list[dict[str, str]] | None,
+                           blog_url: str | None = None) -> tuple[str, list[str]]:
+    """Linki do bloga (także względne i <a href>) spoza listy dozwolonych wpisów zamienia na sam tekst;
+    linki zewnętrzne zostawia. Adresy porównywane bez www, końcowego / i parametrów śledzących."""
     import re
-    from urllib.parse import urlsplit
+    from urllib.parse import urljoin, urlsplit
     allowed = allowed or []
-    hosts = {urlsplit(link["url"]).netloc.lower() for link in allowed}
-    urls = {link["url"] for link in allowed}
+    keys = {_link_key(link["url"]) for link in allowed}
+    hosts = {key[0] for key in keys}
+    if blog_url:
+        hosts.add(_link_key(blog_url)[0])
     removed: list[str] = []
 
-    def replace(match: "re.Match[str]") -> str:
-        label, url = match.group(1), match.group(2)
-        if urlsplit(url).netloc.lower() in hosts and url not in urls:
+    def decide(label: str, url: str, original: str) -> str:
+        if not urlsplit(url).scheme:
+            if not blog_url:
+                removed.append(url)
+                return label
+            url = urljoin(blog_url.rstrip("/") + "/", url)
+        key = _link_key(url)
+        if key[0] in hosts and key not in keys:
             removed.append(url)
             return label
-        return match.group(0)
+        return original
 
-    return re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", replace, text), removed
+    text = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", lambda m: decide(m.group(1), m.group(2), m.group(0)), text)
+    text = re.sub(r"<a\s[^>]*href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", lambda m: decide(m.group(2), m.group(1), m.group(0)), text,
+                  flags=re.I | re.S)
+    return text, removed
 

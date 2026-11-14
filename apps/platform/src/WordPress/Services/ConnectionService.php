@@ -10,6 +10,7 @@ use Modules\WordPress\Client\WordPressClientFactory;
 use Modules\WordPress\Commands\ConsumeAuthRequestCommand;
 use Modules\WordPress\Commands\CreateAuthRequestCommand;
 use Modules\WordPress\Commands\DeleteConnectionCommand;
+use Modules\WordPress\Commands\ReplaceWordPressPostsCommand;
 use Modules\WordPress\Commands\SaveConnectionCommand;
 use Modules\WordPress\Commands\UnlinkPublicationsCommand;
 use Modules\WordPress\Commands\UpdateConnectionCommand;
@@ -38,6 +39,7 @@ final class ConnectionService
         private readonly UnlinkPublicationsCommand $unlinkPublications,
         private readonly CreateAuthRequestCommand $createAuthRequest,
         private readonly ConsumeAuthRequestCommand $consumeAuthRequest,
+        private readonly ReplaceWordPressPostsCommand $replacePosts,
     ) {}
 
     public function find(int $workspaceId): ?WordPressConnection
@@ -74,6 +76,7 @@ final class ConnectionService
             $instance = $existing?->instance_id ?? 'ce-'.Str::lower(Str::random(32));
             if ($siteChanged) {
                 $this->unlinkPublications->execute($workspaceId, $existing->instance_id);
+                $this->replacePosts->execute($workspaceId, []);
                 $instance = 'ce-'.Str::lower(Str::random(32));
             }
 
@@ -96,18 +99,23 @@ final class ConnectionService
         } catch (WordPressException $exception) {
             $attributes['last_error'] = $exception->errorCode;
         }
+
         return $this->updateConnection->execute($connection, $attributes);
     }
 
     public function updateDefaults(int $workspaceId, array $values): WordPressConnection
     {
         $connection = $this->find($workspaceId) ?? throw new ApiException('wordpress_not_configured', 404);
+
         return $this->updateConnection->execute($connection, $values);
     }
 
     public function disconnect(int $workspaceId): void
     {
-        $this->deleteConnection->execute($workspaceId);
+        DB::transaction(function () use ($workspaceId): void {
+            $this->deleteConnection->execute($workspaceId);
+            $this->replacePosts->execute($workspaceId, []);
+        });
     }
 
     public function startAuthorization(int $workspaceId, int $userId, string $siteUrl, ?string $apiUrl): string

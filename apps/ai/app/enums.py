@@ -44,6 +44,7 @@ class ResearchSourceOrigin(StrEnum):
     ORIGINAL = "original"  # Candidate.external_url
     SEARCH = "search"  # found by SearchProvider
     MANUAL = "manual"  # added by the user
+    SIBLING = "sibling"  # another report of the same story (topic group)
 
 
 class FetchStatus(StrEnum):

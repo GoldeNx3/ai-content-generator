@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Articles;
 
+use Illuminate\Support\Facades\DB;
 use Modules\Articles\Models\Article;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\BuildsArticles;
@@ -80,7 +81,20 @@ final class ArticlesTest extends TestCase
         $this->postJson("/api/candidates/{$candidate->id}/article", ['article_format' => 'auto'])->assertStatus(202);
 
         $this->assertSame(['article.brief', 'article.write', 'embed'], array_column($this->aiRequests, 'task'));
-        $this->assertNotNull(\Illuminate\Support\Facades\DB::table('articles')->value('embedding'));
+        $this->assertNotNull(DB::table('articles')->value('embedding'));
+    }
+
+    #[Test]
+    public function a_failed_embedding_never_throws_away_a_paid_article(): void
+    {
+        $this->fakeAi([...$this->writerFakes(), 'embed' => self::aiError('openai_bad_request')]);
+        $candidate = $this->makeCandidate();
+        $this->completedResearch($candidate);
+
+        $this->postJson("/api/candidates/{$candidate->id}/article", ['article_format' => 'auto'])->assertStatus(202);
+
+        $this->assertSame(1, DB::table('articles')->where('candidate_id', $candidate->id)->count());
+        $this->assertNull(DB::table('articles')->value('embedding'));
     }
 
     #[Test]

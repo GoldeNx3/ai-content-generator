@@ -8,6 +8,7 @@ use Modules\WordPress\Commands\ReplaceWordPressPostsCommand;
 use Modules\WordPress\Data\ConnectionConfig;
 use Modules\WordPress\Exceptions\WordPressException;
 use Modules\WordPress\Queries\WordPressPostsQuery;
+use Throwable;
 
 final class BlogMemoryService
 {
@@ -35,18 +36,30 @@ final class BlogMemoryService
     {
         $connection = $this->connections->find($workspaceId);
         if ($connection === null) {
+            $this->replace->execute($workspaceId, []);
+
             return $this->summary($workspaceId);
         }
         $client = $this->clients->make(ConnectionConfig::fromModel($connection));
         $posts = [];
         for ($page = 1; $page <= self::MAX_PAGES; $page++) {
-            $batch = $client->request('GET', 'wp/v2/posts', ['query' => ['status' => 'publish', 'per_page' => 100, 'page' => $page, '_fields' => 'id,link,title,excerpt']]);
+            try {
+                $batch = $client->request('GET', 'wp/v2/posts', ['query' => ['status' => 'publish', 'per_page' => 100, 'page' => $page, '_fields' => 'id,link,title,excerpt']]);
+            } catch (WordPressException $exception) {
+                if ($page > 1 && $exception->errorCode === 'wordpress_http_400') {
+                    break;
+                }
+                throw $exception;
+            }
+            if (! array_is_list($batch)) {
+                throw new WordPressException('wordpress_invalid_json');
+            }
             foreach ($batch as $post) {
-                $url = (string) ($post['link'] ?? '');
-                if (! in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+                $url = is_array($post) && is_scalar($post['link'] ?? null) ? (string) $post['link'] : '';
+                if (! is_numeric($post['id'] ?? null) || ! in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true)) {
                     continue;
                 }
-                $posts[] = ['post_id' => (int) $post['id'], 'url' => mb_substr($url, 0, 2048),
+                $posts[(int) $post['id']] = ['post_id' => (int) $post['id'], 'url' => mb_substr($url, 0, 2048),
                     'title' => mb_substr(html_entity_decode(strip_tags((string) ($post['title']['rendered'] ?? '')), ENT_QUOTES), 0, 1000),
                     'excerpt' => mb_substr(trim(html_entity_decode(strip_tags((string) ($post['excerpt']['rendered'] ?? '')), ENT_QUOTES)), 0, 2000)];
             }
@@ -54,9 +67,14 @@ final class BlogMemoryService
                 break;
             }
         }
-        $this->replace->execute($workspaceId, $posts);
+        $this->replace->execute($workspaceId, array_values($posts));
 
         return $this->summary($workspaceId);
+    }
+
+    public function blogUrl(int $workspaceId): ?string
+    {
+        return $this->connections->find($workspaceId)?->site_url;
     }
 
     public function refreshIfStale(int $workspaceId): void
@@ -67,7 +85,8 @@ final class BlogMemoryService
         }
         try {
             $this->sync($workspaceId);
-        } catch (WordPressException) {
+        } catch (Throwable $exception) {
+            report($exception);
         }
     }
 

@@ -74,6 +74,7 @@ class BriefInput(BaseModel):
     editorial: EditorialProfile | None = None
     editor_take: str | None = Field(default=None, max_length=3000)
     internal_links: list[dict[str, str]] = Field(default_factory=list, max_length=30)
+    blog_url: str | None = Field(default=None, max_length=2048)
 
 
 class WriteInput(BaseModel):
@@ -136,6 +137,7 @@ def _context(payload: BriefInput, ctx: TaskContext) -> ArticleContext:
         editorial=payload.editorial.model_dump() if payload.editorial else None,
         editor_take=(payload.editor_take or "").strip() or None,
         internal_links=payload.internal_links or None,
+        blog_url=payload.blog_url,
     )
 
 
@@ -175,15 +177,13 @@ async def brief(data: dict, ctx: TaskContext) -> dict:
     return {"context": context_data, "brief": validated.model_dump(mode="json"), "warnings": warnings}
 
 
-def _enforce_links(output, allowed):
-    if not allowed:
-        return output, []
+def _enforce_links(output, allowed, blog_url=None):
     removed: list[str] = []
-    lead, gone = enforce_internal_links(output.lead, allowed); removed += gone
-    conclusion, gone = enforce_internal_links(output.conclusion, allowed); removed += gone
+    lead, gone = enforce_internal_links(output.lead, allowed, blog_url); removed += gone
+    conclusion, gone = enforce_internal_links(output.conclusion, allowed, blog_url); removed += gone
     sections = []
     for section in output.sections:
-        content, gone = enforce_internal_links(section.content, allowed); removed += gone
+        content, gone = enforce_internal_links(section.content, allowed, blog_url); removed += gone
         sections.append(section.model_copy(update={"content": content}))
     return output.model_copy(update={"lead": lead, "conclusion": conclusion, "sections": sections}), removed
 
@@ -218,7 +218,7 @@ async def write(data: dict, ctx: TaskContext) -> dict:
     writer = ctx.providers["write"]
     result = await ctx.call("writing", lambda: writer.write_article(writer_context, brief_model))
     output = sanitize_output(result.output)
-    output, removed_links = _enforce_links(output, context.internal_links)
+    output, removed_links = _enforce_links(output, context.internal_links, context.blog_url)
     validated = validate_writer_output(output, context.facts, {s.id for s in context.sources},
                                        brief_model.required_facts, reference_texts=_reference_texts(context))
     warnings = [*payload.warnings, *validated.warnings]

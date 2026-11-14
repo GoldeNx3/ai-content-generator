@@ -133,6 +133,7 @@ class ArticleContext:
     editorial: dict[str, object] | None = None
     editor_take: str | None = None
     internal_links: list[dict[str, str]] | None = None
+    blog_url: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

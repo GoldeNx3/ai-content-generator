@@ -21,6 +21,8 @@ final class FakeWordPress
 
     public array $published = [];
 
+    public ?array $postsListBody = null;
+
     public array $metaKeys = ['_yoast_wpseo_title', '_yoast_wpseo_metadesc', '_yoast_wpseo_canonical'];
 
     public function handle(Request $request)
@@ -91,6 +93,12 @@ final class FakeWordPress
         if (str_ends_with($path, '/wp/v2/posts') && $request->method() === 'GET') {
             parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
             $page = (int) ($query['page'] ?? 1);
+            if ($this->postsListBody !== null) {
+                return Http::response($this->postsListBody);
+            }
+            if ($page > 1 && ($page - 1) * 100 >= count($this->published)) {
+                return Http::response(['code' => 'rest_post_invalid_page_number'], 400);
+            }
             $chunk = array_slice($this->published, ($page - 1) * 100, 100);
 
             return Http::response(array_map(fn (array $post) => ['id' => $post['id'], 'link' => $post['link'], 'title' => ['rendered' => $post['title']],

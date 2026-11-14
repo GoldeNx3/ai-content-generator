@@ -88,3 +88,59 @@ async def test_fact_basis_survives_research_and_the_article_snapshot():
     assert FactPayload(id=1, claim='c', importance='high', confidence=60, basis='vendor_claim').basis == 'vendor_claim'
     snapshot = _snapshot(context([FactInput(1, 'c', 'high', 60, [3], basis='vendor_claim')]))
     assert snapshot['facts'][0]['basis'] == 'vendor_claim'
+
+
+async def test_sources_from_the_same_topic_group_are_accepted_by_analysis():
+    from ai.runtime import run
+    original = {'id': 3, 'url': 'https://demo.content-engine.invalid/a', 'origin': 'original', 'fetch_status': 'success',
+                'extracted_content': 'Treść źródła o nowym modelu.'}
+    sibling = {**original, 'id': 4, 'url': 'https://b.example/x', 'origin': 'sibling'}
+    analysed = await run({'task': 'research.analyse', 'demo': True, 'input': {
+        'candidate': {'title': 'Nowy model', 'summary': 'Opis', 'source': 'Blog'}, 'original_url': original['url'],
+        'sources': [original, sibling]}})
+    assert analysed['ok'], analysed
+
+
+CODE = 'php artisan queue:work redis --queue=pipeline --tries=3 --timeout=300 --sleep=1 --max-jobs=1000 --max-time=3600 --memory=512 --rest=0 --backoff=15 --name=worker'
+
+
+def test_prose_after_a_code_block_with_blank_lines_is_still_checked():
+    content = f'## Kod\n\n```bash\necho start\n\necho koniec\n```\n\n## Co wiemy\n\n{SOURCE}'
+    issues = source_overlap_issues(snapshot(content), 0.15)
+    assert [issue.excerpt for issue in issues] == [SOURCE]
+
+
+def test_code_glued_to_a_paragraph_is_not_counted_as_prose():
+    data = snapshot(f'## Uruchomienie\n\nWorker startujemy jednym poleceniem:\n```bash\n{CODE}\n```')
+    data['research']['sources'][0]['content'] = CODE
+    assert source_overlap_issues(data, 0.15) == []
+
+
+BLOG = 'https://wp.example/blog'
+ALLOWED = [{'title': 'Kolejki', 'url': 'https://wp.example/blog/kolejki/'}]
+
+
+def test_allowed_blog_links_survive_small_url_differences():
+    from app.services.article.validation import enforce_internal_links
+    text = '[a](https://wp.example/blog/kolejki) [b](https://www.wp.example/blog/kolejki/?utm_source=x)'
+    assert enforce_internal_links(text, ALLOWED, BLOG) == (text, [])
+
+
+def test_relative_html_and_unlisted_blog_links_are_unlinked_even_without_a_list():
+    from app.services.article.validation import enforce_internal_links
+    text = ('[rel](/blog/nie-ma/) <a href="https://wp.example/blog/nie-ma/">html</a> '
+            '[www](https://www.wp.example/blog/inny/) [zewn](https://laravel.com/docs)')
+    cleaned, removed = enforce_internal_links(text, [], BLOG)
+    assert cleaned == 'rel html www [zewn](https://laravel.com/docs)'
+    assert len(removed) == 3
+    assert enforce_internal_links('[rel](/x/)', [], None)[0] == 'rel'
+
+
+def test_blog_links_are_checked_even_when_no_post_matched_the_topic():
+    from ai.tasks.article import _enforce_links
+    from tests.article_fakes import make_output
+    output = make_output([1, 2], [2, 3])
+    output = output.model_copy(update={'lead': 'Zobacz [stary](https://wp.example/blog/zmyslony/).'})
+    cleaned, removed = _enforce_links(output, [], BLOG)
+    assert cleaned.lead == 'Zobacz stary.'
+    assert removed == ['https://wp.example/blog/zmyslony/']
