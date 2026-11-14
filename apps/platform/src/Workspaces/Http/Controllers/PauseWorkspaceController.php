@@ -18,6 +18,6 @@ final class PauseWorkspaceController
     {
         $this->workspace->requireOwner();
 
-        return response()->json(['paused_at' => $this->pause->pause($this->workspace->id())->toIso8601ZuluString()]);
+        return response()->json(['paused_at' => $this->pause->pause($this->workspace->id())->toAtomString()]);
     }
 }
