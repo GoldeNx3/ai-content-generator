@@ -16,8 +16,6 @@ final class ResumeWorkspaceController
     #[Post('workspace/resume')]
     public function __invoke(): JsonResponse
     {
-        $this->workspace->requireOwner();
-
         return response()->json(['paused_at' => null, 'resumed_jobs' => $this->pause->resume($this->workspace->id())]);
     }
 }

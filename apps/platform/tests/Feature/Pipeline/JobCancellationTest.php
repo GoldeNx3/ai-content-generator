@@ -11,7 +11,6 @@ use Modules\Pipeline\Services\JobRunContext;
 use Modules\Pipeline\Services\RunningJobWriter;
 use Modules\Research\Enums\ResearchStatus;
 use Modules\Research\Models\Research;
-use Modules\Workspaces\Enums\WorkspaceRole;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\BuildsDomain;
 use Tests\Support\FakesAi;
@@ -147,16 +146,6 @@ final class JobCancellationTest extends TestCase
         $this->assertSame(JobStatus::Running, $running->fresh()->status);
         $this->assertNull($running->fresh()->cancel_requested_at);
         $this->assertSame(JobStatus::Queued, $foreign->fresh()->status);
-    }
-
-    #[Test]
-    public function members_cancel_single_jobs_but_not_all_pending(): void
-    {
-        $job = $this->makeJob();
-        $this->signIn(WorkspaceRole::Member, $this->workspace);
-
-        $this->postJson('/api/jobs/cancel-pending')->assertStatus(403)->assertJsonPath('detail.code', 'owner_required');
-        $this->postJson("/api/jobs/{$job->id}/cancel")->assertOk()->assertJsonPath('status', 'cancelled');
     }
 
     #[Test]

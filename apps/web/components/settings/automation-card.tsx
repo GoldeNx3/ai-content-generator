@@ -49,21 +49,20 @@ export function AutomationCard() {
     finally { setSaving(false); }
   }
 
-  const locked = !settings?.can_edit || saving;
+  const locked = saving;
   const run = settings?.last_auto_run_result;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle><h2 className="flex items-center gap-2 text-lg font-semibold"><TimerIcon className="size-5" />Automatyka</h2></CardTitle>
-        <CardDescription>Co ten workspace robi sam w tle. Domyślnie nic: pobieranie i ocenę zlecasz ręcznie.</CardDescription>
+        <CardDescription>Co Twoje konto robi samo w tle. Dotyczy tylko Twoich danych. Domyślnie nic: pobieranie i ocenę zlecasz ręcznie.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {error && <p role="alert" className="text-sm text-rose-800">{error}</p>}
         {!settings && !error && <p className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2Icon className="size-4 animate-spin" />Wczytywanie…</p>}
         {settings && <>
-          {!settings.automation_enabled_globally && <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">Administrator wyłączył automatykę dla całej instancji (AUTOMATION_ENABLED=false). Ustawienia zadziałają po jej włączeniu.</p>}
-          {!settings.can_edit && <p className="text-sm text-muted-foreground">Zmieniać może tylko właściciel workspace&apos;u.</p>}
+          {!settings.automation_enabled_globally && <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">Administrator wyłączył automatykę dla całej instancji. Twoje ustawienia zadziałają po jej ponownym włączeniu.</p>}
 
           <div className="flex flex-wrap items-center gap-3">
             <input id="auto-fetch" type="checkbox" className="size-4" checked={settings.auto_fetch_enabled} disabled={locked}
@@ -103,9 +102,9 @@ export function AutomationCard() {
             {settings.paused_at
               ? <p role="status" className="text-sm text-amber-900">Workspace wstrzymany od {formatDate(settings.paused_at)}: worker nie bierze jego zadań, automatyka stoi, nowe zadania nie są przyjmowane.</p>
               : <p className="text-sm text-muted-foreground">Wstrzymanie zatrzymuje wszystkie zadania tego workspace&apos;u (także publikację). Trwające zadanie dokończy bieżący krok.</p>}
-            {settings.can_edit && <Button variant={settings.paused_at ? "default" : "outline"} disabled={saving} onClick={() => void togglePause()}>
+            <Button variant={settings.paused_at ? "default" : "outline"} disabled={saving} onClick={() => void togglePause()}>
               {settings.paused_at ? <><PlayCircleIcon />Wznów workspace</> : <><PauseCircleIcon />Wstrzymaj workspace</>}
-            </Button>}
+            </Button>
           </div>
         </>}
       </CardContent>

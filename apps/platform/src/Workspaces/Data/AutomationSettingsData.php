@@ -17,6 +17,5 @@ final class AutomationSettingsData extends Data
         public ?CarbonImmutable $next_auto_run_at,
         public ?CarbonImmutable $paused_at,
         public bool $automation_enabled_globally,
-        public bool $can_edit,
     ) {}
 }

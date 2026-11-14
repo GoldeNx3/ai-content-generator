@@ -138,7 +138,6 @@ const AUTH_MESSAGES: Record<string, string> = {
   origin_not_allowed: "Żądanie z niedozwolonej domeny.",
   not_authenticated: "Sesja wygasła. Zaloguj się ponownie.",
   not_found: "Nie znaleziono zasobu.",
-  owner_required: "Tę zmianę może wykonać tylko właściciel workspace'u.",
   ...ERROR_MESSAGES,
 };
 

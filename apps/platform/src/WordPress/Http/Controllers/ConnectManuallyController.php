@@ -18,7 +18,6 @@ final class ConnectManuallyController
     #[Post('wordpress/connection')]
     public function __invoke(ManualConnectData $data): JsonResponse
     {
-        $this->workspace->requireOwner();
         $connection = $this->connections->connect($this->workspace->id(), $data->site_url, $data->api_url, $data->username, $data->app_password, $data->confirm_site_change);
 
         return response()->json(ConnectionData::fromModel($connection));

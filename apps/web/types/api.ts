@@ -120,7 +120,6 @@ export interface AutomationSettings {
   next_auto_run_at: string | null;
   paused_at: string | null;
   automation_enabled_globally: boolean;
-  can_edit: boolean;
 }
 export type AutomationUpdate = Partial<Pick<AutomationSettings,
   "auto_fetch_enabled" | "auto_fetch_interval_minutes" | "auto_classify_enabled" | "auto_classify_batch_limit">>;
@@ -443,7 +442,6 @@ export interface WordPressManualConnect {
   confirm_site_change?: boolean;
 }
 
-export type WorkspaceRole = "owner" | "member";
 
 export interface Credentials {
   email: string;
@@ -452,5 +450,5 @@ export interface Credentials {
 
 export interface Me {
   user: { id: number; email: string };
-  workspace: { id: number; name: string; role: WorkspaceRole };
+  workspace: { id: number; name: string };
 }

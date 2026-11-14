@@ -18,7 +18,6 @@ final class CompleteAuthorizationController
     #[Post('wordpress/connection/authorize/complete')]
     public function __invoke(AuthorizeCompleteData $data): JsonResponse
     {
-        $this->workspace->requireOwner();
         $connection = $this->connections->completeAuthorization($this->workspace->id(), (int) auth()->id(), $data->state,
             $data->user_login, $data->password, $data->confirm_site_change);
 

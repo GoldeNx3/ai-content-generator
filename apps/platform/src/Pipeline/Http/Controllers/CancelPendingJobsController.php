@@ -17,8 +17,6 @@ final class CancelPendingJobsController
     #[Post('jobs/cancel-pending')]
     public function __invoke(Request $request): JsonResponse
     {
-        $this->workspace->requireOwner();
-
         return response()->json(['cancelled' => $this->cancellation->cancelPending($this->workspace->id(), $request->user()?->id)]);
     }
 }

@@ -2,7 +2,7 @@
 // /api/auth/me. Live checki: prawdziwe logowanie przez API (UI_TEST_EMAIL / UI_TEST_PASSWORD).
 
 export const SESSION_COOKIE = process.env.SESSION_COOKIE_NAME || 'ce_session';
-export const TEST_ME = { user: { id: 1, email: 'test@example.com' }, workspace: { id: 1, name: 'test', role: 'owner' } };
+export const TEST_ME = { user: { id: 1, email: 'test@example.com' }, workspace: { id: 1, name: 'test' } };
 
 // fetch z credentials: "include" odrzuca "Access-Control-Allow-Origin: *"; odpowiadamy originem żądania.
 export function corsHeaders(route) {

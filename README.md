@@ -47,7 +47,7 @@ make test                       test-platform (PHPUnit) + test-ai (pytest)
 make seed EMAIL=<konto>         ~100 źródeł RSS (AI, PHP, frontend, backend, DevOps, security, PL); GROUPS=php,ai; finance opcjonalnie
 make seed-demo EMAIL=<konto>    tematy demo: pełny pipeline za 0 USD
 make pipeline EMAIL=<konto>     jednorazowo dla jednego konta: RSS + zlecenie oceny (płatne)
-make create-user EMAIL=...      konto bez rejestracji; WORKSPACE=<id> dołącza jako owner
+make create-user EMAIL=...      konto bez rejestracji, zawsze z własnym workspace'em
 make set-budget WORKSPACE=<id> USD=<kwota|default>
 make wipe                       kopia bazy do /tmp, data:wipe (dane i zadania kolejki; konta i połączenia WP zostają)
 make deactivate-user EMAIL=...  blokada konta (activate-user odblokowuje)

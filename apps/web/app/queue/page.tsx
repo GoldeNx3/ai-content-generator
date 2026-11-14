@@ -93,10 +93,10 @@ export default function QueuePage() {
 
     {automation?.paused_at && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
       <p className="flex items-center gap-2"><PauseCircleIcon className="size-5" />Workspace jest wstrzymany od {formatDate(automation.paused_at)}. Worker nie bierze jego zadań, a nowe nie są przyjmowane.</p>
-      {automation.can_edit && <Button size="sm" disabled={busy === "resume"} onClick={() => void resume()}>{busy === "resume" ? "Wznawianie…" : "Wznów"}</Button>}
+      <Button size="sm" disabled={busy === "resume"} onClick={() => void resume()}>{busy === "resume" ? "Wznawianie…" : "Wznów"}</Button>
     </div>}
     {notice && <p role="status" className="rounded-lg bg-muted p-3 text-sm">{notice}</p>}
-    {automation?.can_edit && waiting > 0 && <div className="flex flex-wrap items-center gap-2">
+    {waiting > 0 && <div className="flex flex-wrap items-center gap-2">
       {!confirmCancelAll
         ? <Button size="sm" variant="outline" onClick={() => setConfirmCancelAll(true)}>Anuluj wszystkie oczekujące ({waiting})</Button>
         : <><Button size="sm" variant="destructive" disabled={busy === "cancel-all"} onClick={() => void cancelAll()}>{busy === "cancel-all" ? "Anulowanie…" : `Potwierdź anulowanie ${waiting} zadań`}</Button>

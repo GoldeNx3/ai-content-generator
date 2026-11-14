@@ -16,7 +16,6 @@ use Modules\Auth\Data\UserData;
 use Modules\Auth\Models\User;
 use Modules\Auth\Queries\EmailTakenQuery;
 use Modules\Shared\Exceptions\ApiException;
-use Modules\Workspaces\Enums\WorkspaceRole;
 use Modules\Workspaces\Services\CurrentWorkspace;
 use Modules\Workspaces\Services\WorkspaceService;
 
@@ -48,17 +47,15 @@ final class AuthService
         return $this->me();
     }
 
-    public function createAccount(string $email, string $password, ?int $workspaceId = null): User
+    public function createAccount(string $email, string $password): User
     {
         if ($this->emailTaken->execute($email)) {
             throw new ApiException('email_taken', 409);
         }
 
-        return DB::transaction(function () use ($email, $password, $workspaceId): User {
+        return DB::transaction(function () use ($email, $password): User {
             $user = $this->createUser->execute($email, $password);
-            $workspaceId === null
-                ? $this->workspaces->createForOwner($user->id, $email)
-                : $this->workspaces->join($workspaceId, $user->id, WorkspaceRole::Owner);
+            $this->workspaces->createForOwner($user->id, $email);
 
             return $user;
         });

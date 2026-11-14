@@ -8,7 +8,12 @@ w trybie SPA: sesja Laravela w Redisie, ciasteczko `ce_session` (HttpOnly) i och
 
 - Panel najpierw pobiera `GET /sanctum/csrf-cookie`, potem wysyła żądania z nagłówkiem `X-XSRF-TOKEN`
   (`lib/api.ts`; po `419` odświeża token i ponawia raz). Wszystkie żądania mają `credentials: "include"`.
-- `POST /api/auth/register` tworzy użytkownika, jego workspace (rola `owner`) i od razu sesję.
+- `POST /api/auth/register` tworzy użytkownika, jego własny workspace i od razu sesję.
+- **Jedno konto = jeden tenant.** Każde konto ma dokładnie jeden workspace i żaden workspace nie ma drugiego konta
+  (unikalne indeksy na `workspace_members.user_id` i `workspace_id`). Nie ma członków, ról ani dopinania kont:
+  zalogowany użytkownik widzi i kontroluje wyłącznie swoje dane, a jego pauza, automatyka i anulowanie jobów nie
+  dotykają innych kont. Globalne wyłączniki (`AUTOMATION_ENABLED`, zatrzymanie workera) należą do administratora
+  instancji – docelowo osobny panel Filament.
   Wymaga `ALLOW_REGISTRATION=true`, inaczej `403 registration_disabled`; zajęty email → `409 email_taken`.
 - `POST /api/auth/login` / `POST /api/auth/logout` / `GET /api/auth/me`.
 - Wszystkie inne trasy `/api/*` mają middleware `auth:sanctum`; bez sesji zwracają `401`
@@ -58,9 +63,11 @@ niezaufanych serwisów (np. WordPress); w takim przypadku panel i API powinny mi
 - **Trasy z ID:** `Shared/Routing/WorkspaceBindings` wiąże parametry `source`, `candidate`, `article`,
   `version`, `fix` i `job` tylko w obrębie bieżącego workspace'u. Obcy albo nieistniejący zasób daje
   `404 {"code": "not_found"}`. Nowa trasa z ID musi używać tych nazw (test izolacji przechodzi po wszystkich trasach).
-- **Listy i agregaty** filtrują jawnie po `CurrentWorkspace`. Nowa lista musi robić to samo.
+- **Listy i agregaty** filtrują jawnie po `CurrentWorkspace`. Nowa lista musi robić to samo –
+  `tests/Feature/Architecture/TenantIsolationTest.php` odpytuje każdą trasę GET bez parametrów z danymi drugiego
+  konta i sprawdza, że nic nie przecieka (także liczniki i wydatki). Zapytania o źródła wymagają ID workspace'u.
 - Worker i scheduler działają ponad workspace'ami: nowi kandydaci dziedziczą workspace ze źródła, a joby z kandydata.
-- `make create-user EMAIL=... WORKSPACE=<id>` dołącza konto jako owner istniejącego workspace'u.
+- `make create-user EMAIL=...` zakłada konto z nowym workspace'em (dawne `WORKSPACE=<id>` usunięte).
   Seedy i `wordpress-import` przyjmują `EMAIL=<konto>` albo `WORKSPACE=<id>`; bez nich działają tylko przy
   jednym workspace'ie, a przy kilku kończą się błędem z listą workspace'ów (`ConsoleWorkspaceResolver`).
 
@@ -76,8 +83,8 @@ niezaufanych serwisów (np. WordPress); w takim przypadku panel i API powinny mi
   Zadanie już zlecone może przekroczyć limit o swój koszt.
 - Klasyfikacja zbiorcza zwraca `skipped_budget`. Automatyka stosuje limit ocen z ustawień workspace'u
   (`auto_classify_batch_limit`) i przerywa ocenę workspace'u po przekroczeniu budżetu.
-- Uprawnienia sterowania jobami: ustawienia automatyki, pauza/wznowienie i „anuluj wszystkie oczekujące” – tylko
-  owner; anulowanie pojedynczego joba – każdy członek workspace'u. Odczyt ustawień automatyki – każdy członek.
+- Sterowanie jobami (ustawienia automatyki, pauza/wznowienie, anulowanie pojedyncze i zbiorcze) – właściciel konta,
+  tylko dla swojego workspace'u.
 - Panel: Ustawienia → Zużycie AI (`GET /api/usage`).
 
 ## Ograniczenia

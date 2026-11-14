@@ -17,7 +17,6 @@ final class StartAuthorizationController
     #[Post('wordpress/connection/authorize')]
     public function __invoke(AuthorizeStartData $data): JsonResponse
     {
-        $this->workspace->requireOwner();
         $url = $this->connections->startAuthorization($this->workspace->id(), (int) auth()->id(), $data->site_url, $data->api_url);
 
         return response()->json(['authorize_url' => $url]);

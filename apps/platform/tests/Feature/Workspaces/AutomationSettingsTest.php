@@ -3,7 +3,6 @@
 namespace Tests\Feature\Workspaces;
 
 use Carbon\CarbonImmutable;
-use Modules\Workspaces\Enums\WorkspaceRole;
 use Modules\Workspaces\Models\Workspace;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -28,7 +27,7 @@ final class AutomationSettingsTest extends TestCase
             ->assertJsonPath('next_auto_run_at', null)
             ->assertJsonPath('paused_at', null)
             ->assertJsonPath('automation_enabled_globally', true)
-            ->assertJsonPath('can_edit', true);
+            ->assertJsonMissingPath('can_edit');
     }
 
     #[Test]
@@ -60,20 +59,15 @@ final class AutomationSettingsTest extends TestCase
     }
 
     #[Test]
-    public function member_reads_but_cannot_update(): void
+    public function settings_belong_to_one_account_only(): void
     {
-        $this->signIn(WorkspaceRole::Member, $this->workspace);
+        $other = Workspace::query()->create(['name' => 'inne konto', 'auto_fetch_enabled' => true, 'auto_fetch_interval_minutes' => 15]);
 
-        $this->getJson('/api/workspace/automation')->assertOk()->assertJsonPath('can_edit', false);
-    }
+        $this->getJson('/api/workspace/automation')->assertJsonPath('auto_fetch_enabled', false)->assertJsonPath('auto_fetch_interval_minutes', 60);
+        $this->patchJson('/api/workspace/automation', ['auto_fetch_interval_minutes' => 1440])->assertOk();
 
-    #[Test]
-    public function member_update_is_forbidden(): void
-    {
-        $this->signIn(WorkspaceRole::Member, $this->workspace);
-
-        $this->patchJson('/api/workspace/automation', ['auto_fetch_enabled' => true])->assertStatus(403)->assertJsonPath('detail.code', 'owner_required');
-        $this->assertFalse(Workspace::query()->find($this->workspace->id)->auto_fetch_enabled);
+        $this->assertSame(15, $other->fresh()->auto_fetch_interval_minutes);
+        $this->assertTrue($other->fresh()->auto_fetch_enabled);
     }
 
     #[Test]

@@ -17,8 +17,6 @@ final class UpdateAutomationController
     #[Patch('workspace/automation')]
     public function __invoke(UpdateAutomationData $data): AutomationSettingsData
     {
-        $this->workspace->requireOwner();
-
         return $this->automation->update($this->workspace->id(), $data);
     }
 }

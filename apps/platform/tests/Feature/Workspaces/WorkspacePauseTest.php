@@ -8,7 +8,6 @@ use Modules\Candidates\Models\Candidate;
 use Modules\Pipeline\Enums\JobStatus;
 use Modules\Pipeline\Jobs\RunPipelineJob;
 use Modules\Pipeline\Services\JobRunner;
-use Modules\Workspaces\Enums\WorkspaceRole;
 use Modules\Workspaces\Models\Workspace;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\BuildsDomain;
@@ -81,14 +80,17 @@ final class WorkspacePauseTest extends TestCase
     }
 
     #[Test]
-    public function only_owner_can_pause_and_other_workspaces_are_untouched(): void
+    public function pausing_one_account_leaves_other_accounts_running(): void
     {
         $other = $this->otherWorkspace();
-        $this->signIn(WorkspaceRole::Member);
+        $foreign = $this->makeJob(['available_at' => now()->subMinutes(10)], $this->makeCandidate([], $other->id));
+        $this->postJson('/api/workspace/pause')->assertOk();
+        Queue::fake();
 
-        $this->postJson('/api/workspace/pause')->assertStatus(403)->assertJsonPath('detail.code', 'owner_required');
-        $this->postJson('/api/workspace/resume')->assertStatus(403);
-        $this->assertSame(0, Workspace::query()->whereNotNull('paused_at')->count());
+        $this->artisan('pipeline:recover')->assertSuccessful();
+
         $this->assertNull($other->fresh()->paused_at);
+        Queue::assertPushed(RunPipelineJob::class, fn (RunPipelineJob $job) => $job->jobId === $foreign->id);
+        $this->postJson("/api/candidates/{$this->makeCandidate([], $other->id)->id}/classify")->assertNotFound();
     }
 }

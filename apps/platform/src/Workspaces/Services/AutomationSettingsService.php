@@ -16,7 +16,7 @@ final class AutomationSettingsService
         private readonly UpdateAutomationCommand $updateSettings,
     ) {}
 
-    public function show(int $workspaceId, bool $canEdit): AutomationSettingsData
+    public function show(int $workspaceId): AutomationSettingsData
     {
         $workspace = $this->settings->execute($workspaceId);
         $global = (bool) config('content.automation.enabled');
@@ -31,7 +31,6 @@ final class AutomationSettingsService
             $this->nextRun($workspace, $global),
             $workspace->paused_at,
             $global,
-            $canEdit,
         );
     }
 
@@ -39,7 +38,7 @@ final class AutomationSettingsService
     {
         $this->updateSettings->execute($workspaceId, $data->changes());
 
-        return $this->show($workspaceId, true);
+        return $this->show($workspaceId);
     }
 
     private function nextRun(Workspace $workspace, bool $global): ?CarbonImmutable

@@ -17,8 +17,6 @@ final class UpdateConnectionDefaultsController
     #[Patch('wordpress/connection')]
     public function __invoke(ConnectionDefaultsData $data): ConnectionData
     {
-        $this->workspace->requireOwner();
-
         return ConnectionData::fromModel($this->connections->updateDefaults($this->workspace->id(), $data->values()));
     }
 }

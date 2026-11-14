@@ -6,7 +6,6 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Modules\WordPress\Models\WordPressConnection;
 use Modules\WordPress\Models\WordPressPublication;
-use Modules\Workspaces\Enums\WorkspaceRole;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\Support\BuildsArticles;
 use Tests\Support\BuildsDomain;
@@ -125,14 +124,6 @@ final class ConnectionTest extends TestCase
         config(['content.wordpress.allow_private_urls' => false]);
         $this->postJson('/api/wordpress/connection/authorize', ['site_url' => 'http://127.0.0.1:9'])
             ->assertStatus(422)->assertExactJson(['detail' => ['code' => 'wordpress_connection']]);
-    }
-
-    #[Test]
-    public function members_cannot_change_connection(): void
-    {
-        $this->signIn(WorkspaceRole::Member);
-        $this->postJson('/api/wordpress/connection', $this->manual())->assertStatus(403)->assertExactJson(['detail' => ['code' => 'owner_required']]);
-        $this->deleteJson('/api/wordpress/connection')->assertStatus(403);
     }
 
     #[Test]

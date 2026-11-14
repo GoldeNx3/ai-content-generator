@@ -9,9 +9,9 @@ use Modules\Shared\Exceptions\ApiException;
 
 final class CreateUserCommand extends Command
 {
-    protected $signature = 'users:create {email} {--workspace= : Dołącz jako owner istniejącego workspace\'u}';
+    protected $signature = 'users:create {email}';
 
-    protected $description = 'Zakłada konto (nowy workspace albo dołączenie do istniejącego)';
+    protected $description = 'Zakłada konto z własnym, odrębnym workspace\'em (jedno konto = jeden tenant)';
 
     public function handle(AuthService $auth): int
     {
@@ -26,9 +26,8 @@ final class CreateUserCommand extends Command
 
             return self::FAILURE;
         }
-        $workspace = $this->option('workspace');
         try {
-            $user = $auth->createAccount($email, $password, $workspace === null ? null : (int) $workspace);
+            $user = $auth->createAccount($email, $password);
         } catch (ApiException $exception) {
             $this->error($exception->errorCode);
 

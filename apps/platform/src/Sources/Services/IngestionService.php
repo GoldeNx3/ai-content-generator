@@ -25,7 +25,7 @@ final class IngestionService
         private readonly MarkSourceFetchedCommand $markFetched,
     ) {}
 
-    public function fetchAllActive(?int $workspaceId): FetchResultData
+    public function fetchAllActive(int $workspaceId): FetchResultData
     {
         $total = new FetchResultData;
         foreach ($this->sources->execute($workspaceId, activeOnly: true) as $source) {

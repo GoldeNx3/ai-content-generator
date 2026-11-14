@@ -62,10 +62,10 @@ pipeline:
 	$(ARTISAN) pipeline:scheduled $(WS_ARGS)
 
 # Konto bez publicznej rejestracji: make create-user EMAIL=jan@example.com (hasło pyta interaktywnie).
-# WORKSPACE=<id> dołącza konto jako owner istniejącego workspace'u.
+# Każde konto dostaje własny, odrębny workspace (jedno konto = jeden tenant).
 create-user:
 	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
-	$(ARTISAN) users:create $(EMAIL) $(if $(WORKSPACE),--workspace=$(WORKSPACE))
+	$(ARTISAN) users:create $(EMAIL)
 
 # Blokada konta (logowanie odrzucone, aktywne sesje tracą ważność) i odblokowanie: make deactivate-user EMAIL=...
 deactivate-user:
@@ -153,7 +153,7 @@ seed-prod:
 
 create-user-prod:
 	@test -n "$(EMAIL)" || { echo "Podaj EMAIL=..."; exit 1; }
-	$(DC_PROD) exec platform php artisan users:create $(EMAIL) $(if $(WORKSPACE),--workspace=$(WORKSPACE))
+	$(DC_PROD) exec platform php artisan users:create $(EMAIL)
 
 set-budget-prod:
 	@test -n "$(WORKSPACE)" -a -n "$(USD)" || { echo "Podaj WORKSPACE=<id> USD=<kwota|default>"; exit 1; }

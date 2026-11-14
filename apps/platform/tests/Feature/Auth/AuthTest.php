@@ -2,6 +2,9 @@
 
 namespace Tests\Feature\Auth;
 
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Modules\Auth\Models\User;
 use Modules\Workspaces\Models\WorkspaceMember;
@@ -28,7 +31,7 @@ final class AuthTest extends TestCase
     {
         $this->register()->assertCreated()
             ->assertJsonPath('user.email', 'jan@example.com')
-            ->assertJsonPath('workspace.role', 'owner')
+            ->assertJsonMissingPath('workspace.role')
             ->assertJsonPath('workspace.name', 'jan');
 
         $this->spa()->getJson('/api/auth/me')->assertOk()->assertJsonPath('user.email', 'jan@example.com');
@@ -36,6 +39,31 @@ final class AuthTest extends TestCase
         $this->assertNotSame(self::PASSWORD, $user->password);
         $this->assertTrue(password_verify(self::PASSWORD, $user->password));
         $this->assertSame(1, WorkspaceMember::query()->where('user_id', $user->id)->count());
+    }
+
+    #[Test]
+    public function every_account_is_its_own_tenant(): void
+    {
+        $this->artisan('users:create', ['email' => 'a@example.com'])->expectsQuestion('Hasło (min. 10 znaków)', self::PASSWORD)->assertSuccessful();
+        $this->artisan('users:create', ['email' => 'b@example.com'])->expectsQuestion('Hasło (min. 10 znaków)', self::PASSWORD)->assertSuccessful();
+
+        $workspaces = WorkspaceMember::query()->pluck('workspace_id', 'user_id');
+        $this->assertCount(2, $workspaces);
+        $this->assertCount(2, $workspaces->unique());
+        $this->assertArrayNotHasKey('workspace', $this->app->make(Kernel::class)->all()['users:create']->getDefinition()->getOptions());
+    }
+
+    #[Test]
+    public function database_refuses_a_second_member_or_a_second_workspace(): void
+    {
+        $this->signIn();
+        $second = User::query()->create(['email' => 'drugi@example.com', 'password' => 'secret-password']);
+
+        $other = $this->otherWorkspace();
+        $insert = fn (array $row) => fn () => DB::transaction(fn () => WorkspaceMember::query()->create([...$row, 'role' => 'owner']));
+
+        $this->assertThrows($insert(['workspace_id' => $this->workspace->id, 'user_id' => $second->id]), UniqueConstraintViolationException::class);
+        $this->assertThrows($insert(['workspace_id' => $other->id, 'user_id' => $this->user->id]), UniqueConstraintViolationException::class);
     }
 
     #[Test]
@@ -75,7 +103,7 @@ final class AuthTest extends TestCase
             ->assertStatus(401)->assertExactJson(['detail' => ['code' => 'invalid_credentials']]);
         $this->spa()->postJson('/api/auth/login', ['email' => 'nikt@example.com', 'password' => 'x'])->assertStatus(401);
         $this->spa()->postJson('/api/auth/login', ['email' => 'JAN@example.com', 'password' => self::PASSWORD])
-            ->assertOk()->assertJsonPath('workspace.role', 'owner');
+            ->assertOk()->assertJsonMissingPath('workspace.role');
         $this->spa()->getJson('/api/auth/me')->assertOk();
 
         $this->spa()->postJson('/api/auth/logout')->assertNoContent();

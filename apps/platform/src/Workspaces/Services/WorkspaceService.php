@@ -22,9 +22,4 @@ final class WorkspaceService
 
         return $workspace;
     }
-
-    public function join(int $workspaceId, int $userId, WorkspaceRole $role = WorkspaceRole::Owner): void
-    {
-        $this->addMember->execute($workspaceId, $userId, $role);
-    }
 }

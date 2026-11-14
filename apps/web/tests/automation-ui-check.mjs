@@ -7,7 +7,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const port = process.env.UI_TEST_PORT || '3000';
 const stamp = '2026-11-14T12:00:00+00:00';
 const settings = {auto_fetch_enabled:false,auto_fetch_interval_minutes:60,auto_classify_enabled:false,auto_classify_batch_limit:20,
- last_auto_run_at:null,last_auto_run_result:null,next_auto_run_at:null,paused_at:null,automation_enabled_globally:true,can_edit:true};
+ last_auto_run_at:null,last_auto_run_result:null,next_auto_run_at:null,paused_at:null,automation_enabled_globally:true};
 const patches = [];
 let pausePosts = 0;
 let resumePosts = 0;
@@ -60,18 +60,12 @@ try {
  await page.getByRole('button',{name:'Wstrzymaj workspace',exact:true}).waitFor();
  assert.equal(resumePosts,1);
 
- settings.can_edit=false;
- await page.reload();
- await page.getByText("Zmieniać może tylko właściciel workspace'u.",{exact:true}).waitFor();
- assert.equal(await page.getByLabel('Automatycznie pobieraj RSS (bezpłatne)').isDisabled(),true);
- assert.equal(await page.getByLabel('Częstotliwość pobierania').isDisabled(),true);
- assert.equal(await page.getByRole('button',{name:'Wstrzymaj workspace'}).count(),0);
-
  settings.automation_enabled_globally=false;
  await page.reload();
  await page.getByText(/Administrator wyłączył automatykę/).waitFor();
+ assert.equal(await page.getByText(/tylko właściciel/).count(),0,'no owner-only wording');
  await page.setViewportSize({width:390,height:844});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.screenshot({path:'/tmp/content-automation-mobile.png',fullPage:true});
- console.log('PASS: automation defaults, fetch/interval/classify/limit saves, pause and resume, read-only member view, global switch banner, mobile. No real API calls.');
+ console.log('PASS: automation defaults, fetch/interval/classify/limit saves, pause and resume, no read-only state (one account = one tenant), global switch banner, mobile. No real API calls.');
 } finally {await browser.close();}

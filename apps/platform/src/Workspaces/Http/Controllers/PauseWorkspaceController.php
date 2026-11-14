@@ -16,8 +16,6 @@ final class PauseWorkspaceController
     #[Post('workspace/pause')]
     public function __invoke(): JsonResponse
     {
-        $this->workspace->requireOwner();
-
         return response()->json(['paused_at' => $this->pause->pause($this->workspace->id())->toAtomString()]);
     }
 }

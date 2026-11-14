@@ -5,7 +5,6 @@ namespace Tests;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Modules\Auth\Models\User;
-use Modules\Workspaces\Enums\WorkspaceRole;
 use Modules\Workspaces\Models\Workspace;
 use Modules\Workspaces\Models\WorkspaceMember;
 
@@ -17,11 +16,11 @@ abstract class TestCase extends BaseTestCase
 
     protected User $user;
 
-    protected function signIn(WorkspaceRole $role = WorkspaceRole::Owner, ?Workspace $workspace = null): User
+    protected function signIn(): User
     {
-        $this->workspace = $workspace ?? Workspace::query()->create(['name' => 'test']);
+        $this->workspace = Workspace::query()->create(['name' => 'test']);
         $this->user = User::query()->create(['email' => fake()->unique()->safeEmail(), 'password' => 'secret-password']);
-        WorkspaceMember::query()->create(['workspace_id' => $this->workspace->id, 'user_id' => $this->user->id, 'role' => $role]);
+        WorkspaceMember::query()->create(['workspace_id' => $this->workspace->id, 'user_id' => $this->user->id, 'role' => 'owner']);
         $this->app->forgetScopedInstances();
         $this->actingAs($this->user, 'web');
 

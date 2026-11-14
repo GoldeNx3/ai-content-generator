@@ -23,7 +23,7 @@ make test          # test-platform (php artisan test) + test-ai (pytest in /opt/
 make migrate       # php artisan migrate (also runs via the `migrate` service)
 make seed [GROUPS=ai,php,...] / seed-demo  [EMAIL=<user>|WORKSPACE=<id>]  # RSS sources by topic group (finance opt-in) / demo topics (zero-cost)
 make pipeline EMAIL=<user>|WORKSPACE=<id>  # one-off run for one workspace: fetch RSS + enqueue classification (paid)
-make create-user EMAIL=... [WORKSPACE=<id>]     # interactive password; WORKSPACE joins as owner
+make create-user EMAIL=...     # interactive password; always a new, separate workspace (one account = one tenant)
 make set-budget WORKSPACE=<id> USD=<amount|default>
 make wipe          # pg_dump to /tmp, stop queue/scheduler, `artisan data:wipe` (domain tables + pipeline queue; accounts, WP connections kept)
 make deactivate-user / activate-user EMAIL=...   # users.is_active; inactive users are filtered by the `active_eloquent` auth provider
@@ -69,13 +69,13 @@ Modules in `apps/platform/src/<Module>/` (namespace `Modules\<Module>`): `Http/C
 
 ### Auth & workspaces
 
-Sanctum SPA: session in Redis, cookie `ce_session`, CSRF via `/sanctum/csrf-cookie` + `X-XSRF-TOKEN` (`bootstrap/app.php` `statefulApi()`, `trustProxies('*')`; CORS from `FRONTEND_URL` with credentials). Registration creates a workspace (owner). `Workspaces/Services/CurrentWorkspace` (scoped) resolves the user's workspace; `requireOwner` guards owner-only actions.
+Sanctum SPA: session in Redis, cookie `ce_session`, CSRF via `/sanctum/csrf-cookie` + `X-XSRF-TOKEN` (`bootstrap/app.php` `statefulApi()`, `trustProxies('*')`; CORS from `FRONTEND_URL` with credentials). Registration creates the account's own workspace. **One account = one tenant**: exactly one workspace per account and one account per workspace (unique indexes on `workspace_members`), no members/roles; `Workspaces/Services/CurrentWorkspace` (scoped) resolves it. Instance-wide switches (`AUTOMATION_ENABLED`) belong to the admin (future Filament panel).
 
-**Workspace isolation**: `workspace_id` on `sources`, `candidates`, `pipeline_jobs`, `pipeline_job_batches` (composite FKs keep candidate/source/job consistent; everything else belongs via `candidate_id`). Route params `source, candidate, article, version, fix, job` are bound only within the current workspace (`Shared/Routing/WorkspaceBindings`) – a new ID param must be added there. Lists/aggregates must filter by the current workspace explicitly. Worker/scheduler are system-wide.
+**Workspace isolation**: `workspace_id` on `sources`, `candidates`, `pipeline_jobs`, `pipeline_job_batches` (composite FKs keep candidate/source/job consistent; everything else belongs via `candidate_id`). Route params `source, candidate, article, version, fix, job` are bound only within the current workspace (`Shared/Routing/WorkspaceBindings`) – a new ID param must be added there. Lists/aggregates must filter by the current workspace explicitly (`tests/Feature/Architecture/TenantIsolationTest.php` hits every parameterless GET route with another account's data). Worker/scheduler are system-wide.
 
 **AI budget**: `Usage/BudgetService` sums call costs from `pipeline_job_attempts` for the workspace this UTC month; enqueue of new paid jobs (not `publish_wordpress`, not demo) → `402 budget_exceeded` once `workspaces.monthly_budget_usd` (or `DEFAULT_MONTHLY_BUDGET_USD`, default 10, empty = unlimited) is reached.
 
-Tests: `Tests\TestCase::signIn()` creates a workspace + owner and acts as them; `otherWorkspace()` for isolation; `spa()` adds Origin/Referer. Frontend mocked UI checks need `authenticate(page)`, `corsHeaders(route)` and `fakeCsrf` from `apps/web/tests/fixtures/auth.mjs`.
+Tests: `Tests\TestCase::signIn()` creates an account with its own workspace and acts as it; `otherWorkspace()` for isolation; `spa()` adds Origin/Referer. Frontend mocked UI checks need `authenticate(page)`, `corsHeaders(route)` and `fakeCsrf` from `apps/web/tests/fixtures/auth.mjs`.
 
 ### Durable job queue (central concept)
 
@@ -85,7 +85,7 @@ All paid/slow steps (`classify`, `research`, `write`, `qa_article`, `auto_fix_ar
 - **Checkpoints**: `JobRunContext::ai($step, $task, $input)` runs the Python task and stores `{result, calls}` under `ai:<step>`, so retries reuse finished steps instead of paying again. Crashed calls are recorded with unknown cost.
 - `FailurePolicy`: retryable errors (429/5xx/timeout/connection/`ai_process_failed`) up to `JOB_MAX_ATTEMPTS`, delay ~15 s then ~60 s (respects `Retry-After`); others fail.
 - Scheduler (`routes/console.php`): `pipeline:recover` every minute (lost/interrupted jobs re-dispatched); with `AUTOMATION_ENABLED` also `pipeline:scheduled` every minute, which runs only workspaces whose own automation (`workspaces.auto_*`, panel Settings → Automatyka, default off) is due and not paused.
-- **Brakes**: status `cancelled` (terminal). `POST jobs/{job}/cancel` cancels queued/retrying at once and flags running jobs (`cancel_requested_at`), which stop before the next `JobRunContext::ai()` step; `POST jobs/cancel-pending` (owner). `workspaces.paused_at` (`POST workspace/pause|resume`, owner) blocks claim, recover redispatch and enqueue (`409 workspace_paused`).
+- **Brakes**: status `cancelled` (terminal). `POST jobs/{job}/cancel` cancels queued/retrying at once and flags running jobs (`cancel_requested_at`), which stop before the next `JobRunContext::ai()` step; `POST jobs/cancel-pending`. `workspaces.paused_at` (`POST workspace/pause|resume`) blocks claim, recover redispatch and enqueue (`409 workspace_paused`).
 
 ### AI process
 

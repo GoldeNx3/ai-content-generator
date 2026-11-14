@@ -7,7 +7,7 @@ For browser checks, start the built frontend with `npm run start -- --hostname 1
 The browser check intercepts **all** API requests, returns fixtures, and blocks other external requests. It never calls the real backend or OpenAI. It checks persistent fetch/batch results, queued batches, restoring research after reload, retrying a failed result read, preserving the edited article version when another generation finishes, research polling, the generation gate, the paid-generation dialog, and mobile overflow. Set `UI_TEST_PORT=3000` to verify the deployed frontend with the same mocked API. The check also verifies shared headers/footers, classification accounting, separate brief/writer accounting, and aggregate research pricing. Screenshots are saved in `/tmp/content-*.png`.
 
 
-`node tests/automation-ui-check.mjs` verifies the Settings → Automatyka card (saves, pause/resume, read-only member view, global-switch banner, mobile) with intercepted API.
+`node tests/automation-ui-check.mjs` verifies the Settings → Automatyka card (saves, pause/resume, global-switch banner, mobile) with intercepted API.
 
 `npm run test:queue` verifies the global queue panel with intercepted API (including cancel, stop-after-step, cancel-all and the pause banner):
 status counts, filters, pagination, attempts/costs, safe manual retry, automatic

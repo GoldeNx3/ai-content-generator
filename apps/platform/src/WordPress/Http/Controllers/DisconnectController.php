@@ -16,7 +16,6 @@ final class DisconnectController
     #[Delete('wordpress/connection')]
     public function __invoke(): Response
     {
-        $this->workspace->requireOwner();
         $this->connections->disconnect($this->workspace->id());
 
         return response()->noContent();

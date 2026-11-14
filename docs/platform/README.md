@@ -83,8 +83,8 @@ więc ponowienie nie płaci ponownie za ukończone kroki (np. brief).
   między zapisem wpisu a meta SEO zostawiłoby niekompletny wpis; czekającą w kolejce można anulować. Kod odpowiedzi: `200`
   po anulowaniu, `202` gdy job tylko oflagowano. Oflagowany job z błędem przejściowym kończy jako `cancelled`, bez
   ponowienia. Terminalny job → `409
-  job_not_cancellable`. `POST /api/jobs/cancel-pending` (owner) anuluje wszystkie oczekujące joby workspace'u.
-- Pauza: `POST /api/workspace/pause` / `resume` (owner) ustawia `workspaces.paused_at`. Wstrzymanego workspace'u
+  job_not_cancellable`. `POST /api/jobs/cancel-pending` anuluje wszystkie oczekujące joby workspace'u.
+- Pauza: `POST /api/workspace/pause` / `resume` ustawia `workspaces.paused_at`. Wstrzymanego workspace'u
   nie przejmuje worker (`ClaimJobCommand`), nie wznawia `pipeline:recover`, a zlecenie nowego joba daje `409
   workspace_paused`. Wznowienie od razu oddaje zaległe joby do kolejki.
 - Automatyka per workspace (`GET`/`PATCH /api/workspace/automation`, panel: Ustawienia → Automatyka): pobieranie
