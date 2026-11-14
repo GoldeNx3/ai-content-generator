@@ -280,6 +280,7 @@ export const api = {
   listCandidates: (query: CandidateQuery) =>
     request<CandidatePage>(`/candidates${toQueryString(query)}`),
   getCandidate: (id: number) => request<Candidate>(`/candidates/${id}`),
+  updateEditorTake: (id: number, editor_take: string | null) => patch<Candidate>(`/candidates/${id}/editor-take`, { editor_take }),
   classifyCandidate: (id: number, force = false) => enqueue<Job>(`/candidates/${id}/classify`, force ? { force: true } : undefined),
   classifyPending: () => enqueue<ClassifyBatchResult>("/candidates/classify-pending"),
   updateCandidateStatus: (id: number, status: CandidateStatus) =>

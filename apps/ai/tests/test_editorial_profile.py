@@ -49,3 +49,23 @@ def test_profile_limits_are_enforced():
         EditorialProfile(example_post='x' * 6001)
     with pytest.raises(Exception):
         EditorialProfile(banned_phrases=['x'] * 51)
+
+
+def take_context(take=None) -> ArticleContext:
+    return ArticleContext(candidate_title='Laravel 13', candidate_source='Laravel News', published_at=None, research_summary='s',
+        why_it_matters='w', suggested_angle='a', facts=[], sources=[], uncertainties=[], conflicts=[], article_type='news',
+        type_guide='g', length_hint='l', angle=None, instructions=None, article_format='news', editor_take=take)
+
+
+def test_editor_take_is_the_only_place_for_opinion_and_must_be_labelled():
+    brief = make_brief([1])
+    take = 'Używamy kolejek Laravel w 3 projektach; największy problem to monitoring.'
+    for prompt in (build_brief_prompt(take_context(take)), build_writer_prompt(take_context(take), brief)):
+        assert 'NASZE ZDANIE' in prompt and take in prompt
+        assert 'opinia redakcji' in prompt.lower()
+    assert 'NASZE ZDANIE' not in build_writer_prompt(take_context(None), brief)
+
+
+def test_qa_knows_editor_take_is_allowed_opinion():
+    from app.services.llm.qa import QA_SYSTEM_PROMPT
+    assert 'editor_take' in QA_SYSTEM_PROMPT

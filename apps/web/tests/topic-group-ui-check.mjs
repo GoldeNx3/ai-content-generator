@@ -11,7 +11,7 @@ const base = {source_id:1,status:'pending',original_published_at:stamp,relevance
 const primary = {...base,id:1,source_name:'RSS A',external_url:'https://a.example/1',title:'OpenAI wydało nowy model',llm_reason:'Ocena AI.',group_size:2,topic_group_id:null,topic_group:null};
 const duplicate = {...base,id:2,source_name:'RSS B',external_url:'https://b.example/2',title:'Nowy model GPT-6',llm_reason:'Ten sam temat co #1.',group_size:1,topic_group_id:1,duplicate_similarity:0.91,
  topic_group:{primary_id:1,members:[{id:1,title:'OpenAI wydało nowy model',external_url:'https://a.example/1',source_name:'RSS A'}]}};
-const listQueries = []; const classifyBodies = [];
+const listQueries = []; const classifyBodies = []; const takeBodies = [];
 const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
 try {
  const page = await browser.newPage({viewport:{width:1440,height:1000}});
@@ -25,6 +25,7 @@ try {
   else if (path === '/api/stats') body = {candidates_today:0,new_today:0,approved:0,ignored:0,average_score:null};
   else if (path === '/api/sources') body = [];
   else if (path === '/api/jobs') body = {items:[],total:0,page:1,page_size:100};
+  else if (path === '/api/candidates/2/editor-take') { const data = route.request().postDataJSON(); takeBodies.push(data); duplicate.editor_take = data.editor_take; body = duplicate; }
   else if (path === '/api/candidates/2') body = duplicate;
   else if (path === '/api/candidates/2/jobs') body = {items:[],total:0,page:1,page_size:25};
   else if (path === '/api/candidates/2/articles') body = [];
@@ -56,6 +57,11 @@ try {
  await page.waitForFunction(() => true);
  for (let i = 0; i < 30 && classifyBodies.length === 0; i++) await new Promise(r => setTimeout(r, 100));
  assert.deepEqual(classifyBodies[0], {force:true});
+ const take = page.getByLabel('Nasze zdanie (opcjonalnie)');
+ await take.fill('Używamy tego w trzech projektach.');
+ await page.getByRole('button', {name:'Zapisz komentarz · bezpłatne', exact:true}).click();
+ await page.getByText('Komentarz zapisany.', {exact:true}).waitFor();
+ assert.deepEqual(takeBodies[0], {editor_take:'Używamy tego w trzech projektach.'});
  assert.deepEqual(errors, []);
- console.log('PASS: group badge, hidden duplicates + filter, step-2 group note with links, forced separate classification. No real API calls.');
+ console.log('PASS: group badge, hidden duplicates + filter, step-2 group note with links, forced separate classification, editor take saved. No real API calls.');
 } finally { await browser.close(); }

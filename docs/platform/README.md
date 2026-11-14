@@ -74,6 +74,13 @@ kolejkowaniu (`editorial`) i trafia do `classify` (zakres i czytelnik zamiast og
 zakazanych zwrotach) i `qa.evaluate` (zgodność z czytelnikiem, zakazane zwroty jako `style_issue`). Pusty profil =
 dotychczasowe zachowanie.
 
+## „Nasze zdanie” redakcji
+
+`PATCH /api/candidates/{candidate}/editor-take` (≤ 3000 znaków, darmowe pole przed krokiem 4). Komentarz trafia do
+`article.brief` (`editor_take`) i jest jedynym dozwolonym źródłem opinii/doświadczenia: brief planuje sekcję „Nasze
+zdanie”, pisarz oznacza ją jako opinię redakcji. Zapisany w `articles.brief.editor_take`, dzięki czemu QA nie zgłasza
+go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
+
 ## Grupowanie tematów (ten sam news z kilku RSS)
 
 - Pobieranie RSS (darmowe) zapisuje `candidates.url_key` (znormalizowany URL: bez `utm_`/`fbclid`, `www`, końcowego

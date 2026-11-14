@@ -2,6 +2,7 @@
 
 namespace Modules\Candidates\Services;
 
+use Modules\Candidates\Commands\SaveEditorTakeCommand;
 use Modules\Candidates\Commands\UpdateCandidateStatusCommand;
 use Modules\Candidates\Data\CandidateData;
 use Modules\Candidates\Data\CandidateFiltersData;
@@ -22,6 +23,7 @@ final class CandidateService
         private readonly DashboardStatsQuery $stats,
         private readonly UpdateCandidateStatusCommand $updateStatus,
         private readonly TopicGroupMembersQuery $groupMembers,
+        private readonly SaveEditorTakeCommand $saveTake,
     ) {}
 
     public function search(int $workspaceId, CandidateFiltersData $filters): PageData
@@ -42,6 +44,14 @@ final class CandidateService
         $data->topic_group = $members === [] ? null : ['primary_id' => $primaryId, 'members' => $members];
 
         return $data;
+    }
+
+    public function updateEditorTake(Candidate $candidate, ?string $take): CandidateData
+    {
+        $take = trim((string) $take);
+        $this->saveTake->execute($candidate, $take === '' ? null : $take);
+
+        return $this->details($candidate->refresh());
     }
 
     public function updateStatus(Candidate $candidate, CandidateStatus $status): CandidateData

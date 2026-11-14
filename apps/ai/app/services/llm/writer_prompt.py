@@ -213,6 +213,18 @@ def _editorial_block(context: ArticleContext) -> str:
     return "\n\nPROFIL REDAKCJI:\n" + "\n".join(lines) if lines else ""
 
 
+def _editor_take_block(context: ArticleContext) -> str:
+    if not context.editor_take:
+        return ""
+    return (
+        "\n\nNASZE ZDANIE (komentarz redakcji: własne doświadczenie, opinia, wnioski). To jedyne miejsce, z którego "
+        "wolno wziąć opinię lub doświadczenie - poza nim zasada braku własnych opinii obowiązuje dalej. Zaplanuj "
+        "i napisz krótką sekcję „Nasze zdanie” (albo akapit w zakończeniu), wyraźnie oznaczoną jako opinia redakcji; "
+        "nie przedstawiaj jej jako faktu i nie dopisuj do niej liczb ani zdarzeń, których tu nie ma:\n"
+        f"<<<\n{context.editor_take}\n>>>"
+    )
+
+
 # Brief planuje artykuł z kontekstu researchu i referencji do faktów.
 def build_brief_prompt(context: ArticleContext) -> str:
     angle = context.angle or context.suggested_angle or "brak - zaproponuj na podstawie faktów"
@@ -226,6 +238,7 @@ def build_brief_prompt(context: ArticleContext) -> str:
         f"{_risks_block(context)}"
         f"{_instructions_block(context)}"
         f"{_editorial_block(context)}"
+        f"{_editor_take_block(context)}"
     )
 
 
@@ -242,6 +255,7 @@ def build_writer_prompt(context: ArticleContext, brief: ArticleBrief) -> str:
         f"{_risks_block(context)}"
         f"{_instructions_block(context)}"
         f"{_editorial_block(context)}"
+        f"{_editor_take_block(context)}"
     )
 
 

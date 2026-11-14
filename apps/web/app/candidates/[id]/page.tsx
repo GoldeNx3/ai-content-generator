@@ -29,6 +29,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { api, errorText } from "@/lib/api";
 import { formatDate, SCORE_LEVEL_LABEL, scoreLevel } from "@/lib/format";
 import type { Candidate, CandidateStatus, Research } from "@/types/api";
+import { EditorTake } from "@/components/editor-take";
 
 type Busy = CandidateStatus | "classify" | null;
 
@@ -217,6 +218,7 @@ export default function CandidatePage() {
 
       <ResearchPanel candidateId={id} onResearchChange={setResearch} />
 
+      <EditorTake candidate={candidate} onSaved={setCandidate} />
       <ArticlePanel candidateId={id} candidateCategory={candidate.category} research={research} />
       </CandidateScreen>
     </div>

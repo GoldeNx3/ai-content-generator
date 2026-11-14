@@ -71,6 +71,7 @@ class BriefInput(BaseModel):
     request: GenerateArticleRequest
     recent_articles: list[dict[str, Any]] = []
     editorial: EditorialProfile | None = None
+    editor_take: str | None = Field(default=None, max_length=3000)
 
 
 class WriteInput(BaseModel):
@@ -131,6 +132,7 @@ def _context(payload: BriefInput, ctx: TaskContext) -> ArticleContext:
         recent_structures=[describe_structure(a.get("sections") or [], a.get("content") or "")
                            for a in payload.recent_articles],
         editorial=payload.editorial.model_dump() if payload.editorial else None,
+        editor_take=(payload.editor_take or "").strip() or None,
     )
 
 
@@ -174,6 +176,7 @@ def _reference_texts(context: ArticleContext) -> list[str]:
     texts = [fact.claim for fact in context.facts]
     texts += [f"{s.title or ''} {s.publisher or ''} {s.content}" for s in context.sources]
     texts += [context.candidate_title]
+    texts += [context.editor_take] if context.editor_take else []
     texts += [f"{u.get('claim', '')} {u.get('reason', '')}" for u in context.uncertainties]
     texts += [str(c) for c in context.conflicts]
     return texts
@@ -233,7 +236,7 @@ async def write(data: dict, ctx: TaskContext) -> dict:
         "meta_description": trim_text(output.meta_description, META_DESCRIPTION_MAX),
         "article_type": payload.article_type.value,
         "angle": brief_model.primary_angle,
-        "brief": brief_model.model_dump(mode="json"),
+        "brief": {**brief_model.model_dump(mode="json"), "editor_take": context.editor_take},
         "sections": sections,
         "lead_fact_ids": validated.lead_fact_ids,
         "generation_options": payload.request.model_dump(mode="json"),

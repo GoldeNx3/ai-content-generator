@@ -70,7 +70,11 @@ Raport i sugestie pisz po polsku. severity high/critical tylko dla istotnych pro
 QA_SYSTEM_PROMPT += """
 
 Jeśli dane zawierają `editorial` (profil redakcji), oceń też zgodność z czytelnikiem i tonem; użycie zakazanego
-zwrotu z `editorial.banned_phrases` zgłoś jako style_issue z dosłownym fragmentem. Profil nie jest źródłem faktów."""
+zwrotu z `editorial.banned_phrases` zgłoś jako style_issue z dosłownym fragmentem. Profil nie jest źródłem faktów.
+
+`brief.editor_take` to komentarz redakcji (opinia, własne doświadczenie). Zdania z niego, podane w tekście jako opinia
+redakcji, nie są unsupported_claim. Zgłoś je, jeśli tekst przedstawia je jako fakt albo dopisuje do nich liczby lub
+zdarzenia spoza komentarza."""
 QA_SYSTEM_PROMPT += "\n\n" + READABILITY_GUIDELINES + """
 Oceniaj te reguły na aktualnym Markdown. Długie bloki bez H2/H3 oznacz structure_issue,
 zbyt długie akapity/zdania, monotonne początki i niejasne przejścia jako style_issue.

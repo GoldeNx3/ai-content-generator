@@ -61,6 +61,7 @@ export interface Candidate {
   group_size?: number;
   topic_group_id?: number | null;
   duplicate_similarity?: number | null;
+  editor_take?: string | null;
   topic_group?: { primary_id: number; members: { id: number; title: string; external_url: string; source_name: string }[] } | null;
 }
 
