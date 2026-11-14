@@ -32,7 +32,6 @@
         <env name="SOURCES_ALLOW_PRIVATE_URLS" value="true" force="true"/>
         <env name="ALLOW_REGISTRATION" value="true" force="true"/>
         <env name="SESSION_DRIVER" value="array" force="true"/>
-        <env name="ALLOW_REGISTRATION" value="true" force="true"/>
         <env name="DEFAULT_MONTHLY_BUDGET_USD" value="10" force="true"/>
         <env name="OPENAI_API_KEY" value="sk-test" force="true"/>
         <env name="FRONTEND_URL" value="http://localhost:3000" force="true"/>

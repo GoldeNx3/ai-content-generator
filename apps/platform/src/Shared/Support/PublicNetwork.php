@@ -7,8 +7,15 @@ final class PublicNetwork
     private const BLOCKED_RANGES = [
         '0.0.0.0/8', '100.64.0.0/10', '192.0.0.0/24', '192.0.2.0/24', '198.18.0.0/15', '198.51.100.0/24',
         '203.0.113.0/24', '224.0.0.0/4', '240.0.0.0/4', '64:ff9b::/96', '64:ff9b:1::/48', '100::/64', '2001:db8::/32',
-        'fc00::/7', 'fe80::/10', 'ff00::/8',
+        'fc00::/7', 'fe80::/10', 'ff00::/8', '::ffff:0:0:0/96', '2002::/16', '2001::/32', 'fec0::/10',
     ];
+
+    private static $resolver = null;
+
+    public static function resolveUsing(?callable $resolver): void
+    {
+        self::$resolver = $resolver;
+    }
 
     public static function isPublicIp(string $ip): bool
     {
@@ -36,6 +43,9 @@ final class PublicNetwork
         $host = trim($host, '[]');
         if (filter_var($host, FILTER_VALIDATE_IP)) {
             return [$host];
+        }
+        if (self::$resolver !== null) {
+            return (self::$resolver)($host);
         }
         $records = @dns_get_record($host, DNS_A | DNS_AAAA) ?: [];
         $addresses = array_filter(array_map(fn ($record) => $record['ip'] ?? $record['ipv6'] ?? null, $records));

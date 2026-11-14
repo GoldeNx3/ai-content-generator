@@ -33,7 +33,8 @@ w trybie SPA: sesja Laravela w Redisie, ciasteczko `ce_session` (HttpOnly) i och
   uwierzytelnianie dotyczy tylko domen z `SANCTUM_STATEFUL_DOMAINS`.
 - Limity (`RateLimiter`): `AUTH_MAX_FAILURES_PER_EMAIL` (5, liczone dla pary e-mail + IP, więc obcy nie zablokuje
   właścicielowi logowania z innego adresu) i `AUTH_MAX_FAILURES_PER_IP` (20) nieudanych
-  logowań w oknie `AUTH_WINDOW_MINUTES` (15) → `429 too_many_attempts`; rejestracje
+  logowań w oknie `AUTH_WINDOW_MINUTES` (15) → `429 too_many_attempts`, oraz globalnie na e-mail z dowolnych adresów
+  `AUTH_MAX_FAILURES_PER_EMAIL_GLOBAL` (50) – ochrona przed zgadywaniem hasła z wielu IP; rejestracje
   `AUTH_MAX_REGISTRATIONS_PER_IP` (5) na `AUTH_REGISTRATION_WINDOW_MINUTES` (60) → `429 too_many_registrations`.
 - Kosztowne i synchroniczne trasy (pobieranie źródeł, ręczne źródło researchu, test i autoryzacja WordPressa,
   „oceń oczekujące”) mają limit `throttle:expensive`: 10 na minutę na konto → `429 too_many_requests`.
@@ -89,7 +90,9 @@ niezaufanych serwisów (np. WordPress); w takim przypadku panel i API powinny mi
   Zadanie już zlecone może przekroczyć limit o swój koszt.
 - Budżet sprawdzany jest też przez workera przed każdym płatnym krokiem AI: job zakolejkowany przed wyczerpaniem
   budżetu kończy się `budget_exceeded` bez wywołania modelu (zapisane kroki nie są opłacane ponownie przy retry).
-  „Oceń oczekujące” przyjmuje najwyżej 200 tematów.
+  „Oceń oczekujące” przyjmuje najwyżej 200 tematów. Płatny jest każdy krok AI poza `seo.profile` i krokami
+  renderowania/metadanych WordPress (także `seo.prepare` w publikacji). To limit miękki: równoległe joby mogą
+  przekroczyć budżet o koszt jednego kroku.
 - Klasyfikacja zbiorcza zwraca `skipped_budget`. Automatyka stosuje limit ocen z ustawień workspace'u
   (`auto_classify_batch_limit`) i przerywa ocenę workspace'u po przekroczeniu budżetu.
 - Sterowanie jobami (ustawienia automatyki, pauza/wznowienie, anulowanie pojedyncze i zbiorcze) – właściciel konta,

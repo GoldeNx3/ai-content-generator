@@ -71,7 +71,14 @@ function ce_bridge_sanitize_seo($value) {
         elseif (in_array($key,['author_id','version_id'],true)) { $clean[$key]=$item===null ? null : (int) $item; }
         elseif (in_array($key,['tags','secondary_keywords'],true)) { $clean[$key]=array_values(array_filter(array_map($text,(array) $item),'strlen')); }
         elseif (in_array($key,['faq','howto_steps'],true)) {
-            $clean[$key]=array_map(function ($entry) use ($text) { return is_array($entry) ? array_map($text,$entry) : []; },(array) $item);
+            // Answers and steps are multi-line prose used only in JSON-LD: strip markup, keep newlines and "%".
+            $long=function ($v) { return is_scalar($v) ? trim(wp_strip_all_tags((string) $v)) : ''; };
+            $clean[$key]=array_map(function ($entry) use ($text,$long) {
+                if (!is_array($entry)) { return []; }
+                $out=[];
+                foreach ($entry as $field=>$value) { $out[$field]=in_array($field,['answer','text'],true) ? $long($value) : $text($value); }
+                return $out;
+            },(array) $item);
         }
         else { $clean[$key]=$item===null ? null : $text($item); }
     }

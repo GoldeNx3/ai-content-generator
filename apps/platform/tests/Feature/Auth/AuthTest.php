@@ -146,6 +146,21 @@ final class AuthTest extends TestCase
     }
 
     #[Test]
+    public function many_addresses_cannot_guess_one_password_without_limit(): void
+    {
+        $this->register();
+        $this->app['auth']->guard('web')->logout();
+        config(['content.auth.max_login_failures_per_email_global' => 3]);
+        foreach (['203.0.113.1', '203.0.113.2', '203.0.113.3'] as $ip) {
+            $this->spa()->withServerVariables(['REMOTE_ADDR' => $ip])->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => 'bad']);
+        }
+
+        $this->spa()->withServerVariables(['REMOTE_ADDR' => '203.0.113.4'])->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => self::PASSWORD])
+            ->assertStatus(429)->assertJsonPath('detail.code', 'too_many_attempts');
+        RateLimiter::clear('login:email-global:jan@example.com');
+    }
+
+    #[Test]
     public function login_is_throttled_per_email(): void
     {
         $this->register();

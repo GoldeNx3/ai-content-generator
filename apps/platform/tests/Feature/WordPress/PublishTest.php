@@ -95,6 +95,24 @@ final class PublishTest extends TestCase
     }
 
     #[Test]
+    public function publishing_does_not_run_paid_seo_preparation_over_budget(): void
+    {
+        $this->connect();
+        $article = $this->approvedArticle();
+        \Modules\Workspaces\Models\Workspace::query()->whereKey($this->workspace->id)->update(['monthly_budget_usd' => '0']);
+        $this->fakeAi([
+            'seo.profile' => self::aiOk(['profile' => ['title' => 'Tytuł', 'slug' => 'tytul', 'seo_title' => '', 'meta_description' => 'Opis']]),
+            'seo.prepare' => self::aiOk(['profile' => ['title' => 'Tytuł', 'slug' => 'tytul', 'seo_title' => 'Meta']], [self::llmCall('preparing_seo')]),
+        ]);
+
+        $job = $this->postJson("/api/article-versions/{$article->id}/wordpress", ['status' => 'draft'])->assertStatus(202)->json('id');
+
+        $this->getJson("/api/jobs/{$job}")->assertJsonPath('status', 'failed')->assertJsonPath('error_code', 'budget_exceeded');
+        $this->assertNotContains('seo.prepare', array_column($this->aiRequests, 'task'));
+        $this->assertSame(0, $this->wp->creates);
+    }
+
+    #[Test]
     public function manual_wordpress_changes_cause_conflict(): void
     {
         $this->connect();

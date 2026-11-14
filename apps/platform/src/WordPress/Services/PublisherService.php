@@ -4,6 +4,7 @@ namespace Modules\WordPress\Services;
 
 use Carbon\CarbonImmutable;
 use GuzzleHttp\Exception\RequestException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as Http;
 use Modules\Articles\Models\Article;
 use Modules\Candidates\Commands\UpdateCandidateStatusCommand;
@@ -293,8 +294,13 @@ final class PublisherService
                             throw new JobInputException('Nieobsługiwany format lub rozmiar obrazka.', 422);
                         }
                     }])->get($image);
-            } catch (RequestException $exception) {
-                throw $exception->getPrevious() instanceof JobInputException ? $exception->getPrevious() : new JobInputException('Nie udało się pobrać obrazka.', 422);
+            } catch (ConnectionException|RequestException $exception) {
+                for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+                    if ($cause instanceof JobInputException) {
+                        throw $cause;
+                    }
+                }
+                throw new JobInputException('Nie udało się pobrać obrazka.', 422);
             }
             if (! $response->successful()) {
                 throw new JobInputException('Nie udało się pobrać obrazka.', 422);

@@ -10,10 +10,11 @@ function register_post_meta($type,$key,$args) { global $meta;$meta[$key]=$args; 
 function get_queried_object_id() { return 1; }
 function get_post_meta($id,$key,$single) { global $seo;return $seo; }
 function is_singular($type) { return true; }
-function sanitize_text_field($value) { return trim(preg_replace('/\s+/',' ',strip_tags((string) $value))); }
-function sanitize_textarea_field($value) { return trim(strip_tags((string) $value)); }
+function sanitize_text_field($value) { return trim(preg_replace('/\s+/',' ',preg_replace('/%[a-f0-9]{2}/i','',strip_tags((string) $value)))); }
+function sanitize_textarea_field($value) { return trim(preg_replace('/%[a-f0-9]{2}/i','',strip_tags((string) $value))); }
+if (!function_exists('wp_check_invalid_utf8')) { function wp_check_invalid_utf8($v) { return $v; } }
 function esc_url_raw($url) { return preg_match('#^https?://#i',(string) $url) ? (string) $url : ''; }
-function wp_strip_all_tags($value) { return trim(strip_tags((string) $value)); }
+function wp_strip_all_tags($value) { return trim(strip_tags(preg_replace('@<(script|style)[^>]*?>.*?</\\1>@si','',(string) $value))); }
 function check($condition,$message) { if (!$condition) { throw new RuntimeException($message); } }
 require getenv('CE_BRIDGE_FILE') ?: __DIR__.'/../content-engine-bridge/content-engine-bridge.php';
 
@@ -31,6 +32,9 @@ check($clean['canonical_url']==='','javascript: canonical dropped');
 check($clean['featured_image_url']==='https://example.test/a.png','http(s) URL kept');
 check($clean['tags']===['ok'],'tags stripped');
 check($clean['faq'][0]===['question'=>'qPytanie?','answer'=>'Odpowiedź'],'FAQ stripped');
+$multi=$sanitize(['faq'=>[['question'=>'Ile?','answer'=>"Linia 1\nLinia 2: 100%efektywny"]],'howto_steps'=>[['name'=>'Krok','text'=>"A\nB"]]]);
+check($multi['faq'][0]['answer']==="Linia 1\nLinia 2: 100%efektywny",'FAQ answer keeps newlines and percent signs: '.json_encode($multi['faq'][0]['answer']));
+check($multi['howto_steps'][0]['text']==="A\nB",'HowTo text keeps newlines');
 check($clean['robots_index']===true && $clean['author_id']===7,'scalars cast');
 
 $seo=['seo_title'=>'</title><script>alert(1)</script>','canonical_url'=>'https://example.test/a/','meta_description'=>'x'];

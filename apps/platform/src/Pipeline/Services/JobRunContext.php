@@ -16,6 +16,8 @@ use Modules\Usage\Services\BudgetService;
 
 final class JobRunContext
 {
+    private const FREE_TASKS = ['seo.profile', 'wordpress.render', 'wordpress.metadata', 'wordpress.verify_meta'];
+
     public function __construct(
         public readonly PipelineJob $job,
         private readonly RunningJobWriter $update,
@@ -50,7 +52,7 @@ final class JobRunContext
             return $cached;
         }
         $demo = (bool) ($this->job->payload['demo'] ?? false);
-        if (! $demo && $this->job->kind->isPaid() && $this->budget?->isExceeded($this->job->workspace_id)) {
+        if (! $demo && ! in_array($task, self::FREE_TASKS, true) && $this->budget?->isExceeded($this->job->workspace_id)) {
             throw new StageFailedException('budget_exceeded', ErrorMessages::for('budget_exceeded'));
         }
         try {

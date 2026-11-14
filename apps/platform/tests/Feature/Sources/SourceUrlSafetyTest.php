@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Http;
 use Modules\Candidates\Models\Candidate;
 use Modules\Shared\Support\PublicNetwork;
 use Modules\Sources\Models\Source;
+use Modules\WordPress\Exceptions\WordPressException;
+use Modules\WordPress\Support\PublicHostGuard;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -26,7 +28,7 @@ final class SourceUrlSafetyTest extends TestCase
     {
         return array_map(fn (string $ip) => [$ip], [
             '127.0.0.1', '10.1.2.3', '172.16.0.1', '192.168.1.1', '169.254.169.254', '0.0.0.0', '100.64.0.1',
-            '198.18.0.1', '192.0.0.8', '224.0.0.1', '::1', 'fc00::1', 'fe80::1', '::ffff:127.0.0.1', '64:ff9b::7f00:1',
+            '198.18.0.1', '192.0.0.8', '224.0.0.1', '::1', 'fc00::1', 'fe80::1', '::ffff:127.0.0.1', '64:ff9b::7f00:1', '::ffff:0:7f00:1', '2002:7f00:1::1', '2001:0:4136:e378::1', 'fec0::1',
         ]);
     }
 
@@ -42,6 +44,21 @@ final class SourceUrlSafetyTest extends TestCase
     {
         foreach (['93.184.216.34', '8.8.8.8', '2606:2800:220:1:248:1893:25c8:1946'] as $ip) {
             $this->assertTrue(PublicNetwork::isPublicIp($ip), "{$ip} must be public");
+        }
+    }
+
+    #[Test]
+    public function wordpress_guard_pins_exactly_the_addresses_it_checked(): void
+    {
+        $answers = [['127.0.0.1'], ['93.184.216.34']];
+        PublicNetwork::resolveUsing(function () use (&$answers) {
+            return array_shift($answers) ?? ['93.184.216.34'];
+        });
+        try {
+            $this->assertThrows(fn () => app(PublicHostGuard::class)->curlResolve('https://rebind.test/'),
+                WordPressException::class);
+        } finally {
+            PublicNetwork::resolveUsing(null);
         }
     }
 

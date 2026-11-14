@@ -13,6 +13,7 @@ return [
     'auth' => [
         'max_login_failures_per_email' => (int) env('AUTH_MAX_FAILURES_PER_EMAIL', 5),
         'max_login_failures_per_ip' => (int) env('AUTH_MAX_FAILURES_PER_IP', 20),
+        'max_login_failures_per_email_global' => (int) env('AUTH_MAX_FAILURES_PER_EMAIL_GLOBAL', 50),
         'login_window_minutes' => (int) env('AUTH_WINDOW_MINUTES', 15),
         'max_registrations_per_ip' => (int) env('AUTH_MAX_REGISTRATIONS_PER_IP', 5),
         'registration_window_minutes' => (int) env('AUTH_REGISTRATION_WINDOW_MINUTES', 60),

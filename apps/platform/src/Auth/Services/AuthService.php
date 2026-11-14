@@ -65,17 +65,21 @@ final class AuthService
     {
         $emailKey = 'login:email:'.$data->email.'|'.$request->ip();
         $ipKey = 'login:ip:'.$request->ip();
+        $globalKey = 'login:email-global:'.$data->email;
         $window = config('content.auth.login_window_minutes') * 60;
         if (RateLimiter::tooManyAttempts($emailKey, config('content.auth.max_login_failures_per_email'))
-            || RateLimiter::tooManyAttempts($ipKey, config('content.auth.max_login_failures_per_ip'))) {
+            || RateLimiter::tooManyAttempts($ipKey, config('content.auth.max_login_failures_per_ip'))
+            || RateLimiter::tooManyAttempts($globalKey, config('content.auth.max_login_failures_per_email_global'))) {
             throw new ApiException('too_many_attempts', 429);
         }
         if (! $this->guard()->attempt(['email' => $data->email, 'password' => $data->password])) {
             RateLimiter::hit($emailKey, $window);
             RateLimiter::hit($ipKey, $window);
+            RateLimiter::hit($globalKey, $window);
             throw new ApiException('invalid_credentials', 401);
         }
         RateLimiter::clear($emailKey);
+        RateLimiter::clear($globalKey);
         $request->session()->regenerate();
         $this->recordLogin->execute($this->guard()->id());
 

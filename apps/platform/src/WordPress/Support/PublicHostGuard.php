@@ -12,12 +12,12 @@ final class PublicHostGuard
         $parts = parse_url($url);
         $host = $parts['host'] ?? '';
         $port = $parts['port'] ?? (($parts['scheme'] ?? 'https') === 'https' ? 443 : 80);
-        $addresses = PublicNetwork::resolve($host);
+        $addresses = PublicNetwork::publicAddresses($host);
+        if ($addresses === null) {
+            throw new WordPressException('wordpress_connection');
+        }
         if ($addresses === []) {
             throw new WordPressException('wordpress_connection', true);
-        }
-        if (PublicNetwork::publicAddresses($host) === null) {
-            throw new WordPressException('wordpress_connection');
         }
 
         return [CURLOPT_RESOLVE => [PublicNetwork::curlResolveEntry($host, $port, $addresses)]];

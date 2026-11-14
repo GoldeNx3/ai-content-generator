@@ -122,9 +122,12 @@ final class FeedReader
         }
         try {
             return $request->get($url);
-        } catch (RequestException $exception) {
-            throw $exception->getPrevious() instanceof FeedFetchException ? $exception->getPrevious() : new FeedFetchException("Request failed for {$url}: {$exception->getMessage()}", previous: $exception);
-        } catch (ConnectionException $exception) {
+        } catch (ConnectionException|RequestException $exception) {
+            for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+                if ($cause instanceof FeedFetchException) {
+                    throw $cause;
+                }
+            }
             throw new FeedFetchException("Request failed for {$url}: {$exception->getMessage()}", previous: $exception);
         }
     }
