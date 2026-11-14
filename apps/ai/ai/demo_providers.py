@@ -43,7 +43,7 @@ class DemoSearch:
 
 
 class DemoClassifier:
-    async def classify_candidate(self, candidate):
+    async def classify_candidate(self, candidate, editorial=None):
         result = CandidateClassification(relevance=90, freshness=80, search_potential=85,
             commercial_potential=70, category='news', reason='Symulowana klasyfikacja tematu Nexa Studio.')
         result._usage = asdict(USAGE)

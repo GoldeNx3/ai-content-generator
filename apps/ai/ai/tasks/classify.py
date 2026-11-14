@@ -5,6 +5,7 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from ai.context import TaskContext
+from app.schemas.editorial import EditorialProfile
 from app.services.llm.base import CandidateInput
 from app.services.scoring import compute_total_score
 
@@ -25,13 +26,15 @@ class CandidatePayload(BaseModel):
 
 class ClassifyInput(BaseModel):
     candidate: CandidatePayload
+    editorial: EditorialProfile | None = None
 
 
 async def run(data: dict, ctx: TaskContext) -> dict:
-    payload = ClassifyInput.model_validate(data).candidate
+    request = ClassifyInput.model_validate(data)
+    payload = request.candidate
     candidate = CandidateInput(payload.title, payload.summary, payload.source, payload.published_at)
     classifier = ctx.providers["classify"]
-    classification = await ctx.call("classifying", lambda: classifier.classify_candidate(candidate))
+    classification = await ctx.call("classifying", lambda: classifier.classify_candidate(candidate, request.editorial))
     if payload.already_covered is not None:
         # Temat bardzo podobny do już napisanego artykułu: świeżość dla bloga niska, decyzja zostaje u redaktora.
         covered = payload.already_covered

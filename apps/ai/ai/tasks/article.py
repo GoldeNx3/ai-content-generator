@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from ai.context import TaskContext
 from app.enums import CandidateCategory, FetchStatus
+from app.schemas.editorial import EditorialProfile
 from app.schemas.article import ArticleBrief, ArticleFormat, GenerateArticleRequest
 from app.schemas.wordpress import SEOData
 from app.services.article.article_types import guide_for, length_hint, requested_format, resolve_length
@@ -19,7 +20,7 @@ from app.services.article.composition import (
 )
 from app.services.article.editorial import describe_structure
 from app.services.article.sections import rebuild_sections
-from app.services.article.validation import validate_brief, validate_writer_output
+from app.services.article.validation import banned_phrases_found, validate_brief, validate_writer_output
 from app.services.llm.base import ArticleContext, FactInput, SourceInput
 from app.services.research.content_budget import fit_documents
 from app.services.wordpress.preparation import plain, seo_profile
@@ -69,6 +70,7 @@ class BriefInput(BaseModel):
     article_type: CandidateCategory
     request: GenerateArticleRequest
     recent_articles: list[dict[str, Any]] = []
+    editorial: EditorialProfile | None = None
 
 
 class WriteInput(BaseModel):
@@ -128,6 +130,7 @@ def _context(payload: BriefInput, ctx: TaskContext) -> ArticleContext:
         article_format=article_format,
         recent_structures=[describe_structure(a.get("sections") or [], a.get("content") or "")
                            for a in payload.recent_articles],
+        editorial=payload.editorial.model_dump() if payload.editorial else None,
     )
 
 
@@ -200,6 +203,9 @@ async def write(data: dict, ctx: TaskContext) -> dict:
                                        brief_model.required_facts, reference_texts=_reference_texts(context))
     warnings = [*payload.warnings, *validated.warnings]
     content = compose_content(output)
+    banned = banned_phrases_found(output.title + "\n" + output.lead + "\n" + content, list((context.editorial or {}).get("banned_phrases", [])))
+    if banned:
+        warnings.append("Zakazane zwroty z profilu redakcji: " + ", ".join(f"„{phrase}”" for phrase in banned))
     lead = output.lead.strip()
     words = count_words(lead, content)
     if brief_model.desired_length_words >= 500 and words < brief_model.desired_length_words * 0.7:

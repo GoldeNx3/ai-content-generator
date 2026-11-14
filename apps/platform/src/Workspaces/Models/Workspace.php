@@ -9,7 +9,7 @@ use Modules\Auth\Models\User;
 
 #[Fillable([
     'name', 'monthly_budget_usd', 'auto_fetch_enabled', 'auto_fetch_interval_minutes', 'auto_classify_enabled',
-    'auto_classify_batch_limit', 'last_auto_run_at', 'last_auto_run_result', 'paused_at',
+    'auto_classify_batch_limit', 'last_auto_run_at', 'last_auto_run_result', 'paused_at', 'editorial_profile',
 ])]
 class Workspace extends Model
 {
@@ -24,6 +24,7 @@ class Workspace extends Model
             'last_auto_run_at' => 'immutable_datetime',
             'last_auto_run_result' => 'array',
             'paused_at' => 'immutable_datetime',
+            'editorial_profile' => 'array',
         ];
     }
 

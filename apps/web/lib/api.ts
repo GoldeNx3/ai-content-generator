@@ -1,7 +1,7 @@
 import type {
   Credentials,
   Me,
-  WordPressState, WordPressProfile, WordPressConnection, WordPressManualConnect, Usage, AutomationSettings, AutomationUpdate,
+  WordPressState, WordPressProfile, WordPressConnection, WordPressManualConnect, Usage, AutomationSettings, AutomationUpdate, EditorialProfile,
   ArticleFix,
   ArticleQA,
   QueueQuery,
@@ -238,6 +238,8 @@ export const api = {
   syncWordPress: (id:number, body:{expected_wp_hash?:string}={}) => enqueue<Job>(`/article-versions/${id}/wordpress/sync`,body),
   usage: () => request<Usage>("/usage"),
   automation: () => request<AutomationSettings>("/workspace/automation"),
+  editorialProfile: () => request<EditorialProfile>("/workspace/editorial"),
+  updateEditorialProfile: (body: EditorialProfile) => patch<EditorialProfile>("/workspace/editorial", body),
   updateAutomation: (body: AutomationUpdate) => patch<AutomationSettings>("/workspace/automation", body),
   pauseWorkspace: () => post<{ paused_at: string }>("/workspace/pause"),
   resumeWorkspace: () => post<{ paused_at: null; resumed_jobs: number }>("/workspace/resume"),

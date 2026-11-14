@@ -129,6 +129,7 @@ class ArticleContext:
     instructions: str | None
     article_format: str | None = None  # absent in legacy frozen queue payloads
     recent_structures: list[dict[str, object]] = field(default_factory=list)
+    editorial: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -198,6 +198,21 @@ def _instructions_block(context: ArticleContext) -> str:
     )
 
 
+def _editorial_block(context: ArticleContext) -> str:
+    profile = context.editorial or {}
+    lines = []
+    if profile.get("audience"):
+        lines.append(f"Czytelnik: {profile['audience']} - dobieraj poziom szczegółów, przykłady i słownictwo pod niego.")
+    if profile.get("voice"):
+        lines.append(f"Ton i głos marki: {profile['voice']}")
+    if profile.get("banned_phrases"):
+        lines.append("Nie używaj zwrotów: " + ", ".join(f"„{phrase}”" for phrase in profile["banned_phrases"]) + ".")
+    if profile.get("example_post"):
+        lines.append("WZORZEC STYLU (naśladuj wyłącznie formę: rytm, długość akapitów, sposób zwracania się do "
+                     "czytelnika; nie przenoś z niego żadnych faktów):\n<<<\n" + str(profile["example_post"]) + "\n>>>")
+    return "\n\nPROFIL REDAKCJI:\n" + "\n".join(lines) if lines else ""
+
+
 # Brief planuje artykuł z kontekstu researchu i referencji do faktów.
 def build_brief_prompt(context: ArticleContext) -> str:
     angle = context.angle or context.suggested_angle or "brak - zaproponuj na podstawie faktów"
@@ -210,6 +225,7 @@ def build_brief_prompt(context: ArticleContext) -> str:
         f"ŹRÓDŁA:\n{_sources_block(context)}\n\n"
         f"{_risks_block(context)}"
         f"{_instructions_block(context)}"
+        f"{_editorial_block(context)}"
     )
 
 
@@ -225,6 +241,7 @@ def build_writer_prompt(context: ArticleContext, brief: ArticleBrief) -> str:
         f"ŹRÓDŁA:\n{_sources_block(context)}\n\n"
         f"{_risks_block(context)}"
         f"{_instructions_block(context)}"
+        f"{_editorial_block(context)}"
     )
 
 

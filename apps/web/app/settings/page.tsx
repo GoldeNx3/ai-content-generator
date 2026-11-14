@@ -1,4 +1,5 @@
 import { AutomationCard } from "@/components/settings/automation-card";
+import { EditorialCard } from "@/components/settings/editorial-card";
 import { UsageCard } from "@/components/settings/usage-card";
 import { WordPressConnectionCard } from "@/components/settings/wordpress-connection";
 
@@ -11,6 +12,7 @@ export default function SettingsPage() {
       </div>
       <UsageCard />
       <AutomationCard />
+      <EditorialCard />
       <WordPressConnectionCard />
     </div>
   );

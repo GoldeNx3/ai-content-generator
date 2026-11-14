@@ -14,6 +14,7 @@ from app.services.qa.validation import calculate_scores, validate_output, valida
 class QaInput(BaseModel):
     snapshot: dict[str, Any]
     pass_score: int
+    editorial: dict[str, Any] | None = None
 
 
 async def evaluate(data: dict, ctx: TaskContext) -> dict:
@@ -22,7 +23,8 @@ async def evaluate(data: dict, ctx: TaskContext) -> dict:
     reference_issues = validate_references(snapshot) + readability_issues(snapshot["article"]["lead"],
                                                                         snapshot["article"]["content"])
     qa = ctx.providers["qa_article"]
-    result = await ctx.call("fact_checking", lambda: qa.evaluate(snapshot))
+    request = {**snapshot, "editorial": payload.editorial} if payload.editorial else snapshot
+    result = await ctx.call("fact_checking", lambda: qa.evaluate(request))
     checked = validate_output(QAOutput.model_validate(result.output), snapshot, reference_issues)
     scores = calculate_scores(checked, payload.pass_score)
     return {

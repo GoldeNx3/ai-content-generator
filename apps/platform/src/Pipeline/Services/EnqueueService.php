@@ -20,6 +20,7 @@ use Modules\Pipeline\Queries\LockCandidateQuery;
 use Modules\Shared\Exceptions\ApiException;
 use Modules\Usage\Services\BudgetService;
 use Modules\Workspaces\Queries\WorkspacePausedQuery;
+use Modules\Workspaces\Services\EditorialProfileService;
 
 final class EnqueueService
 {
@@ -32,6 +33,7 @@ final class EnqueueService
         private readonly BudgetService $budget,
         private readonly WorkspacePausedQuery $paused,
         private readonly CandidateWorkspaceQuery $candidateWorkspace,
+        private readonly EditorialProfileService $editorial,
     ) {}
 
     public function enqueue(JobKind $kind, int $candidateId, array $options = [], ?string $key = null, ?string $retryOf = null): PipelineJob
@@ -120,6 +122,7 @@ final class EnqueueService
                 'published_at' => $candidate->original_published_at?->toIso8601String(),
             ],
             'original_url' => $candidate->external_url,
+            'editorial' => $this->editorial->forPayload($candidate->workspace_id),
         ];
     }
 

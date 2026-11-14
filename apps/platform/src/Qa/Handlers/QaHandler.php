@@ -2,12 +2,14 @@
 
 namespace Modules\Qa\Handlers;
 
+use Modules\Articles\Commands\UpdateArticleQaStateCommand;
 use Modules\Articles\Enums\ArticleStatus;
 use Modules\Articles\Models\Article;
 use Modules\Articles\Queries\ArticleVersionsQuery;
 use Modules\Articles\Queries\CompletedFixIterationsQuery;
 use Modules\Articles\Services\ArticleViewService;
 use Modules\Candidates\Models\Candidate;
+use Modules\Pipeline\Commands\AttachJobArticleCommand;
 use Modules\Pipeline\Contracts\BaseStageHandler;
 use Modules\Pipeline\Data\StageResult;
 use Modules\Pipeline\Enums\JobKind;
@@ -15,8 +17,6 @@ use Modules\Pipeline\Exceptions\JobInputException;
 use Modules\Pipeline\Models\PipelineJob;
 use Modules\Pipeline\Services\JobRunContext;
 use Modules\Pipeline\Support\CallUsage;
-use Modules\Articles\Commands\UpdateArticleQaStateCommand;
-use Modules\Pipeline\Commands\AttachJobArticleCommand;
 use Modules\Qa\Commands\CompleteQaReportCommand;
 use Modules\Qa\Commands\CreateQaReportCommand;
 use Modules\Qa\Commands\SetQaReportStatusCommand;
@@ -74,6 +74,7 @@ final class QaHandler extends BaseStageHandler
         $evaluation = $context->ai('evaluate', 'qa.evaluate', [
             'snapshot' => $report->input_snapshot,
             'pass_score' => $report->pass_score,
+            'editorial' => $job->payload['editorial'] ?? null,
         ]);
         $context->stage('validating_qa');
         $context->finish(function () use ($job, $report, $evaluation): StageResult {

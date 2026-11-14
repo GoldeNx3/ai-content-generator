@@ -5,7 +5,7 @@
 from app.schemas.classification import CandidateClassification
 from app.services.llm.base import CandidateInput
 from app.services.llm.client import OpenAIClient
-from app.services.llm.prompt import CLASSIFIER_SYSTEM_PROMPT, build_user_prompt
+from app.services.llm.prompt import classifier_system_prompt, build_user_prompt
 
 
 class OpenAIClassifier:
@@ -17,9 +17,9 @@ class OpenAIClassifier:
 
     # async def tworzy korutynę; await czeka na operację asynchroniczną i pozwala pętli zdarzeń
     # obsługiwać inne zadania.
-    async def classify_candidate(self, candidate: CandidateInput) -> CandidateClassification:
+    async def classify_candidate(self, candidate: CandidateInput, editorial=None) -> CandidateClassification:
         parsed, usage = await self.client.parse(
-            self.model, CLASSIFIER_SYSTEM_PROMPT, build_user_prompt(candidate), CandidateClassification
+            self.model, classifier_system_prompt(editorial), build_user_prompt(candidate), CandidateClassification
         )
         # Prywatne metadane tokenów nie należą do schematu odpowiedzi LLM.
         # Wykorzysta je ClassificationService przy zapisywaniu kosztu.

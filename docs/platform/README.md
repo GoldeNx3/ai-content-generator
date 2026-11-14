@@ -65,6 +65,15 @@ Wywołanie z `finished: false` to przerwane płatne wywołanie: koszt nieznany, 
 Każdy krok jest osobnym wywołaniem. Wynik trafia do checkpointu joba (`ai:<krok>`) przed następnym krokiem,
 więc ponowienie nie płaci ponownie za ukończone kroki (np. brief).
 
+## Profil redakcyjny
+
+`GET`/`PATCH /api/workspace/editorial` (Ustawienia → Profil redakcyjny): czytelnik, ton i głos, zakres tematów,
+zakazane zwroty (≤ 50 × 80 znaków), wzorcowy wpis (≤ 6000 znaków). Profil jest zapisywany w payloadzie joba przy
+kolejkowaniu (`editorial`) i trafia do `classify` (zakres i czytelnik zamiast ogólnej listy tematów),
+`article.brief`/`article.write` (blok „PROFIL REDAKCJI”, wzorzec tylko jako forma), walidacji (ostrzeżenie o
+zakazanych zwrotach) i `qa.evaluate` (zgodność z czytelnikiem, zakazane zwroty jako `style_issue`). Pusty profil =
+dotychczasowe zachowanie.
+
 ## Grupowanie tematów (ten sam news z kilku RSS)
 
 - Pobieranie RSS (darmowe) zapisuje `candidates.url_key` (znormalizowany URL: bez `utm_`/`fbclid`, `www`, końcowego

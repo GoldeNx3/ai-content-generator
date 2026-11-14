@@ -62,7 +62,7 @@ final class ClassifyHandler extends BaseStageHandler
             $input['already_covered'] = ['title' => $article->title, 'article_id' => (int) $article->id, 'similarity' => round((float) $article->similarity, 4)];
         }
         $context->stage('classifying');
-        $response = $context->ai('classify', 'classify', ['candidate' => $input]);
+        $response = $context->ai('classify', 'classify', ['candidate' => $input, 'editorial' => $job->payload['editorial'] ?? null]);
         $context->finish(function () use ($job, $vector, $response, $embedded): StageResult {
             $this->apply->execute($job->candidate_id, $job->id, $response['result'], CallUsage::of([...$embedded['calls'], ...$response['calls']]));
             $this->assignGroup->execute($job->candidate_id, $vector, null, null);

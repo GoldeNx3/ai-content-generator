@@ -216,3 +216,10 @@ def editorial_warnings(output: WriterOutput, prose: str) -> list[str]:
             if not block.language:
                 warnings.append(f"Blok kodu bez języka w sekcji „{label}”; określ język lub użyj text.")
     return warnings
+
+
+def banned_phrases_found(text: str, phrases: list[str]) -> list[str]:
+    """Zakazane zwroty z profilu redakcji obecne w tekście (bez rozróżniania wielkości liter)."""
+    lowered = text.lower()
+    return [phrase for phrase in phrases if phrase.strip() and phrase.lower() in lowered]
+

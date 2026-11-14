@@ -57,6 +57,7 @@ final class WriteHandler extends BaseStageHandler
             'article_type' => $job->payload['article_type'],
             'request' => $request,
             'recent_articles' => $this->recentArticles->execute($candidate->workspace_id),
+            'editorial' => $job->payload['editorial'] ?? null,
         ]);
 
         $context->stage('writing');

@@ -22,6 +22,7 @@ try {
   let body;
   if (url.pathname==='/api/usage') body={period_start:'2026-11-01T00:00:00+00:00',spent_usd:'0.00',budget_usd:'10.00',remaining_usd:'10.00',exceeded:false,unknown_cost_calls:0};
   else if (url.pathname==='/api/wordpress/connection') body=null;
+  else if (url.pathname==='/api/workspace/editorial') body={audience:'',voice:'',topics_scope:'',banned_phrases:[],example_post:''};
   else if (url.pathname==='/api/workspace/automation' && route.request().method()==='PATCH') {
    const change=JSON.parse(route.request().postData());patches.push(change);Object.assign(settings,change);
    settings.next_auto_run_at=settings.auto_fetch_enabled && !settings.paused_at ? stamp : null;body=settings;

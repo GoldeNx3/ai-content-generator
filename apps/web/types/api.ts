@@ -113,6 +113,8 @@ export interface Usage {
   unknown_cost_calls: number;
 }
 
+export interface EditorialProfile { audience: string; voice: string; topics_scope: string; banned_phrases: string[]; example_post: string }
+
 export const AUTOMATION_INTERVALS = [15, 30, 60, 120, 360, 720, 1440] as const;
 export interface AutomationRunResult { new_candidates: number; enqueued: number; errors: number; budget_exceeded: boolean }
 export interface AutomationSettings {

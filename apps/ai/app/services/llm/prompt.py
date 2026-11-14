@@ -33,3 +33,17 @@ def build_user_prompt(candidate: CandidateInput, now: datetime | None = None) ->
         f"Tytuł: {candidate.title}\n"
         f"Streszczenie: {candidate.summary or 'brak'}"
     )
+
+
+def classifier_system_prompt(editorial=None) -> str:
+    """Zakres tematów i czytelnik z profilu konta zastępują ogólny opis portalu."""
+    if editorial is None or not (editorial.topics_scope or editorial.audience):
+        return CLASSIFIER_SYSTEM_PROMPT
+    head = "Jesteś redaktorem prowadzącym polskiego bloga technologicznego."
+    if editorial.topics_scope:
+        head += f" Blog pisze o: {editorial.topics_scope}."
+    if editorial.audience:
+        head += f" Czytelnicy: {editorial.audience}. Oceniaj trafność i potencjał z perspektywy tych czytelników."
+    body = CLASSIFIER_SYSTEM_PROMPT.split("\n\n", 1)[1]
+    return head + "\n\n" + body
+
