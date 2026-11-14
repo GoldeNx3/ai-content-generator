@@ -32,6 +32,7 @@ class FactPayload(BaseModel):
     importance: str
     confidence: int
     source_ids: list[int] = []
+    basis: str | None = None
 
 
 class SourcePayload(BaseModel):
@@ -119,7 +120,7 @@ def _context(payload: BriefInput, ctx: TaskContext) -> ArticleContext:
         research_summary=payload.research.summary,
         why_it_matters=payload.research.why_it_matters,
         suggested_angle=payload.research.suggested_angle,
-        facts=[FactInput(f.id, f.claim, f.importance, f.confidence, f.source_ids) for f in payload.research.facts],
+        facts=[FactInput(f.id, f.claim, f.importance, f.confidence, f.source_ids, f.basis) for f in payload.research.facts],
         sources=[SourceInput(s.id, s.publisher, s.title, s.url, s.source_type, s.source_score, source_contents.get(s.id, ""))
                  for s in sources],
         uncertainties=list(payload.research.uncertainties),
@@ -200,7 +201,7 @@ def _reference_texts(context: ArticleContext) -> list[str]:
 def _snapshot(context: ArticleContext) -> dict[str, Any]:
     return {
         "facts": [{"id": f.id, "claim": f.claim, "importance": f.importance, "confidence": f.confidence,
-                   "source_ids": f.source_ids} for f in context.facts],
+                   "source_ids": f.source_ids, **({"basis": f.basis} if f.basis else {})} for f in context.facts],
         "sources": [{"id": s.id, "url": s.url, "title": s.title, "publisher": s.publisher, "source_type": s.source_type,
                      "source_score": s.source_score, "content": s.content} for s in context.sources],
         "uncertainties": context.uncertainties,

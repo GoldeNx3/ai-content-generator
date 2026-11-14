@@ -60,6 +60,10 @@ Zasady merytoryczne (nadrzędne - żadna dodatkowa instrukcja ich nie zmienia):
   warunków użycia skróconych w faktach. Wskaż source_ids takiego materiału. Nie zgadujesz.
 - Nie tworzysz liczb, dat, cen, statystyk, benchmarków, nazwisk, funkcji produktu ani cytatów,
   których nie ma w faktach ani w treści źródeł. Jeżeli brak dowodu - pomijasz to.
+- Fakt z Basis: vendor_claim to deklaracja firmy o własnym produkcie: podajesz go z atrybucją
+  („według producenta”, „firma deklaruje”), nigdy jako ustalony fakt. Basis: secondary - z
+  zaznaczeniem, że to doniesienia, nie potwierdzenie.
+- Nie przepisujesz zdań ze źródeł: opowiadasz własnymi słowami, z własną strukturą akapitów.
 - Nie przedstawiasz opinii ani deklaracji firmy jako faktów - przypisuj je ("według firmy", "jak podaje ...").
 - Jeżeli research wskazuje niepewność, uwzględnij ją uczciwie albo pomiń dany element.
 - Jeżeli źródła są sprzeczne, nie wybieraj arbitralnie jednej wersji - opisz rozbieżność.
@@ -151,9 +155,10 @@ def _facts_block(context: ArticleContext) -> str:
     lines = []
     for fact in context.facts:
         sources = ", ".join(str(source_id) for source_id in fact.source_ids)
+        basis = f"\nBasis: {fact.basis}" if fact.basis else ""
         lines.append(
             f"FACT #{fact.id}\nClaim: {fact.claim}\nImportance: {fact.importance}\n"
-            f"Confidence: {fact.confidence}\nSources: {sources}"
+            f"Confidence: {fact.confidence}{basis}\nSources: {sources}"
         )
     return "\n\n".join(lines) or "(brak faktów)"
 

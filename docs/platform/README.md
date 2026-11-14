@@ -106,6 +106,19 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
 - Krok 2: gdy nie ma podobnego artykułu z embeddingu, tytuł tematu porównywany jest z tytułami wpisów (`pg_trgm`,
   `BLOG_TITLE_SIMILARITY`, domyślnie 0.6) – trafienie daje `already_covered` z adresem wpisu.
 
+## Research i QA – jakość
+
+- Research (krok 3): z `SEARCH_PROVIDER=tavily` wyszukiwanie w trybie `TAVILY_SEARCH_DEPTH` (domyślnie `advanced`),
+  do `RESEARCH_MAX_EXTRA_SOURCES` (domyślnie 8) dodatkowych źródeł.
+- Każdy fakt ma `basis` (`verifiable` / `vendor_claim` / `secondary`, kolumna `research_facts.basis`; starsze fakty
+  `null`). Pisarz dostaje `Basis:` i podaje deklaracje producenta z atrybucją; QA oznacza deklarację podaną jako
+  ustalony fakt jako `overclaim`. Panel pokazuje „deklaracja producenta” przy fakcie.
+- QA (krok 5) liczy bez AI udział 8-gramów słów artykułu wspólnych z każdym źródłem (bez kodu i cytatów `>`).
+  Powyżej `QA_MAX_SOURCE_OVERLAP` (0.15) dodaje issue `too_close_to_source` (warning, naprawialne przez Auto Fix)
+  z najbardziej przepisanym akapitem.
+- Model: mocniejszy model pisarza/QA (`OPENAI_WRITER_MODEL`, `OPENAI_QA_MODEL`, np. `gpt-5-mini`) to decyzja
+  kosztowa – domyślne wartości w kodzie się nie zmieniają.
+
 ## Kolejka
 
 - `pipeline_jobs` (UUID, kind, status `queued/running/retrying/succeeded/failed/cancelled`, stage, próby, checkpointy,

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['research_id', 'claim', 'importance', 'confidence'])]
+#[Fillable(['research_id', 'claim', 'importance', 'confidence', 'basis'])]
 class ResearchFact extends Model
 {
     public function sources(): BelongsToMany

@@ -46,6 +46,7 @@ class ValidatedFact:
     importance: FactImportance
     confidence: int
     sources: list[ResearchSource]
+    basis: FactBasis = FactBasis.VERIFIABLE
 
 
 @dataclass(slots=True)
@@ -99,6 +100,7 @@ def validate_research_output(
                 fact.importance,
                 cap_confidence(fact.confidence, fact.basis, matched.values()),
                 list(matched.values()),
+                fact.basis,
             )
         )
 

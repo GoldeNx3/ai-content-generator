@@ -55,13 +55,15 @@ class TavilySearchProvider:
 
     # __init__ inicjalizuje instancję; self odpowiada this, a przekazane zależności są zapamiętywane w
     # jej polach.
-    def __init__(self, api_key: str, client: httpx.AsyncClient | None = None, timeout: float = 20.0) -> None:
+    def __init__(self, api_key: str, client: httpx.AsyncClient | None = None, timeout: float = 20.0,
+                 search_depth: str = "basic") -> None:
         self._api_key = api_key
+        self._search_depth = search_depth
         self._client = client
         self._timeout = timeout
 
     async def search(self, query: str, limit: int = 5) -> list[SearchResult]:
-        payload = {"query": query, "max_results": limit, "search_depth": "basic"}
+        payload = {"query": query, "max_results": limit, "search_depth": self._search_depth}
         headers = {"Authorization": f"Bearer {self._api_key}"}
         try:
             if self._client is not None:
@@ -87,6 +89,6 @@ class TavilySearchProvider:
 def get_search_provider(settings: Settings) -> SearchProvider:
     if settings.search_provider == "tavily":
         if settings.tavily_api_key:
-            return TavilySearchProvider(settings.tavily_api_key)
+            return TavilySearchProvider(settings.tavily_api_key, search_depth=settings.tavily_search_depth)
         logger.warning("SEARCH_PROVIDER=tavily but TAVILY_API_KEY is empty - using ManualSearchProvider")
     return ManualSearchProvider()

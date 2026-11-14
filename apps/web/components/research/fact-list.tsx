@@ -52,6 +52,8 @@ export function FactList({ facts, sources }: FactListProps) {
                     >
                       {({critical:"Kluczowy",important:"Ważny",supporting:"Uzupełniający"})[fact.importance]}
                     </span>
+                    {fact.basis === "vendor_claim" && <span className="text-xs text-amber-800">deklaracja producenta</span>}
+                    {fact.basis === "secondary" && <span className="text-xs text-muted-foreground">z drugiej ręki</span>}
                   </div>
                   <p className="text-sm leading-relaxed">{fact.claim}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">

@@ -25,10 +25,10 @@ const ISSUE_LABELS: Record<QAIssueType, string> = {
   unsupported_quote: "Niepotwierdzony cytat", unsupported_name: "Niepotwierdzona nazwa lub osoba",
   source_mismatch: "Nieprawidłowe referencje", missing_uncertainty: "Pominięta niepewność",
   ignored_conflict: "Pominięty konflikt źródeł", title_mismatch: "Mylący tytuł",
-  repetition: "Powtórzenie", style_issue: "Problem stylistyczny", structure_issue: "Problem struktury",
+  repetition: "Powtórzenie", too_close_to_source: "Zbyt blisko tekstu źródła", style_issue: "Problem stylistyczny", structure_issue: "Problem struktury",
   seo_issue: "Problem SEO", overclaim: "Zbyt mocne twierdzenie", other: "Inny problem",
 };
-const AUTO_FIX_TYPES = ["unsupported_claim", "title_mismatch", "repetition", "style_issue", "structure_issue", "seo_issue", "overclaim", "incorrect_number", "incorrect_date"];
+const AUTO_FIX_TYPES = ["unsupported_claim", "title_mismatch", "repetition", "style_issue", "structure_issue", "seo_issue", "overclaim", "too_close_to_source", "incorrect_number", "incorrect_date"];
 const SEVERITY_STYLES = {
   info: "bg-sky-50 text-sky-800", warning: "bg-amber-50 text-amber-900",
   high: "bg-orange-50 text-orange-900", critical: "bg-rose-50 text-rose-800",

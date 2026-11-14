@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     openai_qa_model: str = ""
     openai_embedding_model: str = "text-embedding-3-small"
     qa_timeout_seconds: float = Field(default=300, gt=0)
+    qa_max_source_overlap: float = Field(default=0.15, ge=0, le=1)
     writer_timeout_seconds: float = 300.0
     llm_pricing: dict[str, dict[str, float]] = DEFAULT_LLM_PRICING
     llm_timeout_seconds: float = 60.0
@@ -47,10 +48,11 @@ class Settings(BaseSettings):
     # Research engine
     search_provider: str = "manual"  # manual | tavily
     tavily_api_key: str = ""
+    tavily_search_depth: str = "advanced"  # basic | advanced (advanced = 2 kredyty Tavily)
     page_fetch_timeout_seconds: float = 20.0
     page_max_bytes: int = 5_000_000
     raw_content_max_chars: int = 300_000
-    research_max_extra_sources: int = 5
+    research_max_extra_sources: int = 8
     research_max_chars_per_source: int = 12_000
     research_max_chars_original: int = 20_000
     research_max_total_chars: int = 60_000

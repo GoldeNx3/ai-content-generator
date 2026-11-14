@@ -120,7 +120,7 @@ final class WriteHandler extends BaseStageHandler
             'suggested_angle' => $research->suggested_angle,
             'facts' => $research->facts->map(fn ($fact) => [
                 'id' => $fact->id, 'claim' => $fact->claim, 'importance' => $fact->importance,
-                'confidence' => $fact->confidence, 'source_ids' => $fact->sources->pluck('id')->all(),
+                'confidence' => $fact->confidence, 'basis' => $fact->basis, 'source_ids' => $fact->sources->pluck('id')->all(),
             ])->all(),
             'sources' => $research->sources->map(fn ($source) => [
                 'id' => $source->id, 'url' => $source->url, 'origin' => $source->origin->value, 'title' => $source->title,

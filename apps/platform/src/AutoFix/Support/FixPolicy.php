@@ -4,7 +4,7 @@ namespace Modules\AutoFix\Support;
 
 final class FixPolicy
 {
-    private const ALLOWED = ['unsupported_claim', 'title_mismatch', 'repetition', 'style_issue', 'structure_issue', 'seo_issue', 'overclaim'];
+    private const ALLOWED = ['unsupported_claim', 'title_mismatch', 'repetition', 'style_issue', 'structure_issue', 'seo_issue', 'overclaim', 'too_close_to_source'];
 
     private const CONDITIONAL = ['incorrect_number', 'incorrect_date'];
 

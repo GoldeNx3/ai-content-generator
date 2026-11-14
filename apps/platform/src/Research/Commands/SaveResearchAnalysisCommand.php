@@ -19,7 +19,7 @@ final class SaveResearchAnalysisCommand
         foreach ($analysis['facts'] as $fact) {
             $created = ResearchFact::query()->create([
                 'research_id' => $research->id, 'claim' => $fact['claim'], 'importance' => $fact['importance'],
-                'confidence' => $fact['confidence'],
+                'confidence' => $fact['confidence'], 'basis' => $fact['basis'] ?? null,
             ]);
             $links = array_values(array_filter($fact['source_ids'], fn ($id) => $known->has($id)));
             DB::table('research_fact_sources')->insert(array_map(fn ($id) => ['fact_id' => $created->id, 'source_id' => $id], $links));

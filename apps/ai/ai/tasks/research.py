@@ -191,6 +191,7 @@ async def analyse(data: dict, ctx: TaskContext) -> dict:
         "uncertainties": validated.uncertainties,
         "conflicts": validated.conflicts,
         "facts": [{"claim": f.claim, "importance": f.importance.value if hasattr(f.importance, "value") else f.importance,
-                   "confidence": f.confidence, "source_ids": [s.id for s in f.sources]} for f in validated.facts],
+                   "confidence": f.confidence, "basis": str(f.basis), "source_ids": [s.id for s in f.sources]}
+                  for f in validated.facts],
         "source_updates": list(updates.values()),
     }

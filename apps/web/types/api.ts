@@ -173,6 +173,7 @@ export interface ResearchFact {
   importance: FactImportance;
   confidence: number;
   source_ids: number[];
+  basis?: "verifiable" | "vendor_claim" | "secondary" | null;
 }
 
 export interface ResearchUncertainty {
@@ -373,7 +374,7 @@ export type JobStats = Record<JobStatus | "total", number>;
 export type QAIssueType = "unsupported_claim" | "contradiction" | "incorrect_number" | "incorrect_date" |
   "unsupported_quote" | "unsupported_name" | "source_mismatch" | "missing_uncertainty" |
   "ignored_conflict" | "title_mismatch" | "repetition" | "style_issue" | "structure_issue" |
-  "seo_issue" | "overclaim" | "other";
+  "seo_issue" | "overclaim" | "too_close_to_source" | "other";
 export interface ArticleQAIssue {
   id: number; article_qa_id: number; type: QAIssueType;
   severity: "info" | "warning" | "high" | "critical";

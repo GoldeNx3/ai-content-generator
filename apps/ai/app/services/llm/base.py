@@ -95,6 +95,7 @@ class FactInput:
     importance: str
     confidence: int
     source_ids: list[int]
+    basis: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

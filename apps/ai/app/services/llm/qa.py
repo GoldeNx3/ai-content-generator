@@ -22,6 +22,8 @@ sztuczne przejścia i styl AI. Pojedyncze naturalne 'Warto zauważyć' lub 'Pods
 nie są same w sobie błędem. Nie oznaczaj opinii, sugestii, hipotez oznaczonych jako
 hipotezy, oczywistych rad redakcyjnych ani ilustracyjnych przykładów jako unsupported
 facts. Kod przykładowy oceniać względem dokumentacji dostępnej w źródłach, bez własnej wiedzy.
+Fakt z basis vendor_claim (deklaracja firmy o własnym produkcie) podany w artykule jako
+ustalony fakt, bez atrybucji typu „według producenta” => overclaim warning.
 
 Szczególnie sprawdź liczby, procenty, ceny, daty, nazwiska, nazwy produktów, benchmarki,
 statystyki, cytaty, limity, wersje, funkcje produktu i wyniki testów. Samo występowanie

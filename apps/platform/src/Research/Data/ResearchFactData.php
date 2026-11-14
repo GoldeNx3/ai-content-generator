@@ -13,10 +13,11 @@ final class ResearchFactData extends Data
         public string $importance,
         public int $confidence,
         public array $source_ids,
+        public ?string $basis = null,
     ) {}
 
     public static function fromModel(ResearchFact $fact): self
     {
-        return new self($fact->id, $fact->claim, $fact->importance, $fact->confidence, $fact->sources->pluck('id')->all());
+        return new self($fact->id, $fact->claim, $fact->importance, $fact->confidence, $fact->sources->pluck('id')->all(), $fact->basis);
     }
 }
