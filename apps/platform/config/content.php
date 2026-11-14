@@ -22,6 +22,10 @@ return [
         'enabled' => (bool) env('AUTOMATION_ENABLED', true),
     ],
 
+    'sources' => [
+        'allow_private_urls' => (bool) env('SOURCES_ALLOW_PRIVATE_URLS', false),
+    ],
+
     'ingestion' => [
         'fetch_max_age_days' => (int) env('FETCH_MAX_AGE_DAYS', 14),
         'http_timeout_seconds' => (int) env('HTTP_TIMEOUT_SECONDS', 15),

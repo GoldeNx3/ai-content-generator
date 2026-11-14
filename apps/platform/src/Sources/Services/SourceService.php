@@ -4,6 +4,7 @@ namespace Modules\Sources\Services;
 
 use Illuminate\Support\Collection;
 use Modules\Shared\Exceptions\ApiException;
+use Modules\Shared\Support\PublicNetwork;
 use Modules\Sources\Commands\CreateSourceCommand;
 use Modules\Sources\Commands\DeleteSourceCommand;
 use Modules\Sources\Commands\UpdateSourceCommand;
@@ -34,6 +35,7 @@ final class SourceService
 
     public function create(int $workspaceId, CreateSourceData $data): SourceData
     {
+        $this->ensureSafeUrl($data->url);
         if ($this->urlTaken->execute($data->url, $workspaceId)) {
             throw ApiException::plain('Source with this URL already exists', 409);
         }
@@ -47,6 +49,9 @@ final class SourceService
             ['name' => $data->name instanceof Optional ? $data->name : trim($data->name), 'url' => $data->url, 'active' => $data->active],
             fn ($value) => ! $value instanceof Optional,
         );
+        if (isset($attributes['url'])) {
+            $this->ensureSafeUrl($attributes['url']);
+        }
         if (isset($attributes['url']) && $this->urlTaken->execute($attributes['url'], $source->workspace_id, $source->id)) {
             throw ApiException::plain('Source with this URL already exists', 409);
         }
@@ -60,5 +65,15 @@ final class SourceService
             throw ApiException::plain('Źródło ma historię zadań i nie może zostać usunięte.', 409);
         }
         $this->delete->execute($source);
+    }
+
+    private function ensureSafeUrl(string $url): void
+    {
+        if (PublicNetwork::hasCredentialsOrBadScheme($url)) {
+            throw new ApiException('source_url_invalid', 422);
+        }
+        if (! config('content.sources.allow_private_urls') && PublicNetwork::publicAddresses((string) parse_url($url, PHP_URL_HOST)) === null) {
+            throw new ApiException('source_private_url', 422);
+        }
     }
 }
