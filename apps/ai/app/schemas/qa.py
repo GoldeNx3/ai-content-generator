@@ -25,6 +25,7 @@ class QAIssueType(StrEnum):
     SEO_ISSUE = 'seo_issue'
     OVERCLAIM = 'overclaim'
     TOO_CLOSE_TO_SOURCE = 'too_close_to_source'
+    UNVERIFIED_NUMBER = 'unverified_number'
     OTHER = 'other'
 
 

@@ -14,4 +14,10 @@ final class FixPolicyTest extends TestCase
         $this->assertTrue(FixPolicy::eligible(['type' => 'too_close_to_source', 'auto_fixable' => true]));
         $this->assertFalse(FixPolicy::eligible(['type' => 'contradiction', 'auto_fixable' => true]));
     }
+
+    #[Test]
+    public function an_unverified_number_can_be_corrected_by_auto_fix(): void
+    {
+        $this->assertTrue(FixPolicy::eligible(['type' => 'unverified_number', 'auto_fixable' => true]));
+    }
 }

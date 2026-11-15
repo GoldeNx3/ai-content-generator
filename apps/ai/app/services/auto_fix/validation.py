@@ -5,7 +5,7 @@ from difflib import SequenceMatcher
 import re
 from app.services.jobs.errors import JobInputError
 
-ALLOWED={'unsupported_claim','title_mismatch','repetition','style_issue','structure_issue','seo_issue','overclaim','too_close_to_source'}
+ALLOWED={'unsupported_claim','title_mismatch','repetition','style_issue','structure_issue','seo_issue','overclaim','too_close_to_source','unverified_number'}
 CONDITIONAL={'incorrect_number','incorrect_date'}
 NUMBER=re.compile(r'(?<![\w.])\d+(?:[.,]\d+)*')
 

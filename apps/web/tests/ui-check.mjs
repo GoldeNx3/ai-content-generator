@@ -66,7 +66,9 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
      issues:[{id:1,type:'unsupported_claim',severity:'high',excerpt:'47%',reason:'Brak takiego faktu w researchu.',
       suggestion:'Usuń wartość.',section_heading:'Porównanie',fact_ids:[],source_ids:[],auto_fixable:true},
       {id:2,type:'too_close_to_source',severity:'warning',excerpt:'Skopiowany akapit',reason:'Akapit powtarza źródło.',
-      suggestion:'Napisz własnymi słowami.',section_heading:null,fact_ids:[],source_ids:[],auto_fixable:true}]};
+      suggestion:'Napisz własnymi słowami.',section_heading:null,fact_ids:[],source_ids:[],auto_fixable:true},
+      {id:3,type:'unverified_number',severity:'warning',excerpt:'Sprzedaż wzrosła o 47%.',reason:'Liczby bez potwierdzenia w faktach i źródłach: 47%.',
+      suggestion:'Sprawdź wartość w researchu.',section_heading:null,fact_ids:[],source_ids:[],auto_fixable:true}]};
     body=job('qa_article','queued',null);body.article_id=id;body.stage=null;status=202;
    } else if (qa && qa.article_id===Number(path.split('/')[3])) body=qa;
    else {status=404;body={detail:'No QA yet'};}
@@ -210,6 +212,7 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
  await qaStep.getByText('23',{exact:true,includeHidden:true}).waitFor();
  await qaStep.getByText('Niepoparte twierdzenie',{exact:true,includeHidden:true}).waitFor();
  await qaStep.getByText('Zbyt blisko tekstu źródła',{exact:true,includeHidden:true}).first().waitFor({state:'attached'});
+ await qaStep.getByText('Liczba bez potwierdzenia w źródłach',{exact:true,includeHidden:true}).first().waitFor({state:'attached'});
  assert.equal(await qaStep.getAttribute('data-stage-tone'),'attention');
  await qaStep.locator('footer').getByText('Koszt i szczegóły uruchomienia',{exact:true}).click();
  await qaStep.locator('footer').getByText('≈ $0.0036',{exact:true,includeHidden:true}).first().waitFor();

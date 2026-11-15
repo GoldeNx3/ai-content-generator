@@ -149,6 +149,11 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
 - QA (krok 5) liczy bez AI udział 8-gramów słów artykułu wspólnych z każdym źródłem (bez kodu i cytatów `>`).
   Powyżej `QA_MAX_SOURCE_OVERLAP` (0.15) dodaje issue `too_close_to_source` (warning, naprawialne przez Auto Fix)
   z najbardziej przepisanym akapitem.
+- QA liczy też bez AI liczby z artykułu (lead i treść bez kodu, linków, cytatów i nagłówków): kwoty, procenty,
+  liczby z jednostką lub ≥ 10 i daty ISO muszą wystąpić (po normalizacji: `1 200` = `1200`, `12,5` = `12.5`,
+  `1,5 mln` = `1.5 million`) w faktach, treści źródeł albo `editor_take`. Pomijane: bieżący i poprzedni rok, numery
+  wersji (`Laravel 13`, `GPT-5`, `v2.1`), znaczniki list. Brak potwierdzenia → issue `unverified_number` (warning,
+  naprawialne przez Auto Fix), jedno na zdanie, najwyżej 10.
 - „Nasze zdanie” jest zapisywane w zadaniu `write` w chwili zlecenia; późniejsza edycja nie zmienia trwającego
   zadania.
 - Model: mocniejszy model pisarza/QA (`OPENAI_WRITER_MODEL`, `OPENAI_QA_MODEL`, np. `gpt-5-mini`) to decyzja
