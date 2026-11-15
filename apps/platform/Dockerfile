@@ -17,13 +17,16 @@ ENV AI_PYTHON=/opt/ai/bin/python \
 
 COPY ai/requirements.txt /tmp/requirements-ai.txt
 RUN python3 -m venv /opt/ai \
+    && /opt/ai/bin/pip install --no-cache-dir --upgrade pip==26.3 \
     && /opt/ai/bin/pip install --no-cache-dir -r /tmp/requirements-ai.txt
 
 WORKDIR /srv/platform
 
 FROM base AS dev
 
-RUN /opt/ai/bin/pip install --no-cache-dir pytest==8.4.2 pytest-asyncio==1.2.0
+RUN /opt/ai/bin/pip install --no-cache-dir pytest==9.2.0 pytest-asyncio==1.5.0 \
+    && python3 -m venv /opt/audit \
+    && /opt/audit/bin/pip install --no-cache-dir pip-audit==2.10.1
 
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
 

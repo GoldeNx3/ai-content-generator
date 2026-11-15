@@ -44,6 +44,7 @@ Produkcyjny build panelu po zmianach: `docker compose up -d --build web`.
 make up / dev / down / logs / build
 make migrate                    php artisan migrate (usługa migrate działa też przy starcie)
 make test                       test-platform (PHPUnit) + test-ai (pytest)
+make audit                      znane podatności zależności: pip-audit (venv AI), composer audit, npm audit
 make seed EMAIL=<konto>         ~100 źródeł RSS (AI, PHP, frontend, backend, DevOps, security, PL); GROUPS=php,ai; finance opcjonalnie
 make seed-demo EMAIL=<konto>    tematy demo: pełny pipeline za 0 USD
 make pipeline EMAIL=<konto>     jednorazowo dla jednego konta: RSS + zlecenie oceny (płatne)
