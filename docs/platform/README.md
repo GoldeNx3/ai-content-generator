@@ -99,6 +99,16 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
   wektorów. Duplikat pokazuje w kroku 2 koszt porównania (embedding), nie klasyfikacji.
   Research tematu głównego dodaje URL-e z grupy jako źródła (`origin = sibling`, najwyżej 3).
 
+### Ręczna korekta grup (bezpłatna)
+
+- `GET candidates/{id}/similar` – do 5 najbliższych ocenionych tematów tego konta (ten sam model embeddingu, okno
+  `TOPIC_WINDOW_DAYS`); krok 2 pokazuje je jako „Podobne tematy” z przyciskiem „To ten sam temat”.
+- `POST candidates/{id}/group {primary_id}` – temat dołącza do grupy wskazanego (albo jego tematu głównego),
+  przejmuje ocenę, kategorię i `covered_by`. Odmowa: łączenie z samym sobą / własną grupą (422), temat ma własnych
+  członków (`409 topic_has_members`), cel bez oceny (`409 target_not_classified`), aktywne zadanie (`409 job_active`).
+- `POST candidates/{id}/ungroup` – duplikat staje się samodzielny i zachowuje przejętą ocenę (`409 not_grouped`
+  dla tematu bez grupy). Pełną własną ocenę daje płatne „Oceń mimo to osobno”.
+
 ## Pamięć wpisów i linki wewnętrzne
 
 - Tabela `wordpress_posts` (per workspace) trzyma opublikowane wpisy bloga: `post_id`, `url`, `title`, `excerpt`,
@@ -149,6 +159,11 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
 - QA (krok 5) liczy bez AI udział 8-gramów słów artykułu wspólnych z każdym źródłem (bez kodu i cytatów `>`).
   Powyżej `QA_MAX_SOURCE_OVERLAP` (0.15) dodaje issue `too_close_to_source` (warning, naprawialne przez Auto Fix)
   z najbardziej przepisanym akapitem.
+- QA liczy też bez AI liczby z artykułu (lead i treść bez kodu, linków, cytatów i nagłówków): kwoty, procenty,
+  liczby z jednostką lub ≥ 10 i daty ISO muszą wystąpić (po normalizacji: `1 200` = `1200`, `12,5` = `12.5`,
+  `1,5 mln` = `1.5 million`) w faktach, treści źródeł albo `editor_take`. Pomijane: bieżący i poprzedni rok, numery
+  wersji (`Laravel 13`, `GPT-5`, `v2.1`), znaczniki list. Brak potwierdzenia → issue `unverified_number` (warning,
+  naprawialne przez Auto Fix), jedno na zdanie, najwyżej 10.
 - „Nasze zdanie” jest zapisywane w zadaniu `write` w chwili zlecenia; późniejsza edycja nie zmienia trwającego
   zadania.
 - Model: mocniejszy model pisarza/QA (`OPENAI_WRITER_MODEL`, `OPENAI_QA_MODEL`, np. `gpt-5-mini`) to decyzja
@@ -183,6 +198,12 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
   przy `AUTOMATION_ENABLED=true`, `pipeline:scheduled` co minutę: obsługuje tylko workspace'y z włączoną automatyką,
   bez pauzy i z minionym interwałem; zapisuje `last_auto_run_at`/`last_auto_run_result`. Ręcznie dla jednego konta:
   `make pipeline EMAIL=<konto>` (pomija wł./wył. i interwał, respektuje pauzę i budżet).
+- Monitoring: `pipeline:health` co minutę (zawsze, niezależnie od `AUTOMATION_ENABLED`) wysyła alert na
+  `ALERT_WEBHOOK_URL` (Slack: `{"text"}`, Discord: `{"content"}`; puste = wyłączone), gdy: zadanie czeka w kolejce
+  dłużej niż `ALERT_QUEUE_STALL_MINUTES` (5; workspace'y w pauzie pomijane), zadanie trwa dłużej niż
+  `ALERT_RUNNING_MINUTES` (30), w `ALERT_ERROR_WINDOW_MINUTES` (15) jest co najmniej `ALERT_ERROR_BURST` (5) prób
+  zakończonych `retryable_error`. Ten sam problem najwyżej raz na `ALERT_REPEAT_MINUTES` (60), po ustąpieniu
+  wiadomość „wróciło do normy” (stan w cache). Nieudana wysyłka trafia do logu i jest ponawiana w kolejnej minucie.
 - Budżet: `Usage/BudgetService` sumuje koszty wywołań workspace'u w bieżącym miesiącu UTC; nowe płatne joby
   (nie `publish_wordpress`, nie demo) dostają `402 budget_exceeded`.
 

@@ -29,6 +29,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { api, errorText } from "@/lib/api";
 import { formatDate, SCORE_LEVEL_LABEL, scoreLevel } from "@/lib/format";
 import { classificationUsageRow } from "@/lib/workflow";
+import { SimilarTopics } from "@/components/similar-topics";
 import type { Candidate, CandidateStatus, Research } from "@/types/api";
 import { EditorTake } from "@/components/editor-take";
 
@@ -40,6 +41,15 @@ export default function CandidatePage() {
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [classificationError, setClassificationError] = useState<string | null>(null);
+  const [groupError, setGroupError] = useState<string | null>(null);
+  async function ungroup() {
+    setGroupError(null);
+    try {
+      setCandidate(await api.leaveTopicGroup(id));
+    } catch (failure) {
+      setGroupError(errorText(failure));
+    }
+  }
   const [busy, setBusy] = useState<Busy>(null);
   const [research, setResearch] = useState<Research | null>(null);
 
@@ -181,8 +191,13 @@ export default function CandidatePage() {
             <span className="text-muted-foreground"> · {member.source_name}{member.id === candidate.topic_group?.primary_id ? " · główny temat" : ""}</span>
           </li>)}</ul>
           <p className="text-xs text-muted-foreground">Research głównego tematu użyje tych artykułów jako dodatkowych źródeł.</p>
-          {candidate.topic_group_id && <Button size="sm" variant="outline" disabled={busy !== null || Boolean(jobs.active)} onClick={() => void classify(true)}>Oceń mimo to osobno · {candidate.is_demo ? "demo · bezpłatne" : "płatne"}</Button>}
+          {candidate.topic_group_id && <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" disabled={busy !== null || Boolean(jobs.active)} onClick={() => void classify(true)}>Oceń mimo to osobno · {candidate.is_demo ? "demo · bezpłatne" : "płatne"}</Button>
+            <Button size="sm" variant="ghost" disabled={busy !== null || Boolean(jobs.active)} onClick={() => void ungroup()}>Odłącz od grupy · bezpłatne</Button>
+          </div>}
+          {groupError && <p role="alert" className="text-rose-800">{groupError}</p>}
         </div>}
+        {classified && !candidate.topic_group && <SimilarTopics candidateId={candidate.id} disabled={busy !== null || Boolean(jobs.active)} onJoined={setCandidate} />}
         {candidate.covered_by && <div className="mb-4 max-w-3xl space-y-1 rounded-xl border border-amber-200 bg-amber-50/50 p-4 text-sm" role="note">
           <p className="font-medium">{candidate.covered_by.url ? "Ten temat jest już na blogu" : "Podobny artykuł już powstał w tym systemie"}</p>
           <p>{candidate.covered_by.url ? <a href={candidate.covered_by.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">{candidate.covered_by.title}</a> : candidate.covered_by.title}

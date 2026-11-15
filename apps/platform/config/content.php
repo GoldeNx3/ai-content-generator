@@ -6,6 +6,15 @@ $writer = env('OPENAI_WRITER_MODEL') ?: $research;
 
 return [
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
+
+    'alerts' => [
+        'webhook_url' => (string) env('ALERT_WEBHOOK_URL', ''),
+        'queue_stall_minutes' => (int) env('ALERT_QUEUE_STALL_MINUTES', 5),
+        'running_minutes' => (int) env('ALERT_RUNNING_MINUTES', 30),
+        'error_burst' => (int) env('ALERT_ERROR_BURST', 5),
+        'error_window_minutes' => (int) env('ALERT_ERROR_WINDOW_MINUTES', 15),
+        'repeat_minutes' => (int) env('ALERT_REPEAT_MINUTES', 60),
+    ],
     'allow_registration' => (bool) env('ALLOW_REGISTRATION', false),
     'default_monthly_budget_usd' => in_array(env('DEFAULT_MONTHLY_BUDGET_USD', '10'), ['', null], true)
         ? null : (float) env('DEFAULT_MONTHLY_BUDGET_USD', '10'),

@@ -267,6 +267,8 @@ export interface SnapshotSource {
   source_score: number;
 }
 
+export interface SimilarTopic { id: number; title: string; source_name: string; topic_group_id: number | null; total_score: number; similarity: number }
+
 export interface CoveredBy {
   type: "post" | "article";
   title: string;
@@ -407,7 +409,7 @@ export type JobStats = Record<JobStatus | "total", number>;
 export type QAIssueType = "unsupported_claim" | "contradiction" | "incorrect_number" | "incorrect_date" |
   "unsupported_quote" | "unsupported_name" | "source_mismatch" | "missing_uncertainty" |
   "ignored_conflict" | "title_mismatch" | "repetition" | "style_issue" | "structure_issue" |
-  "seo_issue" | "overclaim" | "too_close_to_source" | "other";
+  "seo_issue" | "overclaim" | "too_close_to_source" | "unverified_number" | "other";
 export interface ArticleQAIssue {
   id: number; article_qa_id: number; type: QAIssueType;
   severity: "info" | "warning" | "high" | "critical";

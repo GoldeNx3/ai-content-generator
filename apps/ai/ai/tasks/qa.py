@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from ai.context import TaskContext
 from app.schemas.qa import QAOutput
 from app.services.article.readability import readability_issues
+from app.services.qa.numbers import unverified_number_issues
 from app.services.qa.originality import source_overlap_issues
 from app.services.qa.validation import calculate_scores, validate_output, validate_references
 
@@ -23,7 +24,7 @@ async def evaluate(data: dict, ctx: TaskContext) -> dict:
     snapshot = payload.snapshot
     reference_issues = validate_references(snapshot) + readability_issues(snapshot["article"]["lead"],
                                                                         snapshot["article"]["content"]) \
-        + source_overlap_issues(snapshot, ctx.settings.qa_max_source_overlap)
+        + source_overlap_issues(snapshot, ctx.settings.qa_max_source_overlap) + unverified_number_issues(snapshot)
     qa = ctx.providers["qa_article"]
     request = {**snapshot, "editorial": payload.editorial} if payload.editorial else snapshot
     result = await ctx.call("fact_checking", lambda: qa.evaluate(request))
