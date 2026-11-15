@@ -41,6 +41,7 @@ final class CandidateData extends Data
         public ?float $duplicate_similarity = null,
         public ?array $topic_group = null,
         public ?string $editor_take = null,
+        public ?array $covered_by = null,
     ) {}
 
     public static function fromModel(Candidate $candidate): self
@@ -53,7 +54,7 @@ final class CandidateData extends Data
             $candidate->commercial_potential_score, $candidate->total_score, $candidate->category, $candidate->llm_reason,
             $candidate->llm_model, $candidate->llm_input_tokens, $candidate->llm_output_tokens, $candidate->estimated_cost_usd,
             $candidate->classified_at, $candidate->created_at->toImmutable(), $candidate->updated_at->toImmutable(),
-            (int) ($candidate->group_size ?? 1), $candidate->topic_group_id, $candidate->duplicate_similarity, null, $candidate->editor_take,
+            (int) ($candidate->group_size ?? 1), $candidate->topic_group_id, $candidate->duplicate_similarity, null, $candidate->editor_take, $candidate->covered_by,
         );
     }
 }

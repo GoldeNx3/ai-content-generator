@@ -37,6 +37,7 @@ final class ArticleSummaryData extends Data
         public ?string $llm_model,
         public CarbonImmutable $created_at,
         public CarbonImmutable $updated_at,
+        public ?array $refresh_of = null,
     ) {}
 
     public static function fromModel(Article $article, ArticleQaState $state): self
@@ -58,7 +59,7 @@ final class ArticleSummaryData extends Data
             'qa_score' => $state->qaScore, 'qa_status' => $state->qaStatus, 'qa_passed' => $article->qa_passed,
             'is_edited' => $article->is_edited, 'estimated_cost_usd' => $article->estimated_cost_usd,
             'llm_model' => $article->llm_model, 'created_at' => $article->created_at->toImmutable(),
-            'updated_at' => $article->updated_at->toImmutable(),
+            'updated_at' => $article->updated_at->toImmutable(), 'refresh_of' => $article->refresh_of,
         ];
     }
 }

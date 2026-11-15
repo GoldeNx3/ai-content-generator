@@ -37,6 +37,7 @@ interface GenerateArticleDialogProps {
   title: string;
   defaults: GenerateArticleRequest;
   suggestedAngle: string | null;
+  refreshTarget?: { title: string; url: string | null } | null;
   busy: boolean;
   onSubmit: (options: GenerateArticleRequest) => void;
 }
@@ -52,7 +53,7 @@ export function GenerateArticleDialog(props: GenerateArticleDialogProps) {
   );
 }
 
-function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit, onOpenChange }: GenerateArticleDialogProps) {
+function GenerateForm({ title, defaults, suggestedAngle, refreshTarget = null, busy, onSubmit, onOpenChange }: GenerateArticleDialogProps) {
   const demo = useDemoMode();
   const initial = generationDefaults(defaults);
   const [articleFormat, setArticleFormat] = useState<ArticleFormat | "auto">(initial.article_format ?? "auto");
@@ -60,6 +61,7 @@ function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit, onOpenC
   const [useSuggestedAngle, setUseSuggestedAngle] = useState(!defaults.angle);
   const [angle, setAngle] = useState(defaults.angle ?? "");
   const [instructions, setInstructions] = useState(defaults.instructions ?? "");
+  const [refresh, setRefresh] = useState(Boolean(defaults.refresh && refreshTarget));
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -68,6 +70,7 @@ function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit, onOpenC
       length,
       angle: useSuggestedAngle ? null : angle.trim() || null,
       instructions: instructions.trim() || null,
+      refresh: refreshTarget ? refresh : false,
     });
   }
 
@@ -143,6 +146,14 @@ function GenerateForm({ title, defaults, suggestedAngle, busy, onSubmit, onOpenC
           Wskazówki wpływają na formę i akcenty. Fakty muszą pochodzić z researchu.
         </p>
       </div>
+
+      {refreshTarget && <div className="grid gap-1 rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-sm">
+        <label className="flex items-start gap-2">
+          <input type="checkbox" className="mt-1" checked={refresh} disabled={busy} onChange={(event) => setRefresh(event.target.checked)} />
+          <span>Napisz jako aktualizację wpisu „{refreshTarget.title}”</span>
+        </label>
+        <p className="text-xs text-muted-foreground">Autor dostanie treść starego wpisu (pobraną bezpłatnie z WordPressa), zachowa aktualne informacje i pokaże, co się zmieniło. Publikacja utworzy nowy szkic – stary wpis zostaje bez zmian.</p>
+      </div>}
 
       <DialogFooter>
         <Button type="button" variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Anuluj</Button>

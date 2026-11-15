@@ -19,6 +19,7 @@ final class GenerateArticleData extends Data
         public ?string $angle = null,
         #[Max(2000)]
         public ?string $instructions = null,
+        public bool $refresh = false,
     ) {}
 
     public function options(): array
@@ -29,6 +30,7 @@ final class GenerateArticleData extends Data
             'length' => $this->length,
             'angle' => $this->angle,
             'instructions' => $this->instructions,
+            'refresh' => $this->refresh,
         ];
     }
 }

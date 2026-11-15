@@ -7,7 +7,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ai.context import TaskContext
 from app.enums import CandidateCategory, FetchStatus
@@ -65,6 +65,19 @@ class CandidatePayload(BaseModel):
     published_at: datetime | None = None
 
 
+class RefreshOf(BaseModel):
+    title: str = Field(max_length=1000)
+    url: str = Field(max_length=2048)
+    content: str = Field(max_length=20000)
+
+    @field_validator("url")
+    @classmethod
+    def _http_url(cls, value: str) -> str:
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("refresh_of.url must be an http(s) URL")
+        return value
+
+
 class BriefInput(BaseModel):
     candidate: CandidatePayload
     research: ResearchPayload
@@ -75,6 +88,7 @@ class BriefInput(BaseModel):
     editor_take: str | None = Field(default=None, max_length=3000)
     internal_links: list[dict[str, str]] = Field(default_factory=list, max_length=30)
     blog_url: str | None = Field(default=None, max_length=2048)
+    refresh_of: RefreshOf | None = None
 
 
 class WriteInput(BaseModel):
@@ -138,6 +152,7 @@ def _context(payload: BriefInput, ctx: TaskContext) -> ArticleContext:
         editor_take=(payload.editor_take or "").strip() or None,
         internal_links=payload.internal_links or None,
         blog_url=payload.blog_url,
+        refresh_of=payload.refresh_of.model_dump() if payload.refresh_of else None,
     )
 
 
@@ -175,6 +190,14 @@ async def brief(data: dict, ctx: TaskContext) -> dict:
     context_data = asdict(context)
     context_data["published_at"] = context.published_at.isoformat() if context.published_at else None
     return {"context": context_data, "brief": validated.model_dump(mode="json"), "warnings": warnings}
+
+
+# Lista dozwolonych linków bloga: dopasowane wpisy oraz aktualizowany stary wpis.
+def allowed_links(context: ArticleContext) -> list[dict[str, str]]:
+    links = list(context.internal_links or [])
+    if context.refresh_of:
+        links.append({"title": context.refresh_of["title"], "url": context.refresh_of["url"]})
+    return links
 
 
 def _enforce_links(output, allowed, blog_url=None):
@@ -218,7 +241,7 @@ async def write(data: dict, ctx: TaskContext) -> dict:
     writer = ctx.providers["write"]
     result = await ctx.call("writing", lambda: writer.write_article(writer_context, brief_model))
     output = sanitize_output(result.output)
-    output, removed_links = _enforce_links(output, context.internal_links, context.blog_url)
+    output, removed_links = _enforce_links(output, allowed_links(context), context.blog_url)
     validated = validate_writer_output(output, context.facts, {s.id for s in context.sources},
                                        brief_model.required_facts, reference_texts=_reference_texts(context))
     warnings = [*payload.warnings, *validated.warnings]

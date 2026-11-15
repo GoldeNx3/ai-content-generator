@@ -105,7 +105,15 @@ final class FakeWordPress
                 'excerpt' => ['rendered' => '<p>'.($post['excerpt'] ?? '').'</p>']], $chunk), 200, ['X-WP-TotalPages' => (string) max(1, (int) ceil(count($this->published) / 100))]);
         }
         if (preg_match('#/wp/v2/posts/(\d+)$#', $path, $match)) {
-            return isset($this->posts[(int) $match[1]]) ? Http::response($this->posts[(int) $match[1]]) : Http::response(['code' => 'rest_post_invalid_id'], 404);
+            $id = (int) $match[1];
+            if (isset($this->posts[$id])) {
+                return Http::response($this->posts[$id]);
+            }
+            $published = collect($this->published)->firstWhere('id', $id);
+
+            return $published === null ? Http::response(['code' => 'rest_post_invalid_id'], 404) : Http::response(['id' => $id, 'link' => $published['link'],
+                'title' => ['raw' => $published['title'], 'rendered' => $published['title']],
+                'content' => ['raw' => $published['content'] ?? '', 'rendered' => $published['content'] ?? '']]);
         }
 
         return Http::response(['code' => 'rest_no_route'], 404);

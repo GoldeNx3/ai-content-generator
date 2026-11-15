@@ -78,6 +78,39 @@ final class BlogMemoryService
         return $this->connections->find($workspaceId)?->site_url;
     }
 
+    public function postForRefresh(int $workspaceId, int $postId): ?array
+    {
+        $connection = $this->connections->find($workspaceId);
+        if ($connection === null) {
+            return null;
+        }
+        try {
+            $post = $this->clients->make(ConnectionConfig::fromModel($connection))->getPost($postId);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
+        $url = is_string($post['link'] ?? null) ? $post['link'] : null;
+        $content = self::text((string) ($post['content']['raw'] ?? $post['content']['rendered'] ?? ''));
+        if ($url === null || $content === '') {
+            return null;
+        }
+
+        return ['title' => mb_substr(self::text((string) ($post['title']['raw'] ?? $post['title']['rendered'] ?? '')), 0, 1000),
+            'url' => mb_substr($url, 0, 2048), 'content' => mb_substr($content, 0, 20000)];
+    }
+
+    private static function text(string $html): string
+    {
+        $text = preg_replace('#<br\s*/?>|</(p|h[1-6]|li|div|blockquote|pre|tr)>#i', "\n\n", $html);
+        $text = html_entity_decode(strip_tags((string) $text), ENT_QUOTES | ENT_HTML5);
+        $text = preg_replace("/[ \t]+/u", ' ', $text);
+        $text = preg_replace("/ *\n */u", "\n", (string) $text);
+
+        return trim((string) preg_replace("/\n{3,}/", "\n\n", (string) $text));
+    }
+
     public function refreshIfStale(int $workspaceId): void
     {
         $synced = $this->connections->find($workspaceId)?->posts_synced_at;

@@ -112,6 +112,18 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
 - Krok 2: gdy nie ma podobnego artykułu z embeddingu, tytuł tematu porównywany jest z tytułami wpisów (`pg_trgm`,
   `BLOG_TITLE_SIMILARITY`, domyślnie 0.6) – trafienie daje `already_covered` z adresem wpisu.
 
+## Aktualizacja starego wpisu
+
+- Krok 2 zapisuje wynik porównania na temacie: `candidates.covered_by` (`type` post/article, `title`, `url`, `post_id`,
+  `similarity`; dla artykułu – adres i `post_id` z jego publikacji). Strona tematu pokazuje „Ten temat jest już na blogu”.
+- Krok 4: `POST candidates/{id}/article {refresh: true}` (opcja „Napisz jako aktualizację wpisu”) wymaga
+  `covered_by.post_id` (inaczej 422). Zadanie `write` przed płatnymi wywołaniami pobiera bezpłatnie treść wpisu z WP
+  (`wp/v2/posts/{id}?context=edit`, tekst do 20 000 znaków); brak dostępu kończy zadanie błędem
+  `refresh_post_unavailable` bez kosztu. Brief i pisarz dostają `refresh_of` (zachowaj aktualne, popraw nieaktualne,
+  pokaż „Co nowego”; nowe liczby tylko z faktów), link do starego wpisu jest dozwolony.
+- Wersja artykułu zapamiętuje `refresh_of` (`post_id`, `url`, `title`). Publikacja działa jak zawsze: nowy szkic;
+  panel WordPress przypomina, by przenieść treść do starego wpisu albo przekierować jego adres.
+
 ## Research i QA – jakość
 
 - Research (krok 3): z `SEARCH_PROVIDER=tavily` wyszukiwanie w trybie `TAVILY_SEARCH_DEPTH` (domyślnie `advanced`),

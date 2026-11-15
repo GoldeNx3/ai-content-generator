@@ -19,7 +19,9 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
  const pricing = {models:{classifier:'gpt-4.1-mini',research:'gpt-6.1-sol',brief:'gpt-4.1-mini',writer:'gpt-6.1-sol',qa:'gpt-4.1'},rates:{'gpt-4.1-mini':{input:0.4,output:1.6,cached_input:0.1},'gpt-6.1-sol':{input:2,output:10,cached_input:0.1,long_context_threshold:272000,long_input:4,long_output:15,long_cached_input:0.2}},source_url:'https://developers.openai.com/api/docs/pricing',verified_at:'2026-10-03'};
  const markdownFixture = '## Porównanie\n\n| Model | Cena |\n| --- | ---: |\n| A | 10 USD |\n\n```python\ndef greet(name):\n    return name\n```\n\nPolecenie `npm install`.';
  const stamp = '2026-10-03T10:00:00Z';
- const candidate = {id:1,source_id:1,source_name:'Test RSS',external_url:'https://example.com/article',title:'Testowy temat',summary:'Materiał testowy',original_published_at:stamp,status:'pending',relevance_score:null,freshness_score:null,search_potential_score:null,commercial_potential_score:null,total_score:null,category:null,llm_reason:null,classified_at:null,created_at:stamp,updated_at:stamp};
+ const candidate = {id:1,source_id:1,source_name:'Test RSS',external_url:'https://example.com/article',title:'Testowy temat',summary:'Materiał testowy',original_published_at:stamp,status:'pending',relevance_score:null,freshness_score:null,search_potential_score:null,commercial_potential_score:null,total_score:null,category:null,llm_reason:null,classified_at:null,created_at:stamp,updated_at:stamp,
+  covered_by:{type:'post',title:'Kolejki w Laravel 12',url:'https://wp.example/blog/kolejki/',post_id:11,similarity:0.71}};
+ const articleBodies=[];
  const source = {id:1,name:'Test RSS',type:'rss',url:'https://example.com/rss',active:true,last_fetched_at:null,created_at:stamp,updated_at:stamp};
  const report = {id:1,candidate_id:1,status:'completed',summary:'Podsumowanie',why_it_matters:'Znaczenie',suggested_angle:'Perspektywa',search_queries:[],uncertainties:[],conflicts:[],error:null,llm_model:'test-model',llm_input_tokens:10,llm_output_tokens:10,estimated_cost_usd:null,started_at:stamp,completed_at:stamp,created_at:stamp,updated_at:stamp,sources:[],facts:[{id:1,claim:'Potwierdzony fakt',confidence:95,importance:'critical',basis:'vendor_claim',source_ids:[]},{id:2,claim:'Fakt z relacji',confidence:80,importance:'supporting',basis:'secondary',source_ids:[]}]};
  let posts = 0;
@@ -77,7 +79,7 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
    }
    if (route.request().method()==='PATCH') {savedId=body.id;const parent=body;body={...parent,...route.request().postDataJSON(),id:Math.max(...articles.map(a=>a.id))+1,version:Math.max(...articles.map(a=>a.version))+1,parent_version_id:parent.id,created_by:'manual_edit',status:'draft',qa_passed:false,is_current:true};articles.forEach(a=>a.is_current=false);articles.unshift(body);}
   }
-  else if (path === '/api/candidates/1/article') { article={id:1,candidate_id:1,version:1,is_current:true,status:'draft',title:'Testowy artykuł',article_type:'news',word_count:10,is_edited:false,estimated_cost_usd:'0.004720',llm_model:'gpt-6.1-sol',created_at:stamp,updated_at:stamp,research_id:1,slug:'test',lead:'Testowy lead',content:markdownFixture,generated_content:markdownFixture,meta_title:'Test',meta_description:'Test',angle:null,brief:{primary_angle:'Test',target_audience:'Test',key_points:[],required_facts:[],optional_facts:[],uncertainties_to_avoid:[],conflicts_to_mention:[],desired_length_words:100},sections:[],lead_fact_ids:[],generation_options:{},research_snapshot:{facts:[],sources:[]},validation_warnings:[],sections_count:0,facts_used_count:0,facts_available_count:0,source_count:0,llm_input_tokens:2000,llm_output_tokens:400,brief_llm_model:'gpt-4.1-mini',brief_input_tokens:1000,brief_output_tokens:200,brief_cost_usd:'0.000720',writer_input_tokens:1000,writer_output_tokens:200,writer_cost_usd:'0.004000'}; articles=[article];resultReadFailures=1;body=job('write');status=202;}
+  else if (path === '/api/candidates/1/article') { articleBodies.push(route.request().postDataJSON()); article={id:1,candidate_id:1,version:1,is_current:true,status:'draft',title:'Testowy artykuł',article_type:'news',word_count:10,is_edited:false,estimated_cost_usd:'0.004720',llm_model:'gpt-6.1-sol',created_at:stamp,updated_at:stamp,research_id:1,slug:'test',lead:'Testowy lead',content:markdownFixture,generated_content:markdownFixture,meta_title:'Test',meta_description:'Test',angle:null,brief:{primary_angle:'Test',target_audience:'Test',key_points:[],required_facts:[],optional_facts:[],uncertainties_to_avoid:[],conflicts_to_mention:[],desired_length_words:100},sections:[],lead_fact_ids:[],generation_options:{},research_snapshot:{facts:[],sources:[]},validation_warnings:[],sections_count:0,facts_used_count:0,facts_available_count:0,source_count:0,llm_input_tokens:2000,llm_output_tokens:400,brief_llm_model:'gpt-4.1-mini',brief_input_tokens:1000,brief_output_tokens:200,brief_cost_usd:'0.000720',writer_input_tokens:1000,writer_output_tokens:200,writer_cost_usd:'0.004000',refresh_of:{post_id:11,url:'https://wp.example/blog/kolejki/',title:'Kolejki w Laravel 12'}}; articles=[article];resultReadFailures=1;body=job('write');status=202;}
   else if (path === '/api/candidates/1/research') {
    if (route.request().method() === 'POST') {research={...report,status:'running',completed_at:null};body=job('research','running');status=202;}
    else if (research) body=research; else {status=404;body={detail:'No research'};}
@@ -135,6 +137,9 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
  await go(2);
  await page.locator('section[data-workflow-step="2"] aside').getByRole('button',{name:'Oceń temat · płatne',exact:true,includeHidden:true}).click();
  await page.getByText('Testowe uzasadnienie',{exact:true,includeHidden:true}).waitFor();
+ const coveredNote=step(2).getByRole('note',{includeHidden:true}).filter({hasText:'Ten temat jest już na blogu'});
+ await coveredNote.waitFor({state:'attached'});
+ assert.equal(await coveredNote.getByRole('link',{name:'Kolejki w Laravel 12',includeHidden:true}).getAttribute('href'),'https://wp.example/blog/kolejki/');
  await waitForBackground(step(2).getByRole('button', {name:'Oceń ponownie · płatne',exact:true,includeHidden:true}), outlineBackground);
  assert.equal(await background(step(2).getByRole('button', {name:'Oceń ponownie · płatne',exact:true,includeHidden:true})), outlineBackground, 'completed classification uses outline');
  await step(2).locator('footer').getByText('Koszt i szczegóły uruchomienia',{exact:true}).click();
@@ -159,7 +164,11 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
  await generate.click();
  await page.getByRole('button',{name:'Generuj · płatne wywołanie AI',exact:true,includeHidden:true}).waitFor();
  await page.screenshot({path:'/tmp/content-generate.png',fullPage:true});
+ await page.getByRole('dialog').getByText('Kolejki w Laravel 12',{exact:false}).waitFor();
+ await page.getByLabel(/Napisz jako aktualizację wpisu/).check();
  await page.getByRole('button',{name:'Generuj · płatne wywołanie AI',exact:true,includeHidden:true}).click();
+ for (let i=0;i<30&&articleBodies.length===0;i++) await new Promise(r=>setTimeout(r,100));
+ assert.equal(articleBodies[0].refresh,true,'refresh option is sent');
  await page.locator('#article-workspace').getByRole('heading',{name:'Testowy artykuł',exact:true,includeHidden:true}).waitFor({state:'attached'});
  const footer=page.locator('section[data-workflow-step="4"] footer');
  await footer.getByText('Koszt i szczegóły uruchomienia',{exact:true}).click();
@@ -167,6 +176,7 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
  await footer.getByText('gpt-6.1-sol',{exact:true,includeHidden:true}).waitFor();
  await footer.getByText('gpt-4.1-mini',{exact:true,includeHidden:true}).waitFor();
  await footer.getByText(/Łączny zapisany koszt tej wersji: ≈ \$0.0047/).waitFor();
+ await page.getByRole('note',{includeHidden:true}).filter({hasText:'To aktualizacja wpisu'}).first().waitFor({state:'attached'});
  await page.getByRole('dialog').waitFor({state:'hidden'});
  await go(0);
  await page.locator('#article-workspace table th').getByText('Cena',{exact:true,includeHidden:true}).waitFor();

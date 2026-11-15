@@ -70,7 +70,7 @@ final class ClassifyHandler extends BaseStageHandler
                     'total_score' => $primary->total_score, 'category' => $primary->category?->value,
                     'reason' => sprintf('Ten sam temat co #%d „%s” (podobieństwo %.2f). Ocena przejęta bez ponownej klasyfikacji.',
                         $primary->id, $primary->title, $similarity),
-                ], CallUsage::of($embedded['calls']));
+                ], CallUsage::of($embedded['calls']), $primary->covered_by);
                 $this->assignGroup->execute($job->candidate_id, $vector, $model, $primaryId, round($similarity, 4));
 
                 return new StageResult('candidate', $job->candidate_id);
@@ -79,16 +79,20 @@ final class ClassifyHandler extends BaseStageHandler
             return;
         }
 
+        $coveredBy = null;
         $article = $vector === null ? null : $this->nearestArticle->execute($job->workspace_id, $vector, $model);
         if ($article !== null && (float) $article->similarity >= $threshold) {
             $input['already_covered'] = ['title' => $article->title, 'article_id' => (int) $article->id, 'similarity' => round((float) $article->similarity, 4)];
+            $coveredBy = ['type' => 'article', ...$input['already_covered'], 'url' => $article->wordpress_url,
+                'post_id' => $article->wordpress_post_id === null ? null : (int) $article->wordpress_post_id];
         } elseif (($post = $this->similarBlogPost->execute($job->workspace_id, $input['title'], (float) config('content.topics.blog_title_similarity'))) !== null) {
             $input['already_covered'] = ['title' => $post->title, 'url' => $post->url, 'similarity' => round((float) $post->similarity, 4)];
+            $coveredBy = ['type' => 'post', ...$input['already_covered'], 'post_id' => (int) $post->post_id];
         }
         $context->stage('classifying');
         $response = $context->ai('classify', 'classify', ['candidate' => $input, 'editorial' => $job->payload['editorial'] ?? null]);
-        $context->finish(function () use ($job, $vector, $model, $response, $embedded): StageResult {
-            $this->apply->execute($job->candidate_id, $job->id, $response['result'], CallUsage::of([...$embedded['calls'], ...$response['calls']]));
+        $context->finish(function () use ($job, $vector, $model, $response, $embedded, $coveredBy): StageResult {
+            $this->apply->execute($job->candidate_id, $job->id, $response['result'], CallUsage::of([...$embedded['calls'], ...$response['calls']]), $coveredBy);
             $this->assignGroup->execute($job->candidate_id, $vector, $model, null, null);
 
             return new StageResult('candidate', $job->candidate_id);

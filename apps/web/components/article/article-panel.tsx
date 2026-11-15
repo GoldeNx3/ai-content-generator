@@ -20,6 +20,7 @@ import type {
   ArticleSummary,
   ArticleUpdate,
   CandidateCategory,
+  CoveredBy,
   GenerateArticleRequest,
   Research,
 } from "@/types/api";
@@ -33,9 +34,10 @@ interface ArticlePanelProps {
   candidateId: number;
   candidateCategory: CandidateCategory | null;
   research: Research | null;
+  coveredBy?: CoveredBy | null;
 }
 
-export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
+export function ArticlePanel({ candidateId, research, coveredBy = null }: ArticlePanelProps) {
   const demo = useDemoMode();
   const selectedId = useRef<number | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -189,6 +191,7 @@ export function ArticlePanel({ candidateId, research }: ArticlePanelProps) {
         title={dialog === "regenerate" ? `Generuj nową wersję na podstawie v${article?.version}` : "Generuj artykuł"}
         defaults={dialog === "regenerate" && article ? article.generation_options : {}}
         suggestedAngle={research?.suggested_angle ?? null}
+        refreshTarget={coveredBy?.post_id ? { title: coveredBy.title, url: coveredBy.url ?? null } : null}
         busy={generationBusy}
         onSubmit={generate}
       />

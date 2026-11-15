@@ -62,6 +62,7 @@ export interface Candidate {
   topic_group_id?: number | null;
   duplicate_similarity?: number | null;
   editor_take?: string | null;
+  covered_by?: CoveredBy | null;
   topic_group?: { primary_id: number; members: { id: number; title: string; external_url: string; source_name: string }[] } | null;
 }
 
@@ -228,6 +229,7 @@ export interface GenerateArticleRequest {
   length?: ArticleLength;
   angle?: string | null;
   instructions?: string | null;
+  refresh?: boolean;
 }
 
 export interface ArticleSectionMeta {
@@ -255,7 +257,19 @@ export interface SnapshotSource {
   source_score: number;
 }
 
+export interface CoveredBy {
+  type: "post" | "article";
+  title: string;
+  url?: string | null;
+  post_id?: number | null;
+  article_id?: number;
+  similarity: number;
+}
+
+export interface RefreshOf { post_id: number; url: string | null; title: string }
+
 export interface ArticleSummary {
+  refresh_of?: RefreshOf | null;
   id: number;
   candidate_id: number;
   version: number;

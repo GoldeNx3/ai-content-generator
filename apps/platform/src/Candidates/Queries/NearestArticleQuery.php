@@ -16,7 +16,8 @@ final class NearestArticleQuery
             ->whereNotNull('articles.embedding')
             ->where('articles.embedding_model', $model)
             ->whereRaw('cardinality(articles.embedding) = ?', [count($vector)])
-            ->select('articles.id', 'articles.title')
+            ->leftJoin('wordpress_publications as publication', 'publication.candidate_id', '=', 'articles.candidate_id')
+            ->select('articles.id', 'articles.title', 'publication.wordpress_post_id', 'publication.wordpress_url')
             ->selectRaw('(SELECT SUM(a * b) FROM unnest(articles.embedding, ?::real[]) AS pair(a, b)) AS similarity', [Embedding::literal($vector)])
             ->orderByRaw('similarity DESC NULLS LAST')
             ->first();

@@ -115,6 +115,7 @@ export function WordPressPanel({article,onSelectVersion,editing}:{article:Articl
       </div>
     </>}
     summary={<UsageSummary free note="Wysyłka artykułu nie wywołuje AI. Opublikowanie wpisu wymaga osobnej decyzji." />}>
+    {article.refresh_of && <p role="note" className="mb-4 max-w-3xl rounded-lg border border-amber-200 bg-amber-50/50 p-3 text-sm">To aktualizacja wpisu {article.refresh_of.url ? <a href={article.refresh_of.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">„{article.refresh_of.title}”</a> : `„${article.refresh_of.title}”`}. Publikacja utworzy nowy szkic; po sprawdzeniu przenieś treść do starego wpisu albo przekieruj jego adres.</p>}
     {error&&<p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-900">{error}</p>}
     {state&&!state.wordpress_connected&&<p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm">WordPress nie jest połączony z tym workspace&apos;em. <Link href="/settings" className="font-medium underline underline-offset-4">Połącz stronę w Ustawieniach</Link>, aby wysyłać artykuły.</p>}
     {state&&<>

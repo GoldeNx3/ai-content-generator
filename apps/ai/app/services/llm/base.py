@@ -134,6 +134,7 @@ class ArticleContext:
     editor_take: str | None = None
     internal_links: list[dict[str, str]] | None = None
     blog_url: str | None = None
+    refresh_of: dict[str, str] | None = None  # stary wpis do zaktualizowania: title, url, content
 
 
 @dataclass(frozen=True, slots=True)

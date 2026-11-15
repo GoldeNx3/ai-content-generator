@@ -44,15 +44,27 @@ final class WriteHandler extends BaseStageHandler
             throw new JobInputException('Complete research before generating an article.');
         }
 
+        $refresh = null;
+        if ($options['refresh'] ?? false) {
+            $covered = $candidate->covered_by ?? [];
+            if (! isset($covered['post_id'])) {
+                throw new JobInputException('Ten temat nie ma wpisu na blogu do zaktualizowania.', 422);
+            }
+            $refresh = ['post_id' => (int) $covered['post_id'], 'url' => $covered['url'] ?? null, 'title' => $covered['title'] ?? ''];
+        }
+
         return ['research_id' => $research->id, 'article_type' => $options['article_type'] ?? $candidate->category?->value ?? 'news',
-            'editor_take' => $candidate->editor_take];
+            'editor_take' => $candidate->editor_take, 'refresh_post' => $refresh];
     }
 
     public function run(PipelineJob $job, JobRunContext $context): void
     {
         $candidate = $job->candidate()->with('source')->firstOrFail();
         $research = Research::query()->with(['sources', 'facts.sources'])->findOrFail($job->payload['research_id']);
-        $request = array_diff_key($job->payload['options'], ['parent_version_id' => true]);
+        $request = array_diff_key($job->payload['options'], ['parent_version_id' => true, 'refresh' => true]);
+        $refreshPost = $job->payload['refresh_post'] ?? null;
+        $refreshOf = $refreshPost === null ? null : ($this->blogMemory->postForRefresh($candidate->workspace_id, $refreshPost['post_id'])
+            ?? throw new StageFailedException('refresh_post_unavailable', 'Nie udało się pobrać starego wpisu z WordPressa. Sprawdź połączenie i czy wpis nadal istnieje.'));
 
         $this->blogMemory->refreshIfStale($candidate->workspace_id);
         $internalLinks = $this->blogMemory->linkCandidates($candidate->workspace_id, $candidate->title.' '.($research->summary ?? ''),
@@ -72,6 +84,7 @@ final class WriteHandler extends BaseStageHandler
             'editor_take' => array_key_exists('editor_take', $job->payload) ? $job->payload['editor_take'] : $candidate->editor_take,
             'internal_links' => $internalLinks,
             'blog_url' => $this->blogMemory->blogUrl($candidate->workspace_id),
+            'refresh_of' => $refreshOf,
         ]);
 
         $context->stage('writing');
@@ -88,7 +101,7 @@ final class WriteHandler extends BaseStageHandler
         $embedded = $this->embedArticle($context, $written['result']);
 
         $context->stage('validating');
-        $context->finish(function () use ($job, $research, $brief, $written, $embedded): StageResult {
+        $context->finish(function () use ($job, $research, $brief, $written, $embedded, $refreshPost): StageResult {
             $briefUsage = CallUsage::of($brief['calls']);
             $writerUsage = CallUsage::of($written['calls']);
             $total = CallUsage::of([...$brief['calls'], ...$written['calls'], ...$embedded['calls']]);
@@ -97,6 +110,7 @@ final class WriteHandler extends BaseStageHandler
                 ...$written['result'],
                 'research_id' => $research->id,
                 'generation_job_id' => $job->id,
+                'refresh_of' => $refreshPost,
                 'parent_version_id' => $parent,
                 'created_by' => $parent ? 'regenerated' : 'generated',
                 'llm_model' => $writerUsage->model,

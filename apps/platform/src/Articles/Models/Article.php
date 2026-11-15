@@ -33,6 +33,7 @@ class Article extends Model
             'lead_fact_ids' => 'array',
             'generation_options' => 'array',
             'research_snapshot' => 'array',
+            'refresh_of' => 'array',
             'validation_warnings' => 'array',
             'estimated_cost_usd' => 'decimal:6',
             'brief_cost_usd' => 'decimal:6',

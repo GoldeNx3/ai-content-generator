@@ -10,7 +10,7 @@ final class SimilarBlogPostQuery
     {
         return DB::table('wordpress_posts')
             ->where('workspace_id', $workspaceId)
-            ->select('title', 'url')
+            ->select('post_id', 'title', 'url')
             ->selectRaw('similarity(title, ?) AS similarity', [$title])
             ->whereRaw('similarity(title, ?) >= ?', [$title, $minimum])
             ->orderByDesc('similarity')

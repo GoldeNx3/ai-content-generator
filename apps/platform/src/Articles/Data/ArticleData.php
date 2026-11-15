@@ -68,6 +68,7 @@ final class ArticleData extends Data
         public int $writer_input_tokens,
         public int $writer_output_tokens,
         public ?string $writer_cost_usd,
+        public ?array $refresh_of = null,
     ) {}
 
     public static function fromModel(Article $article, ArticleQaState $state): self

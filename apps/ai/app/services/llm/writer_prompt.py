@@ -241,6 +241,19 @@ def _internal_links_block(context: ArticleContext) -> str:
     )
 
 
+def _refresh_block(context: ArticleContext) -> str:
+    if not context.refresh_of:
+        return ""
+    old = context.refresh_of
+    return (
+        "\n\nAKTUALIZACJA WPISU: ten tekst zastąpi wcześniejszy wpis bloga o tym samym temacie. Zachowaj z niego "
+        "informacje, które nadal są aktualne i nie przeczą faktom z researchu; popraw albo usuń nieaktualne; wyraźnie "
+        "pokaż, co się zmieniło (np. sekcja „Co nowego”). Fakty ze starego wpisu, których nie potwierdza research, "
+        "podawaj ostrożnie albo pomiń - nowe liczby i daty bierz wyłącznie z FAKTÓW. Możesz raz podlinkować stary wpis "
+        f"({old['url']}).\nSTARY WPIS „{old['title']}”:\n<<<\n{old['content']}\n>>>"
+    )
+
+
 # Brief planuje artykuł z kontekstu researchu i referencji do faktów.
 def build_brief_prompt(context: ArticleContext) -> str:
     angle = context.angle or context.suggested_angle or "brak - zaproponuj na podstawie faktów"
@@ -255,6 +268,7 @@ def build_brief_prompt(context: ArticleContext) -> str:
         f"{_instructions_block(context)}"
         f"{_editorial_block(context)}"
         f"{_editor_take_block(context)}"
+        f"{_refresh_block(context)}"
     )
 
 
@@ -273,6 +287,7 @@ def build_writer_prompt(context: ArticleContext, brief: ArticleBrief) -> str:
         f"{_editorial_block(context)}"
         f"{_editor_take_block(context)}"
         f"{_internal_links_block(context)}"
+        f"{_refresh_block(context)}"
     )
 
 

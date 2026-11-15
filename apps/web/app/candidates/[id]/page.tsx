@@ -183,6 +183,12 @@ export default function CandidatePage() {
           <p className="text-xs text-muted-foreground">Research głównego tematu użyje tych artykułów jako dodatkowych źródeł.</p>
           {candidate.topic_group_id && <Button size="sm" variant="outline" disabled={busy !== null || Boolean(jobs.active)} onClick={() => void classify(true)}>Oceń mimo to osobno · {candidate.is_demo ? "demo · bezpłatne" : "płatne"}</Button>}
         </div>}
+        {candidate.covered_by && <div className="mb-4 max-w-3xl space-y-1 rounded-xl border border-amber-200 bg-amber-50/50 p-4 text-sm" role="note">
+          <p className="font-medium">{candidate.covered_by.url ? "Ten temat jest już na blogu" : "Podobny artykuł już powstał w tym systemie"}</p>
+          <p>{candidate.covered_by.url ? <a href={candidate.covered_by.url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">{candidate.covered_by.title}</a> : candidate.covered_by.title}
+            <span className="text-muted-foreground"> · podobieństwo {candidate.covered_by.similarity.toFixed(2)}</span></p>
+          {candidate.covered_by.post_id ? <p className="text-xs text-muted-foreground">W kroku 4 możesz napisać aktualizację tego wpisu zamiast nowego tekstu.</p> : null}
+        </div>}
         <div className="max-w-3xl">
           <div className="space-y-4">            {classified ? (
               <>
@@ -220,7 +226,7 @@ export default function CandidatePage() {
       <ResearchPanel candidateId={id} onResearchChange={setResearch} />
 
       <EditorTake candidate={candidate} onSaved={setCandidate} />
-      <ArticlePanel candidateId={id} candidateCategory={candidate.category} research={research} />
+      <ArticlePanel candidateId={id} candidateCategory={candidate.category} research={research} coveredBy={candidate.covered_by ?? null} />
       </CandidateScreen>
     </div>
     </ModelPricingProvider>

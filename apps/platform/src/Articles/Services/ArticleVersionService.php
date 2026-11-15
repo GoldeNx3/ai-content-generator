@@ -33,7 +33,7 @@ final class ArticleVersionService
     public function prepareChild(Article $parent, array $changes, string $createdBy, ?int $iteration = null, array $patches = []): array
     {
         $data = array_diff_key($parent->getAttributes(), array_flip(self::EXCLUDED));
-        foreach (['seo_data', 'seo_preview', 'brief', 'sections', 'lead_fact_ids', 'generation_options', 'research_snapshot', 'validation_warnings'] as $json) {
+        foreach (['seo_data', 'seo_preview', 'brief', 'sections', 'lead_fact_ids', 'generation_options', 'research_snapshot', 'validation_warnings', 'refresh_of'] as $json) {
             $data[$json] = $parent->{$json} ?? [];
         }
         if (empty($parent->seo_data) && $parent->seo_origin === 'publication_profile') {

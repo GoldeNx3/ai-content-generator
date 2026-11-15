@@ -8,7 +8,7 @@ use Modules\Pipeline\Support\CallUsage;
 
 final class ApplyClassificationCommand
 {
-    public function execute(int $candidateId, string $jobId, array $result, CallUsage $usage): void
+    public function execute(int $candidateId, string $jobId, array $result, CallUsage $usage, ?array $coveredBy): void
     {
         Candidate::query()->whereKey($candidateId)->update([
             'relevance_score' => $result['relevance'],
@@ -18,6 +18,7 @@ final class ApplyClassificationCommand
             'total_score' => $result['total_score'],
             'category' => $result['category'],
             'llm_reason' => $result['reason'],
+            'covered_by' => $coveredBy === null ? null : json_encode($coveredBy, JSON_THROW_ON_ERROR),
             'llm_model' => $usage->model,
             'llm_input_tokens' => $usage->inputTokens,
             'llm_output_tokens' => $usage->outputTokens,
