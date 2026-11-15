@@ -198,6 +198,12 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
   przy `AUTOMATION_ENABLED=true`, `pipeline:scheduled` co minutę: obsługuje tylko workspace'y z włączoną automatyką,
   bez pauzy i z minionym interwałem; zapisuje `last_auto_run_at`/`last_auto_run_result`. Ręcznie dla jednego konta:
   `make pipeline EMAIL=<konto>` (pomija wł./wył. i interwał, respektuje pauzę i budżet).
+- Monitoring: `pipeline:health` co minutę (zawsze, niezależnie od `AUTOMATION_ENABLED`) wysyła alert na
+  `ALERT_WEBHOOK_URL` (Slack: `{"text"}`, Discord: `{"content"}`; puste = wyłączone), gdy: zadanie czeka w kolejce
+  dłużej niż `ALERT_QUEUE_STALL_MINUTES` (5; workspace'y w pauzie pomijane), zadanie trwa dłużej niż
+  `ALERT_RUNNING_MINUTES` (30), w `ALERT_ERROR_WINDOW_MINUTES` (15) jest co najmniej `ALERT_ERROR_BURST` (5) prób
+  zakończonych `retryable_error`. Ten sam problem najwyżej raz na `ALERT_REPEAT_MINUTES` (60), po ustąpieniu
+  wiadomość „wróciło do normy” (stan w cache). Nieudana wysyłka trafia do logu i jest ponawiana w kolejnej minucie.
 - Budżet: `Usage/BudgetService` sumuje koszty wywołań workspace'u w bieżącym miesiącu UTC; nowe płatne joby
   (nie `publish_wordpress`, nie demo) dostają `402 budget_exceeded`.
 
