@@ -44,8 +44,10 @@ w trybie SPA: sesja Laravela w Redisie, ciasteczko `ce_session` (HttpOnly) i och
 - Nagłówki: panel (`apps/web/next.config.ts`) wysyła CSP (`frame-ancestors 'none'`, `connect-src` tylko do
   `NEXT_PUBLIC_API_URL`, bez obiektów i ramek), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`; API (nginx)
   to samo z `default-src 'none'`. Optymalizator obrazów Next (`/_next/image`) jest wyłączony.
-- IP klienta pochodzi z `X-Forwarded-For` (`trustProxies('*')`): w prod port API jest bindowany na localhost
-  i dostępny tylko przez reverse proxy, które musi ustawiać ten nagłówek.
+- IP klienta pochodzi z `X-Forwarded-For` tylko wtedy, gdy połączenie przychodzi od zaufanego proxy
+  (`TRUSTED_PROXIES`, domyślnie localhost i prywatne sieci Dockera). Podrobiony nagłówek od klienta z publicznego
+  adresu jest ignorowany, więc nie obejdzie limitów per IP. W prod port API jest bindowany na localhost i dostępny
+  tylko przez reverse proxy, które musi ustawiać ten nagłówek.
 
 ## Konfiguracja produkcyjna
 
