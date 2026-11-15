@@ -24,6 +24,7 @@ try {
   let body,status=200;if(method==='POST')posts++;
   if(path==='/api/candidates/1')body=candidate;
   else if(path==='/api/candidates/1/research')body=research;
+  else if(path==='/api/candidates/1/suggestions')body=[];
   else if(path==='/api/candidates/1/articles')body=versions;
   else if(path==='/api/candidates/1/jobs')body={items:jobs,total:jobs.length,page:1,page_size:25};
   else if(path==='/api/pricing')body={models:{classifier:'gpt-4.1',research:'gpt-4.1',writer:'gpt-4.1',brief:'gpt-4.1',qa:'gpt-4.1',auto_fix:'gpt-4.1'},rates:{'gpt-4.1':{input:2,output:8}}};

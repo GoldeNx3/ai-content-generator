@@ -11,6 +11,7 @@ enum JobKind: string
     case AutoFixArticle = 'auto_fix_article';
     case PrepareWordPress = 'prepare_wordpress';
     case PublishWordPress = 'publish_wordpress';
+    case LearnFeedback = 'learn_feedback';
 
     public function isPaid(): bool
     {

@@ -18,11 +18,13 @@ final class EditorialProfileData extends Data
         public array $banned_phrases = [],
         #[Max(6000)]
         public string $example_post = '',
+        #[Max(30)]
+        public array $style_rules = [],
     ) {}
 
     public static function rules(): array
     {
-        return ['banned_phrases.*' => ['string', 'min:1', 'max:80']];
+        return ['banned_phrases.*' => ['string', 'min:1', 'max:80'], 'style_rules.*' => ['string', 'min:1', 'max:200']];
     }
 
     public static function fromStored(?array $stored): self
@@ -32,6 +34,7 @@ final class EditorialProfileData extends Data
         return new self(
             (string) ($stored['audience'] ?? ''), (string) ($stored['voice'] ?? ''), (string) ($stored['topics_scope'] ?? ''),
             array_values(array_map('strval', $stored['banned_phrases'] ?? [])), (string) ($stored['example_post'] ?? ''),
+            array_values(array_map('strval', $stored['style_rules'] ?? [])),
         );
     }
 }

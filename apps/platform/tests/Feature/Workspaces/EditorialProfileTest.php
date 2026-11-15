@@ -29,7 +29,7 @@ final class EditorialProfileTest extends TestCase
     public function the_profile_starts_empty_and_is_saved_per_account(): void
     {
         $this->getJson('/api/workspace/editorial')->assertOk()->assertExactJson([
-            'audience' => '', 'voice' => '', 'topics_scope' => '', 'banned_phrases' => [], 'example_post' => '',
+            'audience' => '', 'voice' => '', 'topics_scope' => '', 'banned_phrases' => [], 'example_post' => '', 'style_rules' => [],
         ]);
         $other = Workspace::query()->create(['name' => 'inne']);
 

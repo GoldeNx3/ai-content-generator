@@ -212,6 +212,8 @@ def _editorial_block(context: ArticleContext) -> str:
         lines.append(f"Ton i głos marki: {profile['voice']}")
     if profile.get("banned_phrases"):
         lines.append("Nie używaj zwrotów: " + ", ".join(f"„{phrase}”" for phrase in profile["banned_phrases"]) + ".")
+    if profile.get("style_rules"):
+        lines.append("ZASADY STYLU (zaakceptowane przez redakcję, obowiązkowe):\n" + "\n".join(f"- {rule}" for rule in profile["style_rules"]))
     if profile.get("example_post"):
         lines.append("WZORZEC STYLU (naśladuj wyłącznie formę: rytm, długość akapitów, sposób zwracania się do "
                      "czytelnika; nie przenoś z niego żadnych faktów):\n<<<\n" + str(profile["example_post"]) + "\n>>>")

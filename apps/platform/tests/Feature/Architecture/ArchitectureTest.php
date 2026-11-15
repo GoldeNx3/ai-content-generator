@@ -85,8 +85,10 @@ final class ArchitectureTest extends TestCase
         $fix = ArticleFix::query()->create(['source_article_version_id' => $article->id, 'qa_id' => $qa->id, 'iteration' => 1, 'input_hash' => 'x', 'input_snapshot' => []]);
         $job = PipelineJob::query()->create(['workspace_id' => $foreignWorkspace->id, 'candidate_id' => $candidate->id, 'kind' => 'classify',
             'status' => 'failed', 'payload' => [], 'idempotency_key' => (string) Str::uuid(), 'request_hash' => 'x']);
+        $suggestion = \Modules\Workspaces\Models\EditorialSuggestion::query()->create(['workspace_id' => $foreignWorkspace->id,
+            'candidate_id' => $candidate->id, 'kind' => 'style_rule', 'text' => 'x', 'why' => 'y']);
         $ids = ['source' => $candidate->source_id, 'candidate' => $candidate->id, 'article' => $article->id, 'version' => $article->id,
-            'fix' => $fix->id, 'job' => $job->id];
+            'fix' => $fix->id, 'job' => $job->id, 'suggestion' => $suggestion->id];
 
         $checked = 0;
         foreach ($this->apiRoutes() as $route) {

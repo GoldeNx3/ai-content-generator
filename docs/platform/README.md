@@ -124,6 +124,19 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
 - Wersja artykułu zapamiętuje `refresh_of` (`post_id`, `url`, `title`). Publikacja działa jak zawsze: nowy szkic;
   panel WordPress przypomina, by przenieść treść do starego wpisu albo przekierować jego adres.
 
+## Wnioski z poprawek redaktora
+
+- Płatny krok na stronie tematu (sekcja „Wnioski z Twoich poprawek” w kroku 4): `POST candidates/{id}/feedback`
+  tworzy zadanie `learn_feedback`. Wymaga ręcznie poprawionej wersji (`is_edited`, `generated_content ≠ content`)
+  albo wersji odrzuconej z powodem (inaczej 422). Python (`feedback.suggest`, model QA) dostaje tylko zmienione akapity
+  (przed → po), do 10 powodów odrzucenia i aktualny profil; zwraca do 8 propozycji `style_rule` / `banned_phrase`
+  bez tych, które już są w profilu.
+- Propozycje: tabela `editorial_suggestions` (`pending/accepted/dismissed`), `GET candidates/{id}/suggestions`,
+  `POST suggestions/{id}/accept|dismiss` (bezpłatne). Akceptacja dopisuje do profilu `style_rules` (≤ 30 × 200 znaków)
+  albo `banned_phrases` (≤ 50); pełny profil → `409 editorial_profile_full`. Nic nie trafia do profilu bez akceptacji.
+- `style_rules` (edytowalne też w Ustawieniach → Profil redakcyjny) trafiają do briefu i pisarza jako obowiązkowe
+  zasady, a QA zgłasza ich naruszenie jako `style_issue`.
+
 ## Research i QA – jakość
 
 - Research (krok 3): z `SEARCH_PROVIDER=tavily` wyszukiwanie w trybie `TAVILY_SEARCH_DEPTH` (domyślnie `advanced`),

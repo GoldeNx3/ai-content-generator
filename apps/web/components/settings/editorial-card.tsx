@@ -11,17 +11,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { api, errorText } from "@/lib/api";
 import type { EditorialProfile } from "@/types/api";
 
-const EMPTY: EditorialProfile = { audience: "", voice: "", topics_scope: "", banned_phrases: [], example_post: "" };
+const EMPTY: EditorialProfile = { audience: "", voice: "", topics_scope: "", banned_phrases: [], example_post: "", style_rules: [] };
 
 export function EditorialCard() {
   const [profile, setProfile] = useState<EditorialProfile | null>(null);
   const [banned, setBanned] = useState("");
+  const [rules, setRules] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api.editorialProfile().then((loaded) => { setProfile(loaded); setBanned(loaded.banned_phrases.join("\n")); }, (err) => setError(errorText(err)));
+    api.editorialProfile().then((loaded) => { setProfile(loaded); setBanned(loaded.banned_phrases.join("\n")); setRules((loaded.style_rules ?? []).join("\n")); }, (err) => setError(errorText(err)));
   }, []);
 
   const change = (patch: Partial<EditorialProfile>) => { setProfile((current) => ({ ...(current ?? EMPTY), ...patch })); setSaved(false); };
@@ -30,8 +31,9 @@ export function EditorialCard() {
     if (!profile) return;
     setSaving(true);
     try {
-      const next = await api.updateEditorialProfile({ ...profile, banned_phrases: banned.split("\n").map((line) => line.trim()).filter(Boolean) });
-      setProfile(next); setBanned(next.banned_phrases.join("\n")); setSaved(true); setError(null);
+      const next = await api.updateEditorialProfile({ ...profile, banned_phrases: banned.split("\n").map((line) => line.trim()).filter(Boolean),
+        style_rules: rules.split("\n").map((line) => line.trim()).filter(Boolean) });
+      setProfile(next); setBanned(next.banned_phrases.join("\n")); setRules((next.style_rules ?? []).join("\n")); setSaved(true); setError(null);
     } catch (err) { setError(errorText(err)); }
     finally { setSaving(false); }
   }
@@ -63,6 +65,11 @@ export function EditorialCard() {
             <Label htmlFor="ed-banned">Zakazane zwroty</Label>
             <Textarea id="ed-banned" rows={3} placeholder={"jeden zwrot w linii, np.\nrewolucja\ngame changer"} value={banned} onChange={(e) => { setBanned(e.target.value); setSaved(false); }} />
             <p className="text-xs text-muted-foreground">Do 50 zwrotów. Pisarz ich unika, a QA i walidacja je zgłaszają.</p>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="ed-rules">Zasady stylu</Label>
+            <Textarea id="ed-rules" rows={4} placeholder={"jedna zasada w linii, np.\nPierwsze zdanie podaje konkretny fakt z datą."} value={rules} onChange={(e) => { setRules(e.target.value); setSaved(false); }} />
+            <p className="text-xs text-muted-foreground">Do 30 zasad (po 200 znaków). Dopisują się też z „Wnioski z Twoich poprawek” na stronie tematu. Pisarz je stosuje, a QA zgłasza naruszenia.</p>
           </div>
           <div className="space-y-1">
             <Label htmlFor="ed-example">Wzorcowy wpis</Label>

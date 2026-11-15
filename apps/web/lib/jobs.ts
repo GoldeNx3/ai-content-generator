@@ -5,11 +5,11 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
   queued: "Oczekujące", running: "W toku", retrying: "Ponawiane", succeeded: "Sukcesy", failed: "Błędy", cancelled: "Anulowane",
 };
 export const KIND_LABELS: Record<Job["kind"], string> = {
-  prepare_wordpress: "Przygotowanie SEO", publish_wordpress: "WordPress Publisher", classify: "Ocena tematu", research: "Research", write: "Pisanie artykułu", qa_article: "QA / Fact Checker", auto_fix_article: "Auto Fix",
+  prepare_wordpress: "Przygotowanie SEO", publish_wordpress: "WordPress Publisher", learn_feedback: "Wnioski z poprawek", classify: "Ocena tematu", research: "Research", write: "Pisanie artykułu", qa_article: "QA / Fact Checker", auto_fix_article: "Auto Fix",
 };
 export const STAGE_LABELS: Record<string, string> = {
   preparing_seo: "Przygotowanie SEO", publishing_wordpress: "Synchronizacja WordPress", fact_checking: "Weryfikacja faktów", validating_references: "Sprawdzanie referencji", validating_qa: "Walidacja raportu QA",
-  fixing_article: "Poprawianie artykułu", validating_fix: "Walidacja poprawek",
+  fixing_article: "Poprawianie artykułu", learning_feedback: "Analiza poprawek redaktora", validating_fix: "Walidacja poprawek",
   classifying: "Ocena tematu", comparing_topics: "Porównanie z innymi tematami", fetching_original: "Pobieranie oryginału",
   discovering_sources: "Szukanie źródeł", searching_sources: "Wyszukiwanie (Tavily)", fetching_sources: "Pobieranie źródeł",
   analysing: "Analiza faktów", building_brief: "Przygotowanie briefu",

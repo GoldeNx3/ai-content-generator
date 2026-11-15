@@ -106,6 +106,16 @@ export interface ClassifyBatchResult {
   skipped_budget: number;
 }
 
+export interface EditorialSuggestion {
+  id: number;
+  candidate_id: number;
+  kind: "style_rule" | "banned_phrase";
+  text: string;
+  why: string;
+  status: "pending" | "accepted" | "dismissed";
+  created_at: string;
+}
+
 export interface CostReport {
   month: string;
   total_usd: string;
@@ -124,7 +134,7 @@ export interface Usage {
   unknown_cost_calls: number;
 }
 
-export interface EditorialProfile { audience: string; voice: string; topics_scope: string; banned_phrases: string[]; example_post: string }
+export interface EditorialProfile { audience: string; voice: string; topics_scope: string; banned_phrases: string[]; example_post: string; style_rules: string[] }
 
 export const AUTOMATION_INTERVALS = [15, 30, 60, 120, 360, 720, 1440] as const;
 export interface AutomationRunResult { new_candidates: number; enqueued: number; errors: number; budget_exceeded: boolean }
@@ -357,7 +367,7 @@ export interface Job {
   id: string;
   candidate_id: number;
   candidate_title?: string | null;
-  kind: "classify" | "research" | "write" | "qa_article" | "auto_fix_article" | "prepare_wordpress" | "publish_wordpress";
+  kind: "classify" | "research" | "write" | "qa_article" | "auto_fix_article" | "prepare_wordpress" | "publish_wordpress" | "learn_feedback";
   article_id?: number | null;
   status: JobStatus;
   stage: string | null;

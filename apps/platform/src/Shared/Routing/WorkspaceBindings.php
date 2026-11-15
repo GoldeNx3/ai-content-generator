@@ -11,11 +11,12 @@ use Modules\Candidates\Queries\FindWorkspaceCandidateQuery;
 use Modules\Pipeline\Queries\FindWorkspaceJobQuery;
 use Modules\Shared\Exceptions\ApiException;
 use Modules\Sources\Queries\FindWorkspaceSourceQuery;
+use Modules\Workspaces\Queries\FindWorkspaceSuggestionQuery;
 use Modules\Workspaces\Services\CurrentWorkspace;
 
 final class WorkspaceBindings
 {
-    public const PARAMETERS = ['source', 'candidate', 'article', 'version', 'fix', 'job'];
+    public const PARAMETERS = ['source', 'candidate', 'article', 'version', 'fix', 'job', 'suggestion'];
 
     public function __construct(private readonly Container $container) {}
 
@@ -26,6 +27,7 @@ final class WorkspaceBindings
         $router->bind('article', $this->numeric(fn (int $id, int $ws) => $this->container->make(FindWorkspaceArticleQuery::class)->execute($id, $ws)));
         $router->bind('version', $this->numeric(fn (int $id, int $ws) => $this->container->make(FindWorkspaceArticleQuery::class)->execute($id, $ws)));
         $router->bind('fix', $this->numeric(fn (int $id, int $ws) => $this->container->make(FindWorkspaceFixQuery::class)->execute($id, $ws)));
+        $router->bind('suggestion', $this->numeric(fn (int $id, int $ws) => $this->container->make(FindWorkspaceSuggestionQuery::class)->execute($id, $ws)));
         $router->bind('job', fn (string $value) => $this->container->make(FindWorkspaceJobQuery::class)
             ->execute($value, $this->workspaceId()) ?? throw new ApiException('not_found', 404));
     }

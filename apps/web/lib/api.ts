@@ -2,7 +2,7 @@ import type {
   BlogMemory,
   Credentials,
   Me,
-  WordPressState, WordPressProfile, WordPressConnection, WordPressManualConnect, Usage, CostReport, AutomationSettings, AutomationUpdate, EditorialProfile,
+  WordPressState, WordPressProfile, WordPressConnection, WordPressManualConnect, Usage, CostReport, EditorialSuggestion, AutomationSettings, AutomationUpdate, EditorialProfile,
   ArticleFix,
   ArticleQA,
   QueueQuery,
@@ -130,6 +130,7 @@ export const ERROR_MESSAGES: Record<string, string> = {
   source_private_url: "Adres źródła prowadzi do sieci prywatnej albo lokalnej. Podaj publiczny adres kanału RSS.",
   source_url_invalid: "Podaj adres http(s) kanału RSS bez loginu i hasła w adresie.",
   source_limit_reached: "Osiągnięto limit 200 źródeł na konto. Usuń nieużywane źródła, aby dodać nowe.",
+  editorial_profile_full: "Profil redakcji ma już maksymalną liczbę zasad (30) lub zakazanych zwrotów (50). Usuń coś w Ustawieniach → Profil redakcyjny.",
   budget_exceeded: "Wyczerpano miesięczny budżet AI tego workspace'u. Płatne kroki (ocena, research, pisanie, QA, poprawki) wrócą od 1. dnia miesiąca albo po zwiększeniu budżetu przez administratora.",
   secrets_key_missing: "Serwer nie ma skonfigurowanego klucza SECRETS_KEY. Skontaktuj się z administratorem.",
 };
@@ -285,6 +286,10 @@ export const api = {
     request<CandidatePage>(`/candidates${toQueryString(query)}`),
   getCandidate: (id: number) => request<Candidate>(`/candidates/${id}`),
   updateEditorTake: (id: number, editor_take: string | null) => patch<Candidate>(`/candidates/${id}/editor-take`, { editor_take }),
+  requestFeedback: (candidateId: number) => enqueue<Job>(`/candidates/${candidateId}/feedback`),
+  suggestions: (candidateId: number) => request<EditorialSuggestion[]>(`/candidates/${candidateId}/suggestions`),
+  acceptSuggestion: (id: number) => post<EditorialSuggestion>(`/suggestions/${id}/accept`),
+  dismissSuggestion: (id: number) => post<EditorialSuggestion>(`/suggestions/${id}/dismiss`),
   classifyCandidate: (id: number, force = false) => enqueue<Job>(`/candidates/${id}/classify`, force ? { force: true } : undefined),
   classifyPending: () => enqueue<ClassifyBatchResult>("/candidates/classify-pending"),
   updateCandidateStatus: (id: number, status: CandidateStatus) =>

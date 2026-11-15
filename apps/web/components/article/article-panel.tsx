@@ -28,6 +28,7 @@ import type {
 import { WordPressPanel } from "./wordpress-panel";
 import { QAPanel } from "./qa-panel";
 import { ArticleWorkspace } from "./article-workspace";
+import { FeedbackPanel } from "./feedback-panel";
 import { GenerateArticleDialog } from "./generate-article-dialog";
 
 interface ArticlePanelProps {
@@ -173,6 +174,7 @@ export function ArticlePanel({ candidateId, research, coveredBy = null }: Articl
           {article && <p>Wersja {article.version} · {formatDate(article.created_at)} · {article.word_count} słów</p>}
           {article && <p className="mt-2">Kolejny krok: sprawdź treść i przekaż do weryfikacji.</p>}
 </div>
+        {article && <FeedbackPanel candidateId={candidateId} versions={versions} />}
         {!researchReady && (
           <p className="text-sm text-muted-foreground">Najpierw ukończ research, aby odblokować generowanie artykułu.</p>
         )}

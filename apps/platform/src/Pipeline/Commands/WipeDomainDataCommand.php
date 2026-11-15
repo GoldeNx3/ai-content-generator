@@ -10,7 +10,7 @@ final class WipeDomainDataCommand
         'pipeline_job_attempts', 'pipeline_jobs', 'pipeline_job_batches', 'failed_jobs',
         'wordpress_publications', 'article_fix_issues', 'article_fixes', 'article_qa_issues', 'article_qas', 'articles',
         'research_fact_sources', 'research_facts', 'research_sources', 'researches',
-        'candidates', 'sources',
+        'editorial_suggestions', 'candidates', 'sources',
     ];
 
     public function execute(): void

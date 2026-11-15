@@ -71,6 +71,7 @@ import { authenticate, corsHeaders } from './fixtures/auth.mjs';
    } else if (qa && qa.article_id===Number(path.split('/')[3])) body=qa;
    else {status=404;body={detail:'No QA yet'};}
   }
+  else if (path === '/api/candidates/1/suggestions') body=[];
   else if (path === '/api/candidates/1/articles') {if (resultReadFailures>0) {resultReadFailures--;status=503;body={detail:'temporary read error'};} else body=articles;}
   else if (/^\/api\/articles\/\d+$/.test(path)) {
    body=articles.find(item=>item.id===Number(path.split('/').at(-1)));

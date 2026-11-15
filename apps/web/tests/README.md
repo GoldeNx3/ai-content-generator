@@ -69,3 +69,7 @@ wymagają `UI_TEST_EMAIL` i `UI_TEST_PASSWORD` konta utworzonego przez `make cre
 `wordpress-settings-ui-check.mjs` sprawdza Ustawienia → WordPress z mockowanym API: przekierowanie do ekranu
 autoryzacji WP, powrót na callback (hasło aplikacji usunięte z adresu i przekazane do API), odrzucenie,
 rozłączenie, połączenie ręczne (błędne i poprawne hasło aplikacji) oraz szerokość telefonu.
+
+`feedback-ui-check.mjs` sprawdza sekcję „Wnioski z Twoich poprawek” w kroku 4: zlecenie płatnej analizy poprawek,
+listę propozycji (zasada stylu / zakazany zwrot) oraz bezpłatne „Dodaj do profilu” i „Pomiń”. Raport kosztów w
+Ustawieniach jest sprawdzany w `wordpress-settings-ui-check.mjs`.

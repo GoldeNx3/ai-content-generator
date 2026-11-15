@@ -23,6 +23,7 @@ final class EditorialProfileService
         $clean = new EditorialProfileData(
             trim($data->audience), trim($data->voice), trim($data->topics_scope),
             array_values(array_unique(array_filter(array_map('trim', $data->banned_phrases)))), trim($data->example_post),
+            array_values(array_unique(array_filter(array_map('trim', $data->style_rules)))),
         );
         $this->save->execute($workspaceId, $clean->toArray());
 

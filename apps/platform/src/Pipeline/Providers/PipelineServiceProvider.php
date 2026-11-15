@@ -7,6 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use Modules\Articles\Handlers\WriteHandler;
 use Modules\AutoFix\Handlers\AutoFixHandler;
 use Modules\Classification\Handlers\ClassifyHandler;
+use Modules\Workspaces\Handlers\LearnFeedbackHandler;
 use Modules\Pipeline\Services\HandlerRegistry;
 use Modules\Qa\Handlers\QaHandler;
 use Modules\Research\Handlers\ResearchHandler;
@@ -25,6 +26,7 @@ final class PipelineServiceProvider extends ServiceProvider
             'auto_fix_article' => AutoFixHandler::class,
             'prepare_wordpress' => PrepareWordPressHandler::class,
             'publish_wordpress' => PublishWordPressHandler::class,
+            'learn_feedback' => LearnFeedbackHandler::class,
         ]));
     }
 }

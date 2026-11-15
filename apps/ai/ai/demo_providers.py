@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from app.demo import DEMO_MODEL, DEMO_PREFIX
 from app.schemas.article import ArticleBrief, WriterOutput, WriterSection
 from app.schemas.classification import CandidateClassification
+from app.schemas.feedback import FeedbackSuggestions
 from app.schemas.research import ResearchOutput, SearchQueries
 from app.schemas.qa import QAOutput
 from app.schemas.auto_fix import FixOutput
@@ -208,6 +209,15 @@ class DemoEmbedder:
         return EmbedResult(vectors, USAGE)
 
 
+class DemoFeedback:
+    async def suggest(self, prompt):
+        result = FeedbackSuggestions(suggestions=[
+            {'kind': 'style_rule', 'text': 'Pierwsze zdanie podaje konkretny fakt, bez ogólnego wstępu.', 'why': 'Symulowana propozycja (demo).'},
+            {'kind': 'banned_phrase', 'text': 'w dzisiejszym dynamicznym świecie', 'why': 'Symulowana propozycja (demo).'}])
+        result._usage = asdict(USAGE)
+        return result
+
+
 def demo_providers():
     return {'classify': DemoClassifier(), 'embed': DemoEmbedder(), 'research': DemoResearcher(), 'write': DemoWriter(),
-        'qa_article': DemoQA(), 'auto_fix_article': DemoFix(), 'extractor': DemoExtractor(), 'search': DemoSearch()}
+        'qa_article': DemoQA(), 'feedback': DemoFeedback(), 'auto_fix_article': DemoFix(), 'extractor': DemoExtractor(), 'search': DemoSearch()}
