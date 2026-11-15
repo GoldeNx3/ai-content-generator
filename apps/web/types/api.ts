@@ -105,6 +105,15 @@ export interface ClassifyBatchResult {
   skipped_budget: number;
 }
 
+export interface CostReport {
+  month: string;
+  total_usd: string;
+  unknown_cost_calls: number;
+  by_kind: { kind: string; jobs: number; cost_usd: string }[];
+  by_stage: { stage: string; calls: number; cost_usd: string }[];
+  articles: { topics: number; cost_usd: string; average_usd: string | null };
+}
+
 export interface Usage {
   period_start: string;
   spent_usd: string;

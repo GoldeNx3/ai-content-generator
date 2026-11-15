@@ -97,7 +97,9 @@ niezaufanych serwisów (np. WordPress); w takim przypadku panel i API powinny mi
   (`auto_classify_batch_limit`) i przerywa ocenę workspace'u po przekroczeniu budżetu.
 - Sterowanie jobami (ustawienia automatyki, pauza/wznowienie, anulowanie pojedyncze i zbiorcze) – właściciel konta,
   tylko dla swojego workspace'u.
-- Panel: Ustawienia → Zużycie AI (`GET /api/usage`).
+- Panel: Ustawienia → Zużycie AI (`GET /api/usage`) oraz „Koszty według kroków” (`GET /api/usage/report?month=YYYY-MM`,
+  bezpłatny): koszt per rodzaj zadania i per etap wywołania (w tym `searching_sources` – Tavily, `embedding`), liczba
+  wywołań o nieznanym koszcie oraz średni koszt tematu z artykułem (koszt zadań tematów, które mają artykuł, w miesiącu).
 
 ## Ograniczenia
 

@@ -14,7 +14,7 @@ const connected = {site_url:'https://blog.example',api_url:null,username:'editor
 const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
 try {
  const page = await browser.newPage({viewport:{width:1280,height:900}});
- let connection = null; let posts = {count:0,synced_at:null}; const calls = []; let authorizeUrl = null;
+ let connection = null; let posts = {count:0,synced_at:null}; const calls = []; let authorizeUrl = null; const reportMonths = [];
  await page.route('**/*', async route => {
   const url = new URL(route.request().url());
   if (url.hostname === 'localhost' && url.port === port) return route.continue();
@@ -23,7 +23,12 @@ try {
   const method = route.request().method(); const path = url.pathname;
   let status = 200; let body = null;
   if (method !== 'GET' && method !== 'OPTIONS') calls.push([method, path, route.request().postDataJSON?.() ?? null]);
-  if (path === '/api/usage') body = {period_start:'2026-10-01T00:00:00Z',spent_usd:'10.42',budget_usd:'10.00',remaining_usd:'0',exceeded:true,unknown_cost_calls:1};
+  if (path === '/api/usage/report') { reportMonths.push(url.searchParams.get('month'));
+   body = {month:url.searchParams.get('month') ?? '2026-11',total_usd:'0.049502',unknown_cost_calls:1,
+    by_kind:[{kind:'research',jobs:1,cost_usd:'0.027000'},{kind:'write',jobs:1,cost_usd:'0.022001'}],
+    by_stage:[{stage:'searching_sources',calls:2,cost_usd:'0.016000'},{stage:'writing',calls:1,cost_usd:'0.020000'}],
+    articles:{topics:1,cost_usd:'0.049001',average_usd:'0.049001'}}; }
+  else if (path === '/api/usage') body = {period_start:'2026-10-01T00:00:00Z',spent_usd:'10.42',budget_usd:'10.00',remaining_usd:'0',exceeded:true,unknown_cost_calls:1};
   else if (path === '/api/wordpress/connection' && method === 'GET') body = connection;
   else if (path === '/api/wordpress/connection/authorize') body = {authorize_url:authorizeUrl};
   else if (path === '/api/wordpress/connection/authorize/complete') { connection = connected; body = connected; }
@@ -48,6 +53,15 @@ try {
  await page.getByText('$10.42').waitFor();
  assert.equal(await page.getByRole('progressbar', {name:'Wykorzystanie budżetu AI'}).getAttribute('aria-valuenow'), '100');
  await page.getByText('Budżet wyczerpany').waitFor();
+ // Raport kosztów: podział na kroki i etapy, Tavily osobno, średni koszt tematu z artykułem, wybór miesiąca.
+ const costs = page.getByRole('region', {name:'Koszty AI według kroków'});
+ await costs.getByText('Research', {exact:true}).waitFor();
+ await costs.getByText('Wyszukiwanie (Tavily)', {exact:true}).waitFor();
+ await costs.getByText('≈ $0.0490 na temat z artykułem (1)', {exact:true}).waitFor();
+ await costs.getByText('1 przerwane wywołanie bez znanego kosztu', {exact:true}).waitFor();
+ await costs.getByLabel('Miesiąc').fill('2026-10');
+ for (let i = 0; i < 30 && !reportMonths.includes('2026-10'); i++) await new Promise(r => setTimeout(r, 100));
+ assert.ok(reportMonths.includes('2026-10'), 'month change reloads the report');
  await page.getByLabel('Adres strony WordPress').fill('https://blog.example');
  // Adres autoryzacji spoza http(s) (np. javascript:) nie może zostać otwarty w panelu.
  authorizeUrl = 'javascript:document.title="pwned"';
@@ -100,7 +114,7 @@ try {
  // 5. Telefon: bez poziomego przewijania.
  await page.setViewportSize({width:375,height:800});
  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'brak poziomego scrolla');
- console.log('PASS: usage card (exceeded budget), authorize redirect, callback strips password and completes, blog memory sync, reject, disconnect, manual connect (401 + success), mobile. All API mocked.');
+ console.log('PASS: usage card (exceeded budget), cost report by step/stage + month switch, authorize redirect, callback strips password and completes, blog memory sync, reject, disconnect, manual connect (401 + success), mobile. All API mocked.');
 } finally {
  await browser.close();
 }
