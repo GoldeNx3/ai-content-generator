@@ -2,6 +2,7 @@
 
 namespace Modules\Ai\Services;
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use JsonException;
 use Modules\Ai\Data\AiResult;
@@ -20,7 +21,9 @@ final class AiRunner
         try {
             $response = json_decode($process->output(), true, flags: JSON_THROW_ON_ERROR);
         } catch (JsonException) {
-            throw new AiTaskException('ai_process_failed', mb_substr(trim($process->errorOutput()) ?: 'Proces AI zakończył się bez odpowiedzi.', -2000), retryable: true);
+            Log::error('AI process failed without a JSON response', ['task' => $task, 'exit_code' => $process->exitCode(),
+                'stderr' => mb_substr(trim($process->errorOutput()), -4000)]);
+            throw new AiTaskException('ai_process_failed', 'Proces AI zakończył się błędem.', retryable: true);
         }
         if (($response['ok'] ?? false) !== true) {
             $error = $response['error'] ?? [];
