@@ -17,6 +17,9 @@ final class WordPressUrl
             || isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
             throw new ApiException('wordpress_invalid_url', 422);
         }
+        if ($parts['scheme'] === 'http' && ! config('content.wordpress.allow_private_urls')) {
+            throw new ApiException('wordpress_https_required', 422);
+        }
         $host = strtolower($parts['host']).(isset($parts['port']) ? ':'.$parts['port'] : '');
 
         return $parts['scheme'].'://'.$host.rtrim($parts['path'] ?? '', '/');
