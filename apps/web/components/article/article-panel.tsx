@@ -36,9 +36,10 @@ interface ArticlePanelProps {
   candidateCategory: CandidateCategory | null;
   research: Research | null;
   coveredBy?: CoveredBy | null;
+  editorTake?: React.ReactNode;
 }
 
-export function ArticlePanel({ candidateId, research, coveredBy = null }: ArticlePanelProps) {
+export function ArticlePanel({ candidateId, research, coveredBy = null, editorTake }: ArticlePanelProps) {
   const demo = useDemoMode();
   const selectedId = useRef<number | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -168,7 +169,7 @@ export function ArticlePanel({ candidateId, research, coveredBy = null }: Articl
       </section>}
 
       <div className="space-y-6">
-
+        {editorTake}
         <div className="space-y-1 text-sm text-muted-foreground">          {loadError && <p className="text-destructive">{loadError}</p>}
           {generationError && <p className="text-destructive">{generationError} — możesz ponowić generowanie; kolejne wywołanie może naliczyć koszt.</p>}
           {article && <p>Wersja {article.version} · {formatDate(article.created_at)} · {article.word_count} słów</p>}
