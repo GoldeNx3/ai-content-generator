@@ -66,10 +66,13 @@ try {
  for (let i = 0; i < 30 && classifyBodies.length === 0; i++) await new Promise(r => setTimeout(r, 100));
  assert.deepEqual(classifyBodies[0], {force:true});
  const take = page.getByLabel('Nasze zdanie (opcjonalnie)');
- await take.fill('Używamy tego w trzech projektach.');
+ assert.equal(await take.isVisible(), false, '„Nasze zdanie” należy do kroku 4, nie do oceny tematu');
+ await page.locator('nav a[href="#workflow-step-4"]').click();
+ await page.locator('#workflow-step-4').getByLabel('Nasze zdanie (opcjonalnie)').fill('Używamy tego w trzech projektach.');
  await page.getByRole('button', {name:'Zapisz komentarz · bezpłatne', exact:true}).click();
  await page.getByText('Komentarz zapisany.', {exact:true}).waitFor();
  assert.deepEqual(takeBodies[0], {editor_take:'Używamy tego w trzech projektach.'});
+ await page.locator('nav a[href="#workflow-step-2"]').click();
  // Ręczna korekta grup: odłączenie duplikatu i połączenie z podobnym tematem (bezpłatne).
  await note.getByRole('button', {name:'Odłącz od grupy · bezpłatne'}).click();
  await page.getByText('Odłączono ręcznie od grupy tematu #1.', {exact:false}).first().waitFor();

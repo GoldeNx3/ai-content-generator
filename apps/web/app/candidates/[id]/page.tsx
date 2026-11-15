@@ -240,8 +240,8 @@ export default function CandidatePage() {
 
       <ResearchPanel candidateId={id} onResearchChange={setResearch} />
 
-      <EditorTake candidate={candidate} onSaved={setCandidate} />
-      <ArticlePanel candidateId={id} candidateCategory={candidate.category} research={research} coveredBy={candidate.covered_by ?? null} />
+      <ArticlePanel candidateId={id} candidateCategory={candidate.category} research={research} coveredBy={candidate.covered_by ?? null}
+        editorTake={<EditorTake candidate={candidate} onSaved={setCandidate} />} />
       </CandidateScreen>
     </div>
     </ModelPricingProvider>

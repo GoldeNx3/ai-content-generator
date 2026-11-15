@@ -1,4 +1,4 @@
-.PHONY: up dev down build migrate seed seed-demo wipe logs test test-platform test-ai pipeline create-user deactivate-user activate-user set-budget wordpress-import artisan
+.PHONY: up dev down build migrate seed seed-demo wipe logs test test-platform test-ai audit pipeline create-user deactivate-user activate-user set-budget wordpress-import artisan
 
 ARTISAN := docker compose exec platform php artisan
 # Wybór workspace'u dla seedów i importu: EMAIL=<konto> albo WORKSPACE=<id> (wymagane, gdy workspace'ów jest kilka).
@@ -54,6 +54,12 @@ test-platform:
 
 test-ai:
 	docker compose exec -T -w /srv/ai platform /opt/ai/bin/python -m pytest -q
+
+# Znane podatności zależności: Python (venv /opt/ai), PHP i frontend – wszystko bez pakietów deweloperskich.
+audit:
+	docker compose exec -T platform sh -c '/opt/audit/bin/pip-audit --progress-spinner off --path /opt/ai/lib/python3*/site-packages'
+	docker compose exec -T platform composer audit --no-dev
+	cd apps/web && npm audit --omit=dev
 
 # Jednorazowy przebieg dla jednego konta: pobranie RSS jego workspace'u i zlecenie oceny (płatne, limit z Ustawień).
 # Działa też przy wyłączonej automatyce; odmawia przy wstrzymanym workspace'ie. EMAIL=<konto> albo WORKSPACE=<id>.

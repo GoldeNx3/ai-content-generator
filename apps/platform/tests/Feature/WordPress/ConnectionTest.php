@@ -134,8 +134,22 @@ final class ConnectionTest extends TestCase
     public function private_addresses_are_blocked(): void
     {
         config(['content.wordpress.allow_private_urls' => false]);
-        $this->postJson('/api/wordpress/connection/authorize', ['site_url' => 'http://127.0.0.1:9'])
+        $this->postJson('/api/wordpress/connection/authorize', ['site_url' => 'https://127.0.0.1:9'])
             ->assertStatus(422)->assertExactJson(['detail' => ['code' => 'wordpress_connection']]);
+    }
+
+    #[Test]
+    public function public_sites_require_https_so_the_app_password_never_travels_in_clear_text(): void
+    {
+        config(['content.wordpress.allow_private_urls' => false]);
+
+        $this->postJson('/api/wordpress/connection', $this->manual(['site_url' => 'http://wp.example/blog']))
+            ->assertStatus(422)->assertExactJson(['detail' => ['code' => 'wordpress_https_required']]);
+        $this->postJson('/api/wordpress/connection/authorize', ['site_url' => 'http://wp.example/blog'])
+            ->assertStatus(422)->assertExactJson(['detail' => ['code' => 'wordpress_https_required']]);
+        $this->postJson('/api/wordpress/connection', $this->manual(['site_url' => 'https://wp.example/blog', 'api_url' => 'http://wp.example/blog']))
+            ->assertStatus(422)->assertExactJson(['detail' => ['code' => 'wordpress_https_required']]);
+        $this->assertSame(0, WordPressConnection::query()->count());
     }
 
     #[Test]

@@ -112,6 +112,7 @@ export function redirectToLogin() {
 // Komunikaty dla kodów błędów API (WordPress: services/wordpress/connections.py, client.py; budżet: services/usage.py).
 export const ERROR_MESSAGES: Record<string, string> = {
   wordpress_invalid_url: "Podaj pełny adres strony, np. https://example.com (bez loginu, parametrów i #).",
+  wordpress_https_required: "Adres WordPressa musi zaczynać się od https:// – hasło aplikacji nie może iść niezaszyfrowanym połączeniem.",
   wordpress_not_configured: "WordPress nie jest połączony. Połącz stronę w Ustawieniach.",
   wordpress_not_wordpress: "Pod tym adresem nie odpowiada REST API WordPressa.",
   wordpress_app_passwords_unavailable: "Ta strona nie udostępnia haseł aplikacji (wymagany WordPress 5.6+ i HTTPS). Użyj połączenia ręcznego albo włącz hasła aplikacji.",

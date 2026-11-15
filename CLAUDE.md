@@ -20,6 +20,7 @@ Everything runs in Docker (`docker compose`); see `Makefile`.
 make up            # db, redis, migrate, platform (:8000, artisan serve), queue, scheduler, web (:3000) – production web build
 make dev           # same, but web runs `next dev` with apps/web mounted (hot reload)
 make test          # test-platform (php artisan test) + test-ai (pytest in /opt/ai venv); needs running stack
+make audit         # pip-audit of /opt/ai (pip-audit lives in its own /opt/audit venv, dev image only) + composer audit + npm audit, all without dev deps
 make migrate       # php artisan migrate (also runs via the `migrate` service)
 make seed [GROUPS=ai,php,...] / seed-demo  [EMAIL=<user>|WORKSPACE=<id>]  # RSS sources by topic group (finance opt-in) / demo topics (zero-cost)
 make pipeline EMAIL=<user>|WORKSPACE=<id>  # one-off run for one workspace: fetch RSS + enqueue classification (paid)

@@ -146,6 +146,24 @@ final class AuthTest extends TestCase
     }
 
     #[Test]
+    public function a_forged_forwarded_for_header_from_an_untrusted_client_does_not_reset_the_limit(): void
+    {
+        $this->register();
+        $this->app['auth']->guard('web')->logout();
+        config(['content.auth.max_login_failures_per_email' => 3]);
+        foreach (range(1, 3) as $attempt) {
+            $this->spa()->withServerVariables(['REMOTE_ADDR' => '198.51.100.7', 'HTTP_X_FORWARDED_FOR' => "203.0.113.{$attempt}"])
+                ->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => 'bad']);
+        }
+
+        $this->spa()->withServerVariables(['REMOTE_ADDR' => '198.51.100.7', 'HTTP_X_FORWARDED_FOR' => '203.0.113.99'])
+            ->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => self::PASSWORD])->assertStatus(429);
+        $this->spa()->withServerVariables(['REMOTE_ADDR' => '172.18.0.5', 'HTTP_X_FORWARDED_FOR' => '198.51.100.7'])
+            ->postJson('/api/auth/login', ['email' => 'jan@example.com', 'password' => self::PASSWORD])->assertStatus(429);
+        RateLimiter::clear('login:email:jan@example.com|198.51.100.7');
+    }
+
+    #[Test]
     public function many_addresses_cannot_guess_one_password_without_limit(): void
     {
         $this->register();
