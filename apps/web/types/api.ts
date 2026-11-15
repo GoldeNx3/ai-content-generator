@@ -267,6 +267,8 @@ export interface SnapshotSource {
   source_score: number;
 }
 
+export interface SimilarTopic { id: number; title: string; source_name: string; topic_group_id: number | null; total_score: number; similarity: number }
+
 export interface CoveredBy {
   type: "post" | "article";
   title: string;

@@ -11,7 +11,8 @@ const base = {source_id:1,status:'pending',original_published_at:stamp,relevance
 const primary = {...base,id:1,source_name:'RSS A',external_url:'https://a.example/1',title:'OpenAI wydało nowy model',llm_reason:'Ocena AI.',group_size:2,topic_group_id:null,topic_group:null};
 const duplicate = {...base,id:2,source_name:'RSS B',external_url:'https://b.example/2',title:'Nowy model GPT-6',llm_reason:'Ten sam temat co #1.',group_size:1,topic_group_id:1,duplicate_similarity:0.91,
  topic_group:{primary_id:1,members:[{id:1,title:'OpenAI wydało nowy model',external_url:'https://a.example/1',source_name:'RSS A'}]}};
-const listQueries = []; const classifyBodies = []; const takeBodies = [];
+const listQueries = []; const classifyBodies = []; const takeBodies = []; const groupCalls = [];
+const solo = {...base,id:4,source_name:'RSS C',external_url:'https://c.example/4',title:'GPT-6 premiera',llm_reason:'Ocena AI.',group_size:1,topic_group_id:null,topic_group:null};
 const browser = await chromium.launch({headless:true,executablePath:process.env.CHROME_PATH || '/usr/bin/google-chrome',args:['--no-sandbox']});
 try {
  const page = await browser.newPage({viewport:{width:1440,height:1000}});
@@ -25,6 +26,13 @@ try {
   else if (path === '/api/stats') body = {candidates_today:0,new_today:0,approved:0,ignored:0,average_score:null};
   else if (path === '/api/sources') body = [];
   else if (path === '/api/jobs') body = {items:[],total:0,page:1,page_size:100};
+  else if (path === '/api/candidates/2/ungroup') { groupCalls.push(path); body = {...duplicate,topic_group_id:null,topic_group:null,llm_reason:'Ten sam temat co #1. Odłączono ręcznie od grupy tematu #1.'}; }
+  else if (path === '/api/candidates/4') body = solo;
+  else if (path === '/api/candidates/4/similar') body = [{id:1,title:'OpenAI wydało nowy model',source_name:'RSS A',topic_group_id:null,total_score:68,similarity:0.81}];
+  else if (path === '/api/candidates/4/group') { groupCalls.push([path, route.request().postDataJSON()]); body = {...solo,topic_group_id:1,
+   topic_group:{primary_id:1,members:[{id:1,title:'OpenAI wydało nowy model',external_url:'https://a.example/1',source_name:'RSS A'}]}}; }
+  else if (['/api/candidates/4/jobs','/api/candidates/4/articles','/api/candidates/4/suggestions','/api/candidates/2/suggestions','/api/candidates/2/similar'].includes(path)) body = path.endsWith('/jobs') ? {items:[],total:0,page:1,page_size:25} : [];
+  else if (path === '/api/candidates/4/research') { status = 404; body = {detail:'Research not found'}; }
   else if (path === '/api/candidates/2/editor-take') { const data = route.request().postDataJSON(); takeBodies.push(data); duplicate.editor_take = data.editor_take; body = duplicate; }
   else if (path === '/api/candidates/2') body = duplicate;
   else if (path === '/api/candidates/2/jobs') body = {items:[],total:0,page:1,page_size:25};
@@ -62,6 +70,18 @@ try {
  await page.getByRole('button', {name:'Zapisz komentarz · bezpłatne', exact:true}).click();
  await page.getByText('Komentarz zapisany.', {exact:true}).waitFor();
  assert.deepEqual(takeBodies[0], {editor_take:'Używamy tego w trzech projektach.'});
+ // Ręczna korekta grup: odłączenie duplikatu i połączenie z podobnym tematem (bezpłatne).
+ await note.getByRole('button', {name:'Odłącz od grupy · bezpłatne'}).click();
+ await page.getByText('Odłączono ręcznie od grupy tematu #1.', {exact:false}).first().waitFor();
+ assert.deepEqual(groupCalls[0], '/api/candidates/2/ungroup');
+ await page.goto(`http://localhost:${port}/candidates/4`);
+ await page.locator('nav a[href="#workflow-step-2"]').click();
+ const similar = page.getByRole('region', {name:'Podobne tematy'});
+ await similar.getByText('OpenAI wydało nowy model').waitFor();
+ await similar.getByText('podobieństwo 0.81', {exact:false}).waitFor();
+ await similar.getByRole('button', {name:'To ten sam temat · bezpłatne'}).click();
+ await page.getByRole('note').getByText('Ten sam temat co inne wpisy z RSS').waitFor();
+ assert.deepEqual(groupCalls[1], ['/api/candidates/4/group', {primary_id:1}]);
  assert.deepEqual(errors, []);
- console.log('PASS: group badge, hidden duplicates + filter, step-2 group note with links, forced separate classification, editor take saved. No real API calls.');
+ console.log('PASS: manual ungroup and join, group badge, hidden duplicates + filter, step-2 group note with links, forced separate classification, editor take saved. No real API calls.');
 } finally { await browser.close(); }

@@ -99,6 +99,16 @@ go jako `unsupported_claim` (o ile tekst nie podaje opinii jako faktu).
   wektorów. Duplikat pokazuje w kroku 2 koszt porównania (embedding), nie klasyfikacji.
   Research tematu głównego dodaje URL-e z grupy jako źródła (`origin = sibling`, najwyżej 3).
 
+### Ręczna korekta grup (bezpłatna)
+
+- `GET candidates/{id}/similar` – do 5 najbliższych ocenionych tematów tego konta (ten sam model embeddingu, okno
+  `TOPIC_WINDOW_DAYS`); krok 2 pokazuje je jako „Podobne tematy” z przyciskiem „To ten sam temat”.
+- `POST candidates/{id}/group {primary_id}` – temat dołącza do grupy wskazanego (albo jego tematu głównego),
+  przejmuje ocenę, kategorię i `covered_by`. Odmowa: łączenie z samym sobą / własną grupą (422), temat ma własnych
+  członków (`409 topic_has_members`), cel bez oceny (`409 target_not_classified`), aktywne zadanie (`409 job_active`).
+- `POST candidates/{id}/ungroup` – duplikat staje się samodzielny i zachowuje przejętą ocenę (`409 not_grouped`
+  dla tematu bez grupy). Pełną własną ocenę daje płatne „Oceń mimo to osobno”.
+
 ## Pamięć wpisów i linki wewnętrzne
 
 - Tabela `wordpress_posts` (per workspace) trzyma opublikowane wpisy bloga: `post_id`, `url`, `title`, `excerpt`,
