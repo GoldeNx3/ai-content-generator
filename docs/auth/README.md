@@ -41,6 +41,9 @@ w trybie SPA: sesja Laravela w Redisie, ciasteczko `ce_session` (HttpOnly) i och
   Konto może mieć najwyżej 200 źródeł (`422 source_limit_reached`); listy przyjmują `page` ≤ 10 000.
 - Źródła RSS muszą wskazywać publiczne adresy (`422 source_private_url`); pobieranie przypina rozwiązany adres,
   ponownie sprawdza przekierowania i ucina odpowiedzi > 5 MB. `SOURCES_ALLOW_PRIVATE_URLS=true` tylko lokalnie.
+- Nagłówki: panel (`apps/web/next.config.ts`) wysyła CSP (`frame-ancestors 'none'`, `connect-src` tylko do
+  `NEXT_PUBLIC_API_URL`, bez obiektów i ramek), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`; API (nginx)
+  to samo z `default-src 'none'`. Optymalizator obrazów Next (`/_next/image`) jest wyłączony.
 - IP klienta pochodzi z `X-Forwarded-For` (`trustProxies('*')`): w prod port API jest bindowany na localhost
   i dostępny tylko przez reverse proxy, które musi ustawiać ten nagłówek.
 
