@@ -31,7 +31,7 @@ export function CostReportCard() {
   return (
     <Card role="region" aria-label="Koszty AI według kroków">
       <CardHeader>
-        <CardTitle><h2 className="flex items-center gap-2 text-lg font-semibold"><ReceiptIcon className="size-5" />Koszty według kroków</h2></CardTitle>
+        <CardTitle><h3 className="flex items-center gap-2 text-lg font-semibold"><ReceiptIcon className="size-5" />Koszty według kroków</h3></CardTitle>
         <CardDescription>Na co poszedł budżet: płatne kroki, etapy wywołań (w tym wyszukiwanie Tavily) i średni koszt tematu doprowadzonego do artykułu. Raport jest bezpłatny.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

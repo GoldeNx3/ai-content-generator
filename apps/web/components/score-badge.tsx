@@ -19,7 +19,7 @@ export function ScoreBadge({ score, size = "sm" }: ScoreBadgeProps) {
   if (score === null) {
     return (
       <span
-        title="Not classified yet"
+        title="Jeszcze nie oceniono"
         className={cn(
           "inline-flex items-center justify-center font-mono text-zinc-400 ring-1 ring-dashed ring-zinc-300",
           dimensions,

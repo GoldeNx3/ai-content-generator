@@ -16,6 +16,10 @@ w trybie SPA: sesja Laravela w Redisie, ciasteczko `ce_session` (HttpOnly) i och
   instancji – docelowo osobny panel Filament.
   Wymaga `ALLOW_REGISTRATION=true`, inaczej `403 registration_disabled`; zajęty email → `409 email_taken`.
 - `POST /api/auth/login` / `POST /api/auth/logout` / `GET /api/auth/me`.
+- `POST /api/auth/password` (`current_password`, `password`, `password_confirmation`; min. 10 znaków, inne niż obecne) →
+  `204`. Złe obecne hasło → `422 invalid_current_password`; po `AUTH_MAX_FAILURES_PER_EMAIL` błędach w oknie
+  `AUTH_WINDOW_MINUTES` → `429 too_many_attempts`. Bieżąca sesja zostaje (nowe ID sesji); pozostałe sesje konta
+  wylogowuje Sanctum `AuthenticateSession` (hash hasła w sesji przestaje pasować). Panel: Ustawienia → Konto.
 - Wszystkie inne trasy `/api/*` mają middleware `auth:sanctum`; bez sesji zwracają `401`
   z `detail.code = "not_authenticated"`. `/up` jest publiczne (healthcheck).
 - Konto można zablokować (`make deactivate-user EMAIL=...`, `users.is_active = false`). Provider `active_eloquent`

@@ -3,7 +3,7 @@
 import { useDemoMode } from "@/components/demo-mode";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ShieldCheckIcon, RefreshCwIcon } from "lucide-react";
+import { ArrowRightIcon, ShieldCheckIcon, RefreshCwIcon } from "lucide-react";
 import { toast } from "sonner";
 import { navigateStage } from "@/components/pipeline-state";
 import { WorkflowSection } from "@/components/workflow-section";
@@ -29,6 +29,7 @@ const ISSUE_LABELS: Record<QAIssueType, string> = {
   seo_issue: "Problem SEO", overclaim: "Zbyt mocne twierdzenie", other: "Inny problem",
 };
 const AUTO_FIX_TYPES = ["unsupported_claim", "title_mismatch", "repetition", "style_issue", "structure_issue", "seo_issue", "overclaim", "too_close_to_source", "unverified_number", "incorrect_number", "incorrect_date"];
+const SEVERITY_LABELS = { info: "Informacja", warning: "Ostrzeżenie", high: "Wysoki", critical: "Krytyczny" };
 const SEVERITY_STYLES = {
   info: "bg-sky-50 text-sky-800", warning: "bg-amber-50 text-amber-900",
   high: "bg-orange-50 text-orange-900", critical: "bg-rose-50 text-rose-800",
@@ -130,15 +131,15 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
       <a href="#article-workspace" onClick={() => window.dispatchEvent(new Event(`article-${article.id}-reveal`))} className="inline-flex min-h-9 items-center rounded px-2 text-sm font-medium underline underline-offset-4 focus-visible:outline-2">Czytaj wybrany tekst</a>
     </div>}
     initiallyCollapsed={loaded ? report?.status === "completed" && !report.is_stale : undefined}
-    actionTitle="Wynik QA" actionDescription="QA ocenia tekst i wskazuje problemy. Poprawki oraz decyzja redakcyjna są w etapie „Poprawki i zatwierdzenie”."
-    actionDetails={report?.status === "completed" && <p className="text-sm text-slate-600">{report.issues.length} problemów · {fixable} automatycznych · {report.issues.length - fixable} do ręcznej oceny</p>}
-    actions={<>
-      <Button variant={report?.status === "completed" && !report.is_stale ? "outline" : "default"} disabled={busy} onClick={() => void run()}>
-        {report ? <RefreshCwIcon /> : <ShieldCheckIcon />}{report ? `Uruchom QA ponownie · ${demo ? "demo · bezpłatne" : "płatne"}` : `Uruchom QA · ${demo ? "demo · bezpłatne" : "płatne"}`}
-      </Button>
-      {editing && <p className="action-hint">Zapisz lub anuluj edycję przed uruchomieniem QA.</p>}
-      <Button variant={report?.status === "completed" && !report.is_stale ? "default" : "outline"} disabled={editing || selectingVersion} onClick={() => navigateStage(6)}>Przejdź do poprawek i zatwierdzenia</Button>
-      <p className="action-hint">Otwiera etap 6. Nie uruchamia poprawek ani nie zatwierdza tekstu.</p>
+    actionTitle="QA wybranej wersji" actionDescription="QA ocenia tekst i wskazuje problemy. Poprawki i decyzja redakcyjna są w etapie „Poprawki i zatwierdzenie”."
+    actionDetails={<p className="text-sm text-slate-600">Wersja {article.version}{report?.status === "completed" && !report.is_stale ? ` · ${report.overall_score}/100 · ${report.qa_passed ? "zaliczone" : "wymaga weryfikacji"}` : ""}</p>}
+    blocker={editing ? "Zapisz lub anuluj edycję przed uruchomieniem QA." : undefined}
+    primary={<Button variant={report?.status === "completed" && !report.is_stale ? "outline" : "default"} disabled={busy} onClick={() => void run()}>
+      {report ? <RefreshCwIcon /> : <ShieldCheckIcon />}{report ? `Uruchom QA ponownie · ${demo ? "demo · bezpłatne" : "płatne"}` : `Uruchom QA · ${demo ? "demo · bezpłatne" : "płatne"}`}
+    </Button>}
+    navigation={<>
+      <Button variant={report?.status === "completed" && !report.is_stale ? "default" : "outline"} onClick={() => navigateStage(6)}>Przejdź do poprawek i zatwierdzenia<ArrowRightIcon /></Button>
+      <p className="action-hint">Samo przejście nie uruchamia poprawek ani nie zatwierdza tekstu.</p>
     </>}
 
     activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active}
@@ -148,12 +149,9 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
       note="QA korzysta wyłącznie z zapisanych materiałów tej wersji. Nie poprawia ani nie publikuje artykułu." />}>
 
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    {editing && <p className="text-sm text-muted-foreground">Zapisz lub anuluj edycję przed uruchomieniem QA.</p>}
     {!report && loaded && <p className="text-sm text-muted-foreground">Uruchom QA, aby sprawdzić fakty i jakość artykułu. Ocena wykona się w tle.</p>}
     {report?.is_stale && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Treść zmieniła się od tej oceny. Raport dotyczy poprzedniej treści; uruchom QA ponownie.</p>}
-    {report?.status === "completed" && <div className="flex flex-wrap items-center gap-3">
-      <p className="text-sm">Problemy: {report.issues.length} · automatycznie: {fixable} · ręcznie: {report.issues.length - fixable}</p>
-    </div>}
+    {report?.status === "completed" && <p className="text-sm">Problemy: {report.issues.length} · automatycznie: {fixable} · ręcznie: {report.issues.length - fixable}</p>}
     {article.auto_fix_iterations_remaining === 0 && <p className="text-sm text-amber-800">Limit Auto Fix został wykorzystany. Wymagana ręczna weryfikacja.</p>}
     {report?.status === "completed" && <QualityReport report={report} article={article} />}
   </WorkflowSection>
@@ -192,8 +190,8 @@ function IssueCard({issue, article, stale}: {issue: ArticleQAIssue; article: Art
   const anchor = issue.section_heading && sectionAnchor(prefix, issue.section_heading);
   const headings = [...article.content.matchAll(/^#{2,3}\s+(.+)$/gm)].map((match) => sectionAnchor(prefix, match[1]));
   const canJump = !stale && anchor && headings.filter((id) => id === anchor).length === 1;
-  return <section className="space-y-3 rounded-lg border p-4">
-    <div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${SEVERITY_STYLES[issue.severity]}`}>{issue.severity.toUpperCase()}</span>
+  return <section className="space-y-3 rounded-xl p-4 ring-1 ring-foreground/10">
+    <div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${SEVERITY_STYLES[issue.severity]}`}>{SEVERITY_LABELS[issue.severity]}</span>
       <h4 className="text-sm font-semibold">{ISSUE_LABELS[issue.type]}</h4><span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{!stale && issue.auto_fixable && AUTO_FIX_TYPES.includes(issue.type) ? "Możliwy Auto Fix" : "Ręczna weryfikacja"}</span></div>
     {issue.excerpt && <blockquote className="break-words border-l-2 pl-3 text-sm italic">„{issue.excerpt}”</blockquote>}
     <div className="space-y-2 text-sm"><p><span className="font-medium">Powód: </span>{issue.reason}</p>
@@ -201,8 +199,7 @@ function IssueCard({issue, article, stale}: {issue: ArticleQAIssue; article: Art
     {issue.section_heading && <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
       <span>Sekcja: {issue.section_heading}</span>{canJump && <button className="text-emerald-700 underline" onClick={() => jumpToSection(prefix, anchor)}>Zobacz w artykule</button>}
     </div>}
-    <p className="text-xs text-muted-foreground">Powiązane źródła: {issue.source_ids.length}</p>
-    {(issue.fact_ids.length > 0 || issue.source_ids.length > 0) && <p className="text-xs text-muted-foreground">Fakty: {issue.fact_ids.join(", ") || "—"} · Źródła: {issue.source_ids.join(", ") || "—"}</p>}
+    {(issue.fact_ids.length > 0 || issue.source_ids.length > 0) && <p className="text-xs text-muted-foreground">Powiązane fakty: {issue.fact_ids.join(", ") || "—"} · źródła: {issue.source_ids.join(", ") || "—"}</p>}
   </section>;
 }
 

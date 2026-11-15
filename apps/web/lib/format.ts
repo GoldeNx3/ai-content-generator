@@ -1,5 +1,5 @@
-const relativeFormatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-const dateFormatter = new Intl.DateTimeFormat("en-GB", {
+const relativeFormatter = new Intl.RelativeTimeFormat("pl", { numeric: "auto" });
+const dateFormatter = new Intl.DateTimeFormat("pl-PL", {
   dateStyle: "medium",
   timeStyle: "short",
 });
@@ -21,7 +21,7 @@ export function timeAgo(iso: string | null, now: number = Date.now()): string {
       return relativeFormatter.format(Math.round(seconds / size), unit);
     }
   }
-  return "just now";
+  return "przed chwilą";
 }
 
 export function formatDate(iso: string | null): string {
@@ -38,8 +38,8 @@ export function scoreLevel(score: number): ScoreLevel {
 }
 
 export const SCORE_LEVEL_LABEL: Record<ScoreLevel, string> = {
-  "very-high": "Very high",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
+  "very-high": "Bardzo wysoki",
+  high: "Wysoki",
+  medium: "Średni",
+  low: "Niski",
 };

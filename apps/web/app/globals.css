@@ -171,10 +171,6 @@
 .stage-action-buttons > div > [data-slot="button"] { width: 100%; min-height: 44px; }
 .stage-action-buttons > div { display: grid; gap: 8px; }
 [data-workflow-step] .bg-primary { background-color: #047857; color: white; }
-@media (max-width: 639px) {
-  [data-workflow-step] header { flex-wrap: wrap; }
-  [data-workflow-step] header > span { margin-left: 64px; }
-}
 
 /* Candidate workspace: predictable actions and clearly bounded form controls. */
 .candidate-screen .stage-action-buttons { display: grid; gap: 12px; }
@@ -208,3 +204,23 @@
   background: var(--muted); opacity: .75; cursor: not-allowed;
 }
 .dark .candidate-screen .research-mode[data-selected="true"] { background: #022c22; border-color: #34d399; }
+
+/* Settings: cards share the dashboard surface (soft shadow, roomier padding). */
+.settings-cards [data-slot="card"] { box-shadow: 0 1px 2px rgb(15 23 42 / .05); --card-spacing: calc(var(--spacing) * 5); }
+
+/* Native checkbox styled as a switch: keeps label/checked semantics (getByLabel, .check()). */
+.switch-input {
+  appearance: none; position: relative; flex-shrink: 0; width: 2.25rem; height: 1.25rem; border-radius: 9999px;
+  background: #d4d4d8; cursor: pointer; transition: background-color 150ms;
+}
+.switch-input::before {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 1rem; height: 1rem; border-radius: 9999px;
+  background: white; box-shadow: 0 1px 2px rgb(0 0 0 / .2); transition: transform 150ms;
+}
+.switch-input:checked { background: #059669; }
+.switch-input:checked::before { transform: translateX(1rem); }
+.switch-input:disabled { cursor: not-allowed; opacity: .5; }
+.switch-input:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+/* One accent for primary actions across all settings cards. */
+.settings-cards [data-slot="button"].bg-primary { background-color: #047857; color: white; }
+.settings-cards [data-slot="button"].bg-primary:hover:not(:disabled) { background-color: #065f46; }

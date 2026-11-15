@@ -25,7 +25,7 @@ cp .env.example .env                                   # tylko NEXT_PUBLIC_API_U
 cp apps/platform/.env.example apps/platform/.env       # uzupełnij OPENAI_API_KEY
 make up                                                # db, redis, migracja, platform, queue, scheduler, web
 docker compose exec platform php artisan key:generate
-make seed-demo                                         # po rejestracji pierwszego konta: tematy demo bez kosztów AI
+make seed-demo EMAIL=<konto>                           # opcjonalnie: tematy demo bez kosztów AI (albo przycisk w Ustawieniach → Tryb demo)
 ```
 
 | Usługa | Adres |
@@ -46,7 +46,7 @@ make migrate                    php artisan migrate (usługa migrate działa te�
 make test                       test-platform (PHPUnit) + test-ai (pytest)
 make audit                      znane podatności zależności: pip-audit (venv AI), composer audit, npm audit
 make seed EMAIL=<konto>         ~100 źródeł RSS (AI, PHP, frontend, backend, DevOps, security, PL); GROUPS=php,ai; finance opcjonalnie
-make seed-demo EMAIL=<konto>    tematy demo: pełny pipeline za 0 USD
+make seed-demo EMAIL=<konto>    tematy demo: pełny pipeline za 0 USD (dopisuje brakujące; reset: Ustawienia → Tryb demo)
 make pipeline EMAIL=<konto>     jednorazowo dla jednego konta: RSS + zlecenie oceny (płatne)
 make create-user EMAIL=...      konto bez rejestracji, zawsze z własnym workspace'em
 make set-budget WORKSPACE=<id> USD=<kwota|default>
@@ -95,7 +95,8 @@ utrwala wynik. Zamknięcie przeglądarki ani restart API nie przerywa pracy; prz
 - **WordPress**: połączenie per workspace w panelu (`/settings`), publikacja zatwierdzonej wersji z aktualnym
   QA, domyślnie jako szkic: [docs/wordpress](docs/wordpress/README.md).
 - **Demo**: tematy z przestrzeni `https://demo.content-engine.invalid/` przechodzą cały pipeline na stałych
-  odpowiedziach, bez wywołań AI: [docs/demo](docs/demo/README.md).
+  odpowiedziach, bez wywołań AI. Tworzenie i reset (usuwa tematy demo konta razem z ich pracą i tworzy nowe):
+  Ustawienia → Tryb demo albo `POST /api/demo/reset`: [docs/demo](docs/demo/README.md).
 
 Koszty: każde wywołanie LLM jest zapisane w próbie joba z tokenami i kosztem z cennika (`LLM_PRICING`).
 Wywołanie przerwane w trakcie ma koszt nieznany (nie zerowy). Panel **Kolejka** (`/queue`) pokazuje historię

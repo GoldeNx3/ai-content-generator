@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeftIcon,
+  ArrowRightIcon,
   CheckIcon,
   ExternalLinkIcon,
   Loader2Icon,
@@ -16,14 +17,14 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { DemoModeProvider, PipelineGuide } from "@/components/demo-mode";
+import { DemoModeProvider, DemoNotice } from "@/components/demo-mode";
 import { navigateStage } from "@/components/pipeline-state";
 import { CandidateScreen } from "@/components/nav";
 import { WorkflowSection } from "@/components/workflow-section";
 import { ModelPricingProvider, UsageSummary } from "@/components/usage-summary";
 import { ArticlePanel } from "@/components/article/article-panel";
 import { ResearchPanel } from "@/components/research/research-panel";
-import { ScoreBar } from "@/components/score-badge";
+import { ScoreBadge, ScoreBar } from "@/components/score-badge";
 import { CategoryBadge, StatusBadge } from "@/components/status-badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { api, errorText } from "@/lib/api";
@@ -117,69 +118,78 @@ export default function CandidatePage() {
     <div className="min-w-0 space-y-6">
       <BackLink />
 
-      <div className="flex flex-wrap items-start gap-5">
-
-        <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Przestrzeń redakcyjna · temat #{id}</p>
+      <header className="flex flex-wrap items-start gap-5 rounded-2xl bg-card p-5 shadow-xs ring-1 ring-foreground/8 sm:p-6">
+        <ScoreBadge score={candidate.total_score} size="lg" />
+        <div className="min-w-0 flex-1 basis-72 space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Temat #{id}</p>
           <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">{candidate.title}</h1>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
             <span className="font-medium text-foreground">{candidate.source_name}</span>
-            <span>·</span>
-            <span>{formatDate(candidate.original_published_at)}</span>
-            <span className="text-xs">Stan tematu:</span><StatusBadge status={candidate.status} />
-            {candidate.is_demo && <span className="rounded-full bg-sky-50 px-2 py-1 text-xs font-medium text-sky-800">Demo · bez kosztów AI</span>}
+            <span aria-hidden="true">·</span>
+            <span title={formatDate(candidate.original_published_at)}>{formatDate(candidate.original_published_at ?? candidate.created_at)}</span>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1.5"><span className="text-xs">Stan tematu:</span><StatusBadge status={candidate.status} /></span>
             <CategoryBadge category={candidate.category} />
+            {candidate.is_demo && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-800 ring-1 ring-sky-200">Demo · bez kosztów AI</span>}
           </div>
         </div>
-      </div>
+        <a href={candidate.external_url} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: "outline", className: "shrink-0" })}>
+          <ExternalLinkIcon className="size-4" />Źródło<span className="sr-only"> (otwiera się w nowej karcie)</span>
+        </a>
+      </header>
 
       <CandidateScreen>
       <WorkflowSection number={1} title="Pobranie tematu" description="Materiał źródłowy pobrany z RSS." paid={false} status="Zakończono" timestamp={candidate.created_at}
-        actionTitle="Decyzja redakcyjna" actionDescription="Na podstawie wybranego materiału zdecyduj, czy chcesz kontynuować dalsze etapy."
-        actions={<div className="flex flex-wrap items-center gap-2">
-        <Button variant={candidate.status === "approved" ? "outline" : "default"} onClick={() => setStatus("approved")} disabled={busy !== null || candidate.status === "approved"}>
+        actionTitle="Decyzja redakcyjna" actionDescription="Zdecyduj, czy chcesz opracować ten temat. Decyzja porządkuje listę tematów i niczego nie uruchamia."
+        actionDetails={<p className="inline-flex items-center gap-2 text-sm">Obecny stan: <StatusBadge status={candidate.status} /></p>}
+        primary={<Button variant={candidate.status === "approved" ? "outline" : "default"} onClick={() => setStatus("approved")} disabled={busy !== null || candidate.status === "approved"}>
           {busy === "approved" ? <Loader2Icon className="animate-spin" /> : <CheckIcon />}
           {candidate.status === "approved" ? "Temat zatwierdzony" : "Zatwierdź temat"}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => setStatus("ignored")}
-          disabled={busy !== null || candidate.status === "ignored"}
-        >
-          {busy === "ignored" ? <Loader2Icon className="animate-spin" /> : <XIcon />}
-          Pomiń temat
-        </Button>
-        <Button variant="outline" onClick={() => navigateStage(2)}>Przejdź do oceny tematu</Button>
-        <Button variant={candidate.status === "approved" ? "default" : "outline"} onClick={() => navigateStage(3)}>Przejdź do researchu</Button>
+        </Button>}
+        secondary={<>
+          <Button variant="outline" onClick={() => setStatus("ignored")} disabled={busy !== null || candidate.status === "ignored"}>
+            {busy === "ignored" ? <Loader2Icon className="animate-spin" /> : <XIcon />}
+            Pomiń temat
+          </Button>
           <Button variant="ghost" onClick={() => setStatus("pending")} disabled={busy !== null || candidate.status === "pending"}>
             <RotateCcwIcon />
             Przywróć do oczekujących
           </Button>
-      </div>}
+        </>}
+        navigation={<>
+          <Button variant={candidate.status === "approved" ? "default" : "outline"} onClick={() => navigateStage(2)}>Przejdź do oceny tematu<ArrowRightIcon /></Button>
+          <p className="action-hint">Ocena jest opcjonalna — w razie potrzeby przejdź od razu do researchu w nawigacji etapów.</p>
+        </>}
         resultTitle="Wybrany materiał"
         summary={<UsageSummary free note={`Pobrano: ${formatDate(candidate.created_at)} · źródło: ${candidate.source_name}`} />}>
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">{candidate.title}</h3>
-          <p className="text-sm leading-7 whitespace-pre-line text-slate-700">{candidate.summary ?? "Brak podsumowania w źródle RSS."}</p>
-          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground"><span className="rounded-md bg-slate-100 px-3 py-2">{candidate.source_name}</span><span className="rounded-md bg-slate-100 px-3 py-2">{formatDate(candidate.original_published_at ?? candidate.created_at)}</span><CategoryBadge category={candidate.category} /></div>
+          <h4 className="text-lg font-semibold">{candidate.title}</h4>
+          <p className="max-w-3xl text-sm leading-7 whitespace-pre-line text-slate-700">{candidate.summary ?? "Brak podsumowania w źródle RSS."}</p>
+          <dl className="grid gap-3 text-sm sm:grid-cols-3">
+            <div className="rounded-lg bg-muted/50 p-3"><dt className="text-xs text-muted-foreground">Źródło</dt><dd className="mt-1 font-medium">{candidate.source_name}</dd></div>
+            <div className="rounded-lg bg-muted/50 p-3"><dt className="text-xs text-muted-foreground">Publikacja w źródle</dt><dd className="mt-1 font-medium">{formatDate(candidate.original_published_at)}</dd></div>
+            <div className="rounded-lg bg-muted/50 p-3"><dt className="text-xs text-muted-foreground">Pobrano do systemu</dt><dd className="mt-1 font-medium">{formatDate(candidate.created_at)}</dd></div>
+          </dl>
           <a href={candidate.external_url} target="_blank" rel="noopener noreferrer" className={buttonVariants({variant:"outline"})}><ExternalLinkIcon className="size-4" />Otwórz oryginał</a>
         </div>
-        <PipelineGuide demo={Boolean(candidate.is_demo)} />
+        {candidate.is_demo && <DemoNotice />}
       </WorkflowSection>
 
       <WorkflowSection progressJob={jobs.ownActive} number={2} title="Ocena tematu przez AI" description="Punktacja i uzasadnienie pomagające wybrać temat do opracowania." paid
         initiallyCollapsed={classified}
         status={jobs.latest ? jobStatusLabel[jobs.latest.status] : busy === "classify" ? "W toku" : classificationError ? "Ostatnie uruchomienie: błąd" : classified ? "Zakończono" : "Do uruchomienia"}
-        actionTitle="Decyzja" actionDescription={classified ? "Ocena jest gotowa. Przejdź do researchu. Ponowna ocena zastąpi punktację i użyje AI." : "Uruchom ocenę tematu. Wynik pomoże zdecydować, czy warto wykonać Research."}
-        actions={<><Button variant={classified ? "default" : "outline"} onClick={() => navigateStage(3)}>Przejdź do researchu</Button><p className="action-hint">Ocena AI jest opcjonalna. Research możesz uruchomić bez punktacji.</p><Button
-          size="sm"
+        actionTitle="Ocena AI" actionDescription={classified ? "Ocena jest gotowa. Ponowna ocena zastąpi punktację i ponownie użyje AI." : "Uruchom ocenę, aby zobaczyć punktację i uzasadnienie. Ocena jest opcjonalna — research możesz uruchomić bez niej."}
+        actionDetails={classified ? <p className="text-sm"><span className="font-semibold tabular-nums">{candidate.total_score}/100</span> · {SCORE_LEVEL_LABEL[scoreLevel(candidate.total_score ?? 0)]}</p> : undefined}
+        blocker={jobs.active && !jobs.ownActive ? "Dla tego tematu trwa inne zadanie. Ocena będzie dostępna po jego zakończeniu." : undefined}
+        primary={<Button
           variant={classificationHasRun ? "outline" : "default"}
           onClick={() => void classify()}
           disabled={busy !== null || !jobs.loaded || Boolean(jobs.active)}
         >
           {busy === "classify" ? <Loader2Icon className="animate-spin" /> : <SparklesIcon />}
           {classificationHasRun ? "Oceń ponownie" : "Oceń temat"} · {candidate.is_demo ? "demo · bezpłatne" : "płatne"}
-        </Button></>}
+        </Button>}
+        navigation={<Button variant={classified ? "default" : "outline"} onClick={() => navigateStage(3)}>Przejdź do researchu<ArrowRightIcon /></Button>}
         activity={(jobs.history.length > 0 || jobs.active || jobs.error) ? <JobStatus jobs={jobs.history} active={jobs.active} error={jobs.error} onRetry={(job) => jobs.enqueue(() => api.retryJob(job.id))} /> : undefined}
       summary={<UsageSummary rows={[classificationUsageRow(candidate)]} note={classified ? `Oceniono: ${formatDate(candidate.classified_at)}. Starsze oceny mogą nie mieć zapisanych danych o zużyciu.` : "Dane zużycia pojawią się po ocenie tematu."} />}>
 
@@ -205,22 +215,14 @@ export default function CandidatePage() {
           {candidate.covered_by.post_id ? <p className="text-xs text-muted-foreground">W kroku 4 możesz napisać aktualizację tego wpisu zamiast nowego tekstu.</p> : null}
         </div>}
         <div className="max-w-3xl">
-          <div className="space-y-4">            {classified ? (
+          <div className="space-y-4">{classified ? (
               <>
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-5"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ocena tematu</p><p className="mt-3 text-4xl font-semibold tabular-nums">{candidate.total_score}<span className="text-lg font-normal text-muted-foreground"> / 100</span></p><p className="mt-2 text-sm text-slate-600">{SCORE_LEVEL_LABEL[scoreLevel(candidate.total_score ?? 0)]}</p></div>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-emerald-50/50 p-5 ring-1 ring-emerald-100"><div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Wynik łączny</p><p className="mt-2 text-4xl font-semibold tabular-nums">{candidate.total_score}<span className="text-lg font-normal text-muted-foreground"> / 100</span></p></div><span className="rounded-full bg-white px-3 py-1 text-sm font-medium text-emerald-800 ring-1 ring-emerald-200">{SCORE_LEVEL_LABEL[scoreLevel(candidate.total_score ?? 0)]}</span></div>
+                <p className="text-xs text-muted-foreground">Wynik to średnia ważona czterech ocen poniżej (wagi w nawiasach).</p>
                 <ScoreBar label="Trafność (40%)" value={candidate.relevance_score} />
                 <ScoreBar label="Aktualność (20%)" value={candidate.freshness_score} />
                 <ScoreBar label="Potencjał wyszukiwań (25%)" value={candidate.search_potential_score} />
                 <ScoreBar label="Potencjał komercyjny (15%)" value={candidate.commercial_potential_score} />
-                <div className="flex items-baseline justify-between border-t pt-3">
-                  <span className="text-sm font-medium">Wynik łączny</span>
-                  <span className="font-mono text-lg font-semibold tabular-nums">
-                    {candidate.total_score}{" "}
-                    <span className="font-sans text-xs font-normal text-muted-foreground">
-                      {SCORE_LEVEL_LABEL[scoreLevel(candidate.total_score ?? 0)]}
-                    </span>
-                  </span>
-                </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Uzasadnienie</p>
                   <p className="text-sm leading-relaxed text-muted-foreground">{candidate.llm_reason}</p>
@@ -231,7 +233,7 @@ export default function CandidatePage() {
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Temat nie został oceniony. Wybierz „Oceń temat · płatne”, aby uruchomić ocenę AI.
+                Temat nie został jeszcze oceniony. Uruchom ocenę w panelu akcji.
               </p>
             )}</div>
 

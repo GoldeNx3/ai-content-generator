@@ -6,9 +6,12 @@ use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Modules\Auth\Commands\CreateUserCommand;
 use Modules\Auth\Commands\RecordLoginCommand;
+use Modules\Auth\Commands\UpdatePasswordCommand;
+use Modules\Auth\Data\ChangePasswordData;
 use Modules\Auth\Data\LoginData;
 use Modules\Auth\Data\MeData;
 use Modules\Auth\Data\RegisterData;
@@ -24,6 +27,7 @@ final class AuthService
     public function __construct(
         private readonly CreateUserCommand $createUser,
         private readonly RecordLoginCommand $recordLogin,
+        private readonly UpdatePasswordCommand $updatePassword,
         private readonly EmailTakenQuery $emailTaken,
         private readonly WorkspaceService $workspaces,
         private readonly CurrentWorkspace $currentWorkspace,
@@ -84,6 +88,22 @@ final class AuthService
         $this->recordLogin->execute($this->guard()->id());
 
         return $this->me();
+    }
+
+    public function changePassword(ChangePasswordData $data, Request $request): void
+    {
+        $user = $this->guard()->user();
+        $key = 'password:user:'.$user->id;
+        if (RateLimiter::tooManyAttempts($key, config('content.auth.max_login_failures_per_email'))) {
+            throw new ApiException('too_many_attempts', 429);
+        }
+        if (! Hash::check($data->current_password, $user->getAuthPassword())) {
+            RateLimiter::hit($key, config('content.auth.login_window_minutes') * 60);
+            throw new ApiException('invalid_current_password', 422);
+        }
+        RateLimiter::clear($key);
+        $this->updatePassword->execute($user, $data->password);
+        $request->session()->regenerate();
     }
 
     public function logout(Request $request): void

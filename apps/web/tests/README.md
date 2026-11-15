@@ -9,6 +9,8 @@ The browser check intercepts **all** API requests, returns fixtures, and blocks 
 
 `node tests/automation-ui-check.mjs` verifies the Settings → Automatyka card (saves, pause/resume, global-switch banner, mobile) with intercepted API.
 
+`node tests/account-ui-check.mjs` verifies Settings → Konto: category navigation, account data and the password change form (local validation, wrong current password, success clears the form, mobile).
+
 `node tests/editorial-ui-check.mjs` verifies the Settings → Profil redakcyjny card (load, save, banned phrases one per line).
 
 `node tests/topic-group-ui-check.mjs` verifies topic grouping: "+N źródeł" badge, hidden duplicates with the "Pokaż duplikaty" filter, the step-2 group note and the forced separate classification.

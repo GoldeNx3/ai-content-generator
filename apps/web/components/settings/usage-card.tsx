@@ -25,7 +25,7 @@ export function UsageCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle><h2 className="flex items-center gap-2 text-lg font-semibold"><GaugeIcon className="size-5" />Zużycie AI</h2></CardTitle>
+        <CardTitle><h3 className="flex items-center gap-2 text-lg font-semibold"><GaugeIcon className="size-5" />Zużycie AI</h3></CardTitle>
         <CardDescription>Koszt płatnych kroków (ocena, research, pisanie, QA, poprawki) w tym workspace{month ? ` · ${month}` : ""}.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

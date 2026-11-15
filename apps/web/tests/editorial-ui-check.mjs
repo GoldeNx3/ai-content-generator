@@ -18,6 +18,7 @@ try {
   if (url.pathname === '/api/usage/report') body = {month:'2026-11',total_usd:'0.000000',unknown_cost_calls:0,by_kind:[],by_stage:[],articles:{topics:0,cost_usd:'0.000000',average_usd:null}};
   else if (url.pathname === '/api/usage') body = {period_start:'2026-11-01T00:00:00+00:00',spent_usd:'0',budget_usd:'10',remaining_usd:'10',exceeded:false,unknown_cost_calls:0};
   else if (url.pathname === '/api/wordpress/connection') body = null;
+  else if (url.pathname === '/api/sources') body = [];
   else if (url.pathname === '/api/workspace/automation') body = {auto_fetch_enabled:false,auto_fetch_interval_minutes:60,auto_classify_enabled:false,auto_classify_batch_limit:20,last_auto_run_at:null,last_auto_run_result:null,next_auto_run_at:null,paused_at:null,automation_enabled_globally:true};
   else if (url.pathname === '/api/workspace/editorial' && route.request().method() === 'PATCH') { const change = JSON.parse(route.request().postData()); patches.push(change); profile = {...profile, ...change}; body = profile; }
   else if (url.pathname === '/api/workspace/editorial') body = profile;

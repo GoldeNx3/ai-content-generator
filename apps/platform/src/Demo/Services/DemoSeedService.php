@@ -6,7 +6,12 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Modules\Candidates\Commands\InsertCandidatesCommand;
 use Modules\Candidates\Models\Candidate;
+use Modules\Demo\Commands\DeleteDemoDataCommand;
+use Modules\Demo\Data\DemoResetData;
+use Modules\Demo\Queries\DemoCandidateIdsQuery;
+use Modules\Demo\Queries\DemoHasActiveJobsQuery;
 use Modules\Demo\Queries\DemoSourceQuery;
+use Modules\Shared\Exceptions\ApiException;
 use Modules\Sources\Commands\CreateSourceCommand;
 
 final class DemoSeedService
@@ -21,12 +26,33 @@ final class DemoSeedService
         private readonly DemoSourceQuery $demoSource,
         private readonly CreateSourceCommand $createSource,
         private readonly InsertCandidatesCommand $insertCandidates,
+        private readonly DemoCandidateIdsQuery $demoCandidates,
+        private readonly DemoHasActiveJobsQuery $activeJobs,
+        private readonly DeleteDemoDataCommand $deleteDemo,
     ) {}
+
+    public function reset(int $workspaceId): DemoResetData
+    {
+        return DB::transaction(function () use ($workspaceId): DemoResetData {
+            $ids = $this->demoCandidates->execute($workspaceId);
+            if ($this->activeJobs->execute($workspaceId, $ids)) {
+                throw new ApiException('demo_jobs_active', 409);
+            }
+            $removed = $this->deleteDemo->execute($workspaceId, $ids, self::sourceUrl());
+
+            return new DemoResetData($removed, $this->seed($workspaceId)['created']);
+        });
+    }
+
+    public static function sourceUrl(): string
+    {
+        return Candidate::DEMO_PREFIX.'feed.xml';
+    }
 
     public function seed(int $workspaceId): array
     {
         return DB::transaction(function () use ($workspaceId): array {
-            $url = Candidate::DEMO_PREFIX.'feed.xml';
+            $url = self::sourceUrl();
             $source = $this->demoSource->execute($workspaceId, $url)
                 ?? $this->createSource->execute($workspaceId, '[DEMO] Scenariusze pipeline — 0 kosztów AI', $url, 'rss', false);
             $rows = [];

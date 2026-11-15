@@ -55,7 +55,7 @@ export function AutomationCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle><h2 className="flex items-center gap-2 text-lg font-semibold"><TimerIcon className="size-5" />Automatyka</h2></CardTitle>
+        <CardTitle><h3 className="flex items-center gap-2 text-lg font-semibold"><TimerIcon className="size-5" />Automatyka</h3></CardTitle>
         <CardDescription>Co Twoje konto robi samo w tle. Dotyczy tylko Twoich danych. Domyślnie nic: pobieranie i ocenę zlecasz ręcznie.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -64,33 +64,42 @@ export function AutomationCard() {
         {settings && <>
           {!settings.automation_enabled_globally && <p role="status" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">Administrator wyłączył automatykę dla całej instancji. Twoje ustawienia zadziałają po jej ponownym włączeniu.</p>}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <input id="auto-fetch" type="checkbox" className="size-4" checked={settings.auto_fetch_enabled} disabled={locked}
-              onChange={(event) => void save({ auto_fetch_enabled: event.target.checked })} />
-            <Label htmlFor="auto-fetch">Automatycznie pobieraj RSS (bezpłatne)</Label>
-            <select id="auto-interval" aria-label="Częstotliwość pobierania" className="h-9 rounded-md border bg-background px-3 text-sm"
-              value={settings.auto_fetch_interval_minutes} disabled={locked}
-              onChange={(event) => void save({ auto_fetch_interval_minutes: Number(event.target.value) })}>
-              {AUTOMATION_INTERVALS.map((minutes) => <option key={minutes} value={minutes}>{INTERVAL_LABELS[minutes]}</option>)}
-            </select>
+          <div className="divide-y rounded-lg ring-1 ring-foreground/10">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <div className="min-w-0 flex-1 basis-60 space-y-1">
+                <Label htmlFor="auto-fetch">Automatycznie pobieraj RSS (bezpłatne)</Label>
+                <p className="text-xs text-muted-foreground">Pobiera nowe tematy ze wszystkich aktywnych źródeł. Nie wywołuje AI.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <select id="auto-interval" aria-label="Częstotliwość pobierania" className="h-9 rounded-lg border bg-background px-3 text-sm disabled:opacity-50"
+                  value={settings.auto_fetch_interval_minutes} disabled={locked || !settings.auto_fetch_enabled}
+                  onChange={(event) => void save({ auto_fetch_interval_minutes: Number(event.target.value) })}>
+                  {AUTOMATION_INTERVALS.map((minutes) => <option key={minutes} value={minutes}>{INTERVAL_LABELS[minutes]}</option>)}
+                </select>
+                <input id="auto-fetch" type="checkbox" className="switch-input" checked={settings.auto_fetch_enabled} disabled={locked}
+                  onChange={(event) => void save({ auto_fetch_enabled: event.target.checked })} />
+              </div>
+            </div>
+
+            <div className="space-y-3 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 flex-1 basis-60 space-y-1">
+                  <Label htmlFor="auto-classify">Po pobraniu od razu zlecaj ocenę nowych tematów · płatne (OpenAI)</Label>
+                  <p className="text-xs text-muted-foreground">Liczy się do miesięcznego budżetu AI. Ten sam limit obowiązuje przy „Oceń nieocenione” i przy ręcznym make pipeline.</p>
+                </div>
+                <input id="auto-classify" type="checkbox" className="switch-input" checked={settings.auto_classify_enabled} disabled={locked}
+                  onChange={(event) => void save({ auto_classify_enabled: event.target.checked })} />
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Label htmlFor="auto-limit" className="text-sm font-normal text-muted-foreground">Najwyżej ocen na przebieg</Label>
+                <Input id="auto-limit" type="number" min={1} max={200} className="h-9 w-24" value={limit} disabled={locked}
+                  onChange={(event) => setLimit(event.target.value)}
+                  onBlur={() => { const value = Number(limit); if (value !== settings.auto_classify_batch_limit) void save({ auto_classify_batch_limit: value }); }} />
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <input id="auto-classify" type="checkbox" className="size-4" checked={settings.auto_classify_enabled} disabled={locked}
-                onChange={(event) => void save({ auto_classify_enabled: event.target.checked })} />
-              <Label htmlFor="auto-classify">Po pobraniu od razu zlecaj ocenę nowych tematów · płatne (OpenAI)</Label>
-            </div>
-            <div className="flex items-center gap-3 pl-7">
-              <Label htmlFor="auto-limit" className="text-sm font-normal text-muted-foreground">Najwyżej ocen na przebieg</Label>
-              <Input id="auto-limit" type="number" min={1} max={200} className="w-24" value={limit} disabled={locked}
-                onChange={(event) => setLimit(event.target.value)}
-                onBlur={() => { const value = Number(limit); if (value !== settings.auto_classify_batch_limit) void save({ auto_classify_batch_limit: value }); }} />
-            </div>
-            <p className="pl-7 text-xs text-muted-foreground">Ten sam limit obowiązuje przy „oceń oczekujące” i przy ręcznym make pipeline. Budżet miesięczny dalej obowiązuje.</p>
-          </div>
-
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg bg-muted/50 p-3 text-sm">
             <dt className="text-muted-foreground">Ostatni przebieg</dt>
             <dd>{settings.last_auto_run_at ? formatDate(settings.last_auto_run_at) : "jeszcze nie było"}
               {run && ` · nowe tematy ${run.new_candidates} · zlecone oceny ${run.enqueued}${run.errors ? ` · błędy źródeł ${run.errors}` : ""}${run.budget_exceeded ? " · budżet wyczerpany" : ""}`}</dd>
@@ -98,10 +107,10 @@ export function AutomationCard() {
             <dd>{settings.next_auto_run_at ? formatDate(settings.next_auto_run_at) : settings.paused_at ? "wstrzymane" : "wyłączone"}</dd>
           </dl>
 
-          <div className="space-y-2 border-t pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg p-4 ring-1 ring-foreground/10">
             {settings.paused_at
-              ? <p role="status" className="text-sm text-amber-900">Workspace wstrzymany od {formatDate(settings.paused_at)}: worker nie bierze jego zadań, automatyka stoi, nowe zadania nie są przyjmowane.</p>
-              : <p className="text-sm text-muted-foreground">Wstrzymanie zatrzymuje wszystkie zadania tego workspace&apos;u (także publikację). Trwające zadanie dokończy bieżący krok.</p>}
+              ? <p role="status" className="min-w-0 flex-1 basis-60 text-sm text-amber-900">Workspace wstrzymany od {formatDate(settings.paused_at)}: worker nie bierze jego zadań, automatyka stoi, nowe zadania nie są przyjmowane.</p>
+              : <p className="min-w-0 flex-1 basis-60 text-sm text-muted-foreground">Wstrzymanie zatrzymuje wszystkie zadania tego workspace&apos;u (także publikację). Trwające zadanie dokończy bieżący krok.</p>}
             <Button variant={settings.paused_at ? "default" : "outline"} disabled={saving} onClick={() => void togglePause()}>
               {settings.paused_at ? <><PlayCircleIcon />Wznów workspace</> : <><PauseCircleIcon />Wstrzymaj workspace</>}
             </Button>

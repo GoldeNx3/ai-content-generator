@@ -138,13 +138,15 @@ export const ERROR_MESSAGES: Record<string, string> = {
   job_active: "Dla tego tematu trwa zadanie. Poczekaj na jego zakończenie.",
   editorial_profile_full: "Profil redakcji ma już maksymalną liczbę zasad (30) lub zakazanych zwrotów (50). Usuń coś w Ustawieniach → Profil redakcyjny.",
   budget_exceeded: "Wyczerpano miesięczny budżet AI tego workspace'u. Płatne kroki (ocena, research, pisanie, QA, poprawki) wrócą od 1. dnia miesiąca albo po zwiększeniu budżetu przez administratora.",
+  demo_jobs_active: "Dla tematów demo trwają zadania. Poczekaj na ich zakończenie albo anuluj je w Kolejce, a potem spróbuj ponownie.",
   secrets_key_missing: "Serwer nie ma skonfigurowanego klucza SECRETS_KEY. Skontaktuj się z administratorem.",
 };
 
 const AUTH_MESSAGES: Record<string, string> = {
   invalid_credentials: "Nieprawidłowy email lub hasło.",
   email_taken: "Konto z tym adresem już istnieje.",
-  too_many_attempts: "Zbyt wiele nieudanych logowań. Spróbuj ponownie za kilkanaście minut.",
+  too_many_attempts: "Zbyt wiele nieudanych prób. Spróbuj ponownie za kilkanaście minut.",
+  invalid_current_password: "Obecne hasło jest nieprawidłowe.",
   too_many_registrations: "Z tego adresu IP założono już limit kont na tę godzinę. Spróbuj później.",
   registration_disabled: "Rejestracja jest wyłączona.",
   origin_not_allowed: "Żądanie z niedozwolonej domeny.",
@@ -232,6 +234,8 @@ export const api = {
   me: () => request<Me>("/auth/me"),
   login: (body: Credentials) => post<Me>("/auth/login", body),
   register: (body: Credentials) => post<Me>("/auth/register", body),
+  changePassword: (body: { current_password: string; password: string; password_confirmation: string }) =>
+    post<void>("/auth/password", body),
   logout: async () => {
     try {
       await post<void>("/auth/logout");
@@ -245,6 +249,7 @@ export const api = {
   publishWordPress: (id:number, body:{status:"draft"|"future"|"publish";scheduled_at?:string}) => enqueue<Job>(`/article-versions/${id}/wordpress`,body),
   syncWordPress: (id:number, body:{expected_wp_hash?:string}={}) => enqueue<Job>(`/article-versions/${id}/wordpress/sync`,body),
   usage: () => request<Usage>("/usage"),
+  resetDemo: () => post<{ removed: number; created: number }>("/demo/reset"),
   costReport: (month: string) => request<CostReport>(`/usage/report?month=${encodeURIComponent(month)}`),
   automation: () => request<AutomationSettings>("/workspace/automation"),
   editorialProfile: () => request<EditorialProfile>("/workspace/editorial"),

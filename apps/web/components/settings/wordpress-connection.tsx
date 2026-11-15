@@ -49,7 +49,7 @@ export function WordPressConnectionCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle><h2 className="flex items-center gap-2 text-lg font-semibold"><PlugIcon className="size-5" />WordPress</h2></CardTitle>
+        <CardTitle><h3 className="flex items-center gap-2 text-lg font-semibold"><PlugIcon className="size-5" />WordPress</h3></CardTitle>
         <CardDescription>Strona, na którą trafiają artykuły tego workspace&apos;u. Jedna strona na workspace.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

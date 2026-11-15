@@ -1,28 +1,40 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CircleCheckIcon, DownloadIcon, EyeOffIcon, GaugeIcon, InboxIcon } from "lucide-react";
+
+import { StatTile } from "@/components/ui/stat-tile";
+import { scoreLevel } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { DashboardStats } from "@/types/api";
 
-const ITEMS: { key: keyof DashboardStats; label: string; hint: string }[] = [
-  { key: "candidates_today", label: "Candidates today", hint: "Fetched since midnight (UTC)" },
-  { key: "new_today", label: "New today", hint: "Fetched today, still pending" },
-  { key: "approved", label: "Approved", hint: "All time" },
-  { key: "ignored", label: "Ignored", hint: "All time" },
-  { key: "average_score", label: "Average score", hint: "Across classified candidates" },
-];
+const BAR: Record<ReturnType<typeof scoreLevel>, string> = {
+  "very-high": "bg-emerald-600",
+  high: "bg-emerald-400",
+  medium: "bg-amber-400",
+  low: "bg-zinc-400",
+};
 
 export function StatsCards({ stats }: { stats: DashboardStats | null }) {
+  const count = (value: number | null | undefined) => (stats === null ? undefined : typeof value === "number" ? value : "—");
+  const average = typeof stats?.average_score === "number" ? Math.round(stats.average_score) : null;
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-      {ITEMS.map((item) => (
-        <Card key={item.key}>
-          <CardHeader>
-            <CardDescription>{item.label}</CardDescription>
-            <CardTitle className="text-3xl font-semibold tabular-nums">
-              {stats === null ? "…" : (stats[item.key] ?? "—")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-xs text-muted-foreground">{item.hint}</CardContent>
-        </Card>
-      ))}
-    </div>
+    <dl className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+      <StatTile label="Nowe dziś" value={count(stats?.new_today)} hint="Pobrane dziś, czekają na decyzję" icon={InboxIcon} tone="sky" />
+      <StatTile label="Pobrane dziś" value={count(stats?.candidates_today)} hint="Od północy UTC" icon={DownloadIcon} tone="violet" />
+      <StatTile label="Zatwierdzone" value={count(stats?.approved)} hint="Łącznie" icon={CircleCheckIcon} tone="emerald" />
+      <StatTile label="Pominięte" value={count(stats?.ignored)} hint="Łącznie" icon={EyeOffIcon} tone="zinc" />
+      <StatTile
+        className="col-span-2 md:col-span-1"
+        label="Średni wynik"
+        value={stats === null ? undefined : average ?? "—"}
+        suffix={average !== null ? "/100" : undefined}
+        hint="Z ocenionych tematów"
+        icon={GaugeIcon}
+        tone="amber"
+        footer={average === null ? undefined : (
+          <span className="block h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <span className={cn("block h-full rounded-full", BAR[scoreLevel(average)])} style={{ width: `${average}%` }} />
+          </span>
+        )}
+      />
+    </dl>
   );
 }

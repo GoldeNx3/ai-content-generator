@@ -4,16 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { CheckIcon, AlertCircleIcon, Loader2Icon, LogOutIcon } from "lucide-react";
+import { CheckIcon, AlertCircleIcon, ListChecksIcon, Loader2Icon, LogOutIcon, NewspaperIcon, RssIcon, SettingsIcon } from "lucide-react";
 import { PipelineStateProvider, usePipelineState } from "@/components/pipeline-state";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "/", label: "Tematy" },
-  { href: "/sources", label: "Źródła" },
-  { href: "/queue", label: "Kolejka" },
-  { href: "/settings", label: "Ustawienia" },
+  { href: "/", label: "Tematy", icon: NewspaperIcon },
+  { href: "/sources", label: "Źródła", icon: RssIcon },
+  { href: "/queue", label: "Kolejka", icon: ListChecksIcon },
+  { href: "/settings", label: "Ustawienia", icon: SettingsIcon },
 ];
 
 const AUTH_PATHS = ["/login", "/register"];
@@ -32,10 +32,11 @@ export function Nav() {
             href={link.href}
             aria-current={pathname === link.href ? "page" : undefined}
             className={cn(
-              "inline-flex min-h-10 shrink-0 items-center rounded-md px-1.5 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-3",
-              active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+              "inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:px-3",
+              active ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
+            <link.icon className="hidden size-4 md:block" aria-hidden="true" />
             {link.label}
           </Link>
         );
@@ -66,7 +67,10 @@ function UserMenu() {
 
   return (
     <div className="flex shrink-0 items-center gap-1 border-l pl-1 sm:gap-2 sm:pl-2">
-      {email && <span className="hidden max-w-48 truncate text-sm text-muted-foreground md:inline" title={email}>{email}</span>}
+      {email && <span className="hidden items-center gap-2 md:flex" title={email}>
+        <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold uppercase text-white">{email.charAt(0)}</span>
+        <span className="max-w-40 truncate text-sm text-muted-foreground">{email}</span>
+      </span>}
       <button type="button" onClick={logout} disabled={leaving} aria-label="Wyloguj"
         className="inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50">
         <LogOutIcon className="size-4" />
@@ -129,7 +133,7 @@ function PipelineStepper({ active, onSelect }: { active: string; onSelect: (href
         return <li key={link.href} className="flex min-w-0 flex-1 items-center gap-2 last:flex-[1.25]">
           <a aria-label={link.label} href={link.href} aria-current={selected?"step":undefined} title={state?.status??"Oczekuje"} onClick={()=>onSelect(link.href)} className="group flex min-h-12 min-w-0 items-center gap-2 rounded-lg px-1 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
             <span data-step-status={selected?"current":state?.tone??"neutral"} className={cn("flex size-9 shrink-0 items-center justify-center rounded-full text-sm",selected?"bg-emerald-700 text-white":state?.tone==="success"?"bg-emerald-100 text-emerald-800":state?.tone==="error"?"bg-rose-100 text-rose-800":state?.tone==="attention"?"bg-amber-100 text-amber-900":state?.tone==="running"?"bg-sky-100 text-sky-900":"bg-slate-100 text-slate-500")}>
-              {Icon?<Icon className={cn("size-4",state?.tone==="running"&&"animate-spin")} />:Number(link.href.split("-").at(-1))}
+              {Icon?<Icon className={cn("size-4",state?.tone==="running"&&"animate-spin")} />:index+1}
             </span><span className={cn("leading-5",selected?"font-semibold text-emerald-800":state?.tone==="success"?"text-emerald-800":"text-slate-600 group-hover:text-foreground")}>{link.label}</span>
           </a>
           {index<WORKFLOW_LINKS.length-1&&<span aria-hidden="true" className="h-px min-w-2 flex-1 bg-slate-200" />}

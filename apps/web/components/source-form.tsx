@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { PlusIcon } from "lucide-react";
+import { Loader2Icon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -31,19 +31,19 @@ export function SourceForm({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-      <div className="grid w-full gap-1.5 sm:w-auto">
+    <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] sm:items-end">
+      <div className="grid min-w-0 gap-1.5">
         <Label htmlFor="source-name">Nazwa źródła</Label>
         <Input
           id="source-name"
           required
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="OpenAI"
-          className="w-full sm:w-48"
+          placeholder="np. OpenAI Blog"
+          className="h-10"
         />
       </div>
-      <div className="grid min-w-0 basis-full gap-1.5 sm:min-w-64 sm:flex-1 sm:basis-auto">
+      <div className="grid min-w-0 gap-1.5">
         <Label htmlFor="source-url">Adres RSS</Label>
         <Input
           id="source-url"
@@ -52,10 +52,11 @@ export function SourceForm({ onCreated }: { onCreated: () => void }) {
           value={url}
           onChange={(event) => setUrl(event.target.value)}
           placeholder="https://example.com/feed.xml"
+          className="h-10 font-mono text-sm"
         />
       </div>
-      <Button type="submit" disabled={saving}>
-        <PlusIcon />
+      <Button type="submit" size="lg" disabled={saving} className="h-10 bg-emerald-700 text-white hover:bg-emerald-800">
+        {saving ? <Loader2Icon className="animate-spin" /> : <PlusIcon />}
         {saving ? "Dodawanie…" : "Dodaj źródło"}
       </Button>
     </form>

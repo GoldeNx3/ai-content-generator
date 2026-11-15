@@ -21,8 +21,12 @@ try {
   const main=panel.locator('[data-stage-result]'),side=panel.getByRole('complementary');
   const mainBox=await main.boundingBox(),sideBox=await side.boundingBox();assert.ok(sideBox.x>mainBox.x+mainBox.width,'desktop sidebar next to main');
   await panel.getByText('Jak działa ten etap?',{exact:true}).click();
-  for(const text of ['Cel etapu','Warunki uruchomienia','Co dalej','Przebieg zadania','Podsumowanie uruchomienia'])await panel.getByText(text,{exact:true}).waitFor();
-  await panel.getByText('Jak działa ten etap?',{exact:true}).click();
+  for(const text of ['Cel etapu','Warunki uruchomienia','Co dalej'])await panel.getByText(text,{exact:true}).waitFor();
+  await page.keyboard.press('Escape');
+  await panel.getByText('Przebieg zadania',{exact:true}).waitFor();
+  await panel.getByText('Koszt i szczegóły uruchomienia',{exact:true}).click();
+  await panel.getByText('Podsumowanie uruchomienia',{exact:true}).waitFor();
+  await page.keyboard.press('Escape');
   await page.screenshot({path:`/tmp/pipeline-stage-${index+1}-desktop.png`,fullPage:true});
  }
  await nav.getByRole('link',{name:'Generowanie',exact:true}).click();

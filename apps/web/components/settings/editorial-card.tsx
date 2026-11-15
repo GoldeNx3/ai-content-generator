@@ -41,7 +41,7 @@ export function EditorialCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle><h2 className="flex items-center gap-2 text-lg font-semibold"><PenLineIcon className="size-5" />Profil redakcyjny</h2></CardTitle>
+        <CardTitle><h3 className="flex items-center gap-2 text-lg font-semibold"><PenLineIcon className="size-5" />Profil redakcyjny</h3></CardTitle>
         <CardDescription>Dla kogo i jakim głosem piszesz. Trafia do oceny tematów, briefu, pisania i QA. Puste pola = ogólne zachowanie.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -25,6 +25,8 @@ try {
   if (path === '/api/candidates') { listQueries.push(url.search); const all = url.searchParams.get('duplicates') === '1'; const items = all ? [primary, duplicate] : [primary]; body = {items,total:items.length,page:1,page_size:25}; }
   else if (path === '/api/stats') body = {candidates_today:0,new_today:0,approved:0,ignored:0,average_score:null};
   else if (path === '/api/sources') body = [];
+  else if (path === '/api/usage') body = {period_start:'2026-11-01T00:00:00+00:00',spent_usd:'1.25',budget_usd:'10.00',remaining_usd:'8.75',exceeded:false,unknown_cost_calls:0};
+  else if (path === '/api/workspace/automation') body = {auto_fetch_enabled:false,auto_fetch_interval_minutes:60,auto_classify_enabled:false,auto_classify_batch_limit:10,last_auto_run_at:null,last_auto_run_result:null,next_auto_run_at:null,paused_at:null,automation_enabled_globally:true};
   else if (path === '/api/jobs') body = {items:[],total:0,page:1,page_size:100};
   else if (path === '/api/candidates/2/ungroup') { groupCalls.push(path); body = {...duplicate,topic_group_id:null,topic_group:null,llm_reason:'Ten sam temat co #1. Odłączono ręcznie od grupy tematu #1.'}; }
   else if (path === '/api/candidates/4') body = solo;

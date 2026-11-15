@@ -20,6 +20,8 @@ try {
    body={items,total:items.length,page:1,page_size:25};
   } else if(url.pathname==='/api/stats')body={candidates_today:1,new_today:1,approved:1,ignored:0,average_score:90};
   else if(url.pathname==='/api/sources')body=[];
+  else if(url.pathname==='/api/usage')body={period_start:'2026-11-01T00:00:00+00:00',spent_usd:'1.25',budget_usd:'10.00',remaining_usd:'8.75',exceeded:false,unknown_cost_calls:0};
+  else if(url.pathname==='/api/workspace/automation')body={auto_fetch_enabled:false,auto_fetch_interval_minutes:60,auto_classify_enabled:false,auto_classify_batch_limit:10,last_auto_run_at:null,last_auto_run_result:null,next_auto_run_at:null,paused_at:null,automation_enabled_globally:true};
   else if(url.pathname==='/api/jobs')body={items:[],total:0,page:1,page_size:100};
   else throw new Error('Unexpected request '+url.pathname);
   assert.equal(route.request().method(),'GET','status checks never publish or invoke an agent');

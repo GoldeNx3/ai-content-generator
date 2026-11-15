@@ -103,7 +103,7 @@ function ArticleBody({ article }: { article: Article }) {
         <section className="space-y-2">
           <h3 className="font-semibold">Informacje o wersji</h3>
           <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-            <Stat label="Słowa" value={article.word_count.toLocaleString("en")} />
+            <Stat label="Słowa" value={article.word_count.toLocaleString("pl-PL")} />
             <Stat label="Sekcje" value={article.sections_count} />
             <Stat label="Wykorzystane fakty" value={`${article.facts_used_count} / ${article.facts_available_count}`} />
             <Stat label="Źródła" value={article.source_count} />

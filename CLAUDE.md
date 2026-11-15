@@ -94,7 +94,7 @@ All paid/slow steps (`classify`, `research`, `write`, `qa_article`, `auto_fix_ar
 
 Python side (`apps/ai`): `ai/__main__.py`, `ai/runtime.py`, task registry `ai/tasks/__init__.py`, `ai/context.py` (`TaskContext`: settings, providers, paid-call recording with cost), `ai/providers.py` (OpenAI, SDK retries disabled), `ai/demo_providers.py`. Domain logic lives in `app/services/{llm,research,article,qa,auto_fix,wordpress}` and `app/schemas` (pure, no DB). OpenAI only; provider swap = new class + `ai/providers.py`. Model changes are env-only.
 
-**Demo mode**: candidates whose URL starts with `https://demo.content-engine.invalid/` (`Candidate::DEMO_PREFIX`) run with `demo: true` → static responses, zero cost.
+**Demo mode**: candidates whose URL starts with `https://demo.content-engine.invalid/` (`Candidate::DEMO_PREFIX`) run with `demo: true` → static responses, zero cost. `POST /api/demo/reset` (Settings → Tryb demo, `Demo/Services/DemoSeedService::reset`) deletes the workspace's demo topics with all their work (FK-ordered in `Demo/Commands/DeleteDemoDataCommand`, `409 demo_jobs_active` while a demo job runs) and reseeds; `demo:seed` only adds missing ones.
 
 ### Domain flow
 
