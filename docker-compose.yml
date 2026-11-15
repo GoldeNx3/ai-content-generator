@@ -24,7 +24,7 @@ services:
       POSTGRES_PASSWORD: content
       POSTGRES_DB: content
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -55,7 +55,7 @@ services:
       REDIS_HOST: redis
       PHP_CLI_SERVER_WORKERS: "8"
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -83,7 +83,7 @@ services:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - platform
 
