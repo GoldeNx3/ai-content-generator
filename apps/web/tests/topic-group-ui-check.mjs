@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { authenticate, corsHeaders } from './fixtures/auth.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const expand = async (scope, name) => { const toggle = scope.getByRole('button', {name, exact:true}).first(); await toggle.waitFor(); if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click(); };
 const port = process.env.UI_TEST_PORT || '3107';
 const stamp = '2026-11-14T10:00:00Z';
 const base = {source_id:1,status:'pending',original_published_at:stamp,relevance_score:80,freshness_score:70,search_potential_score:60,commercial_potential_score:50,
@@ -70,6 +71,7 @@ try {
  const take = page.getByLabel('Nasze zdanie (opcjonalnie)');
  assert.equal(await take.isVisible(), false, '„Nasze zdanie” należy do kroku 4, nie do oceny tematu');
  await page.locator('nav a[href="#workflow-step-4"]').click();
+ await expand(page.locator('#workflow-step-4'),'Komentarz redakcji');
  await page.locator('#workflow-step-4').getByLabel('Nasze zdanie (opcjonalnie)').fill('Używamy tego w trzech projektach.');
  await page.getByRole('button', {name:'Zapisz komentarz · bezpłatne', exact:true}).click();
  await page.getByText('Komentarz zapisany.', {exact:true}).waitFor();

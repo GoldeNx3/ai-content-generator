@@ -140,5 +140,6 @@ function PipelineStepper({ active, onSelect }: { active: string; onSelect: (href
         </li>;
       })}
     </ol>
+    <div id="pipeline-version-slot" />
   </nav>;
 }

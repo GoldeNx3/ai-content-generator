@@ -24,23 +24,25 @@ interface FilterSelectProps {
   onChange: (value: string | undefined) => void;
   allowAll?: boolean;
   disabled?: boolean;
+  inline?: boolean;
+  className?: string;
 }
 
-export function FilterSelect({ label, value, options, onChange, allowAll = true, disabled = false }: FilterSelectProps) {
+export function FilterSelect({ label, value, options, onChange, allowAll = true, disabled = false, inline = false, className }: FilterSelectProps) {
   const labelId = useId();
   const triggerId = `${labelId}-control`;
   const items = allowAll ? [{ value: ALL, label: "Wszystkie" }, ...options] : options;
 
   return (
-    <div className="grid gap-1.5">
-      <label id={labelId} htmlFor={triggerId} className="text-xs font-medium text-muted-foreground">{label}</label>
+    <div className={inline ? "flex min-w-0 items-center gap-2" : "grid gap-1.5"}>
+      <label id={labelId} htmlFor={triggerId} className={inline ? "shrink-0 text-xs font-semibold text-foreground" : "text-xs font-medium text-muted-foreground"}>{label}</label>
     <Select
       disabled={disabled}
       items={items}
       value={value ?? ALL}
       onValueChange={(next) => onChange(next === ALL || next === null ? undefined : String(next))}
     >
-      <SelectTrigger id={triggerId} aria-labelledby={labelId} className="min-w-36">
+      <SelectTrigger id={triggerId} aria-labelledby={labelId} className={className ?? "min-w-36"}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

@@ -56,6 +56,7 @@ try {
  await page.locator('nav a[href="#workflow-step-4"]').click();
  const panel = page.getByRole('region', {name:'Wnioski z Twoich poprawek', includeHidden:true});
  await panel.waitFor({state:'attached'});
+ await panel.getByRole('button', {name:'Wnioski z Twoich poprawek', exact:true}).click();
  await panel.getByRole('button', {name:'Zaproponuj reguły · płatne', includeHidden:true}).click();
  for (let i = 0; i < 30 && !calls.includes('/api/candidates/3/feedback'); i++) await new Promise(r => setTimeout(r, 100));
  assert.ok(calls.includes('/api/candidates/3/feedback'), 'paid feedback step is enqueued');

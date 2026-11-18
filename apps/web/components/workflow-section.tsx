@@ -54,7 +54,7 @@ export interface WorkflowSectionProps {
   tools?: React.ReactNode; toolsTitle?: string;
   /** Przejście do następnego etapu — zawsze aktywne, na dole panelu. */
   navigation?: React.ReactNode; navigationTitle?: string;
-  resultTitle?: string; timestamp?: string | null;
+  resultTitle?: string | null; timestamp?: string | null;
   progressJob?: Job;
   headerDetails?: React.ReactNode; activity?: React.ReactNode; tone?: Tone;
   // Pozostawione dla zgodności wywołań; wyniki etapów są zawsze rozwinięte.
@@ -85,7 +85,7 @@ export function WorkflowSection({ number, title, description, headerDetails, sta
   const Icon = completed ? CheckCircle2Icon : error ? CircleAlertIcon : running ? Loader2Icon : CircleIcon;
   const card = "rounded-2xl bg-card shadow-xs ring-1";
   return (
-    <section tabIndex={-1} id={`workflow-step-${number}`} data-workflow-step={number} aria-labelledby={`workflow-${number}`} data-stage-tone={stateTone} className="min-w-0 scroll-mt-36 space-y-5">
+    <section tabIndex={-1} id={`workflow-step-${number}`} data-workflow-step={number} aria-labelledby={`workflow-${number}`} data-stage-tone={stateTone} className="min-w-0 scroll-mt-56 space-y-5">
       <header className={cn("flex flex-wrap items-center justify-between gap-4 p-5", card, colors.ring)}>
         <div className="flex min-w-0 flex-1 basis-72 items-center gap-4">
           <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl text-base font-semibold tabular-nums", colors.number)} aria-hidden="true">{number === 8 ? 7 : number}</span>
@@ -101,7 +101,7 @@ export function WorkflowSection({ number, title, description, headerDetails, sta
       </header>
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <aside aria-label={`Panel akcji: ${title}`} className="order-1 min-w-0 space-y-4 xl:sticky xl:top-40 xl:order-2">
+        <aside aria-label={`Panel akcji: ${title}`} className="order-1 min-w-0 space-y-4 xl:sticky xl:top-56 xl:order-2">
           <div data-stage-actions className={cn("overflow-hidden ring-emerald-200", card)}>
             <div className="space-y-2 border-b p-5">
               <h3 className="text-base font-semibold">{actionTitle ?? title}</h3>
@@ -137,7 +137,7 @@ export function WorkflowSection({ number, title, description, headerDetails, sta
         <div className={cn("order-2 min-w-0 overflow-hidden xl:order-1", card, colors.ring)}>
           <div className="space-y-8 p-5 sm:p-6">
             {headerDetails && <div data-stage-context className="space-y-4"><h3 className="text-base font-semibold">Wybrany materiał</h3>{headerDetails}</div>}
-            <div data-stage-result className="space-y-5">{progressJob && <AgentProgress key={progressJob.id} job={progressJob} />}<h3 className="text-base font-semibold">{resultTitle ?? "Wynik etapu"}</h3>{children}</div>
+            <div data-stage-result className="space-y-5">{progressJob && <AgentProgress key={progressJob.id} job={progressJob} />}{resultTitle !== null && <h3 className="text-base font-semibold">{resultTitle ?? "Wynik etapu"}</h3>}{children}</div>
             <div data-stage-activity className="space-y-4 border-t pt-6"><h3 className="text-base font-semibold">Przebieg zadania</h3>
               {activity ?? <ol className="border-l border-slate-200 pl-5 text-sm"><li className="relative"><span className={cn("absolute -left-[26px] top-1.5 size-3 rounded-full ring-4 ring-white", success ? "bg-emerald-600" : "bg-slate-300")} /><p className="font-medium">{success ? "Wynik etapu zapisany" : "Oczekuje na uruchomienie"}</p><p className="mt-1 text-xs text-muted-foreground">{timestamp ? new Date(timestamp).toLocaleString("pl-PL") : status}</p></li></ol>}
             </div>

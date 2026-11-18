@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { GraduationCapIcon, Loader2Icon } from "lucide-react";
 
 import { useDemoMode } from "@/components/demo-mode";
+import { ResultBlock, setResultBlock } from "@/components/stage/result-block";
 import { Button } from "@/components/ui/button";
 import { useCandidateJobs } from "@/hooks/use-candidate-jobs";
 import { api, errorText } from "@/lib/api";
@@ -31,6 +32,8 @@ export function FeedbackPanel({ candidateId, versions }: { candidateId: number; 
   const eligible = versions.some((version) => version.is_edited || Boolean(version.rejection_reason));
   const running = Boolean(jobs.ownActive);
   const failed = jobs.latest?.status === "failed" ? jobs.latest.error_message : null;
+  const needsAttention = running || suggestions.some((suggestion) => suggestion.status === "pending");
+  useEffect(() => { if (needsAttention) setResultBlock("article-feedback", true, false); }, [needsAttention]);
 
   async function request() {
     setError(null);
@@ -55,16 +58,11 @@ export function FeedbackPanel({ candidateId, versions }: { candidateId: number; 
   }
 
   return (
-    <section role="region" aria-label="Wnioski z Twoich poprawek" className="space-y-3 rounded-xl border bg-card p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h3 className="flex items-center gap-2 font-semibold"><GraduationCapIcon className="size-4" />Wnioski z Twoich poprawek</h3>
-          <p className="text-sm text-muted-foreground">AI porówna swój tekst z Twoją poprawioną wersją i powodami odrzuceń, i zaproponuje zasady stylu do profilu redakcji. Nic nie trafi do profilu bez Twojej zgody.</p>
-        </div>
-        <Button size="sm" variant="outline" disabled={!eligible || running || !jobs.loaded || Boolean(jobs.active && !jobs.ownActive)} onClick={() => void request()}>
+    <ResultBlock id="article-feedback" icon={GraduationCapIcon} title="Wnioski z Twoich poprawek"
+      description="AI porówna swój tekst z Twoją poprawioną wersją i powodami odrzuceń, i zaproponuje zasady stylu do profilu redakcji. Nic nie trafi do profilu bez Twojej zgody."
+      actions={<Button size="sm" variant="outline" disabled={!eligible || running || !jobs.loaded || Boolean(jobs.active && !jobs.ownActive)} onClick={() => void request()}>
           {running ? <Loader2Icon className="animate-spin" /> : null}Zaproponuj reguły · {demo ? "demo · bezpłatne" : "płatne"}
-        </Button>
-      </div>
+        </Button>}>
       {!eligible && <p className="text-xs text-muted-foreground">Dostępne po ręcznej poprawce wersji albo odrzuceniu jej z podanym powodem.</p>}
       {running && <p role="status" className="text-sm text-muted-foreground">Analiza poprawek w toku{jobs.ownActive && isActiveJob(jobs.ownActive) ? "…" : ""}</p>}
       {failed && <p role="alert" className="text-sm text-rose-800">{failed}</p>}
@@ -79,6 +77,6 @@ export function FeedbackPanel({ candidateId, versions }: { candidateId: number; 
           </div> : <p className="text-xs font-medium">{suggestion.status === "accepted" ? "Dodano do profilu" : "Pominięto"}</p>}
         </li>)}
       </ul>}
-    </section>
+    </ResultBlock>
   );
 }

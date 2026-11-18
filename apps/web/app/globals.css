@@ -145,6 +145,7 @@
 .candidate-screen:not([data-view="workflow-step-4"]) #workflow-step-4,
 .candidate-screen:not([data-view="workflow-step-5"]) #workflow-step-5,
 .candidate-screen:not([data-view="workflow-step-6"]) #workflow-step-6,
+.candidate-screen:is([data-view="workflow-step-1"], [data-view="workflow-step-2"], [data-view="workflow-step-3"]) [data-version-bar],
 .candidate-screen:not([data-view="workflow-step-8"]) #workflow-step-8 {
   display: none;
 }

@@ -1,82 +1,62 @@
-import { CheckIcon } from "lucide-react";
-
+import { Meter } from "@/components/stage/result-block";
 import { cn } from "@/lib/utils";
 import type { FactImportance, ResearchFact, ResearchSource } from "@/types/api";
 
-import { citationLabel } from "./research-utils";
+import { sourceLabel } from "./research-utils";
 
-const IMPORTANCE_STYLES: Record<FactImportance, string> = {
-  critical: "bg-emerald-50 text-emerald-800 ring-emerald-200",
-  important: "bg-amber-50 text-amber-800 ring-amber-200",
-  supporting: "bg-zinc-100 text-zinc-600 ring-zinc-200",
-};
-
-const GROUPS: { importance: FactImportance; title: string }[] = [
-  { importance: "critical", title: "Kluczowe fakty" },
-  { importance: "important", title: "Ważne fakty" },
-  { importance: "supporting", title: "Fakty uzupełniające" },
+const GROUPS: { importance: FactImportance; title: string; description: string; marker: string }[] = [
+  { importance: "critical", title: "Kluczowe", description: "Rdzeń artykułu — bez nich tekst traci sens.", marker: "bg-emerald-600" },
+  { importance: "important", title: "Ważne", description: "Rozwijają temat i dają kontekst.", marker: "bg-amber-500" },
+  { importance: "supporting", title: "Uzupełniające", description: "Szczegóły, które można pominąć przy krótszym tekście.", marker: "bg-zinc-300 dark:bg-zinc-600" },
 ];
 
-interface FactListProps {
-  facts: ResearchFact[];
-  sources: ResearchSource[];
-}
+const BASIS: Partial<Record<NonNullable<ResearchFact["basis"]>, { label: string; title: string; className: string }>> = {
+  vendor_claim: { label: "deklaracja producenta", title: "Twierdzenie firmy o sobie — w artykule podawaj je jako deklarację, nie jako fakt.", className: "bg-amber-50 text-amber-900 ring-amber-200 dark:bg-amber-950 dark:text-amber-200 dark:ring-amber-900" },
+  secondary: { label: "z drugiej ręki", title: "Źródło relacjonuje informację z innego źródła.", className: "bg-zinc-100 text-zinc-700 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700" },
+};
 
-export function FactList({ facts, sources }: FactListProps) {
+export function FactList({ facts, sources }: { facts: ResearchFact[]; sources: ResearchSource[] }) {
   const sourcesById = new Map(sources.map((source) => [source.id, source]));
 
   if (facts.length === 0) {
-    return <p className="text-sm text-muted-foreground">Brak zweryfikowanych faktów.</p>;
+    return <p className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">Research nie potwierdził żadnego faktu. Dodaj źródło albo wyszukaj źródła od nowa.</p>;
   }
 
   return (
     <div className="space-y-6">
-      {GROUPS.map(({ importance, title }) => {
+      {GROUPS.map(({ importance, title, description, marker }) => {
         const group = facts.filter((fact) => fact.importance === importance);
         if (group.length === 0) return null;
         return (
-          <section key={importance} className="space-y-3">
-            <h4 className="text-sm font-semibold">
-              {title} <span className="font-normal text-muted-foreground">({group.length})</span>
-            </h4>
-            <ul className="space-y-3">
-              {group.map((fact) => (
-                <li key={fact.id} className="rounded-lg border bg-background p-3">
-                  <div className="mb-1.5 flex items-center gap-2">
-                    <span className="font-mono text-sm font-semibold tabular-nums">{fact.confidence}%</span>
-                    <span
-                      className={cn(
-                        "rounded px-1.5 py-0.5 text-[10px] font-semibold tracking-wide uppercase ring-1",
-                        IMPORTANCE_STYLES[fact.importance],
-                      )}
-                    >
-                      {({critical:"Kluczowy",important:"Ważny",supporting:"Uzupełniający"})[fact.importance]}
-                    </span>
-                    {fact.basis === "vendor_claim" && <span className="text-xs text-amber-800">deklaracja producenta</span>}
-                    {fact.basis === "secondary" && <span className="text-xs text-muted-foreground">z drugiej ręki</span>}
-                  </div>
-                  <p className="text-sm leading-relaxed">{fact.claim}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <span>Źródła:</span>
-                    {fact.source_ids.map((id) => {
-                      const source = sourcesById.get(id);
-                      if (!source) return null;
-                      return (
-                        <a
-                          key={id}
-                          href={`#research-source-${source.id}`}
-                          className="inline-flex items-center gap-1 text-emerald-700 hover:underline"
-                          title={source.url}
-                        >
-                          <CheckIcon className="size-3" />
-                          [{source.id}] {citationLabel(source)}
-                        </a>
-                      );
-                    })}
-                  </div>
-                </li>
-              ))}
-            </ul>
+          <section key={importance} aria-label={`${title} fakty`} className="space-y-2">
+            <h5 className="flex flex-wrap items-baseline gap-x-2 text-sm">
+              <span className="inline-flex items-center gap-2 font-semibold"><span className={cn("size-2 rounded-full", marker)} aria-hidden="true" />{title} <span className="font-normal tabular-nums text-muted-foreground">({group.length})</span></span>
+              <span className="text-xs text-muted-foreground">{description}</span>
+            </h5>
+            <ol className="divide-y overflow-hidden rounded-xl ring-1 ring-foreground/8">
+              {group.map((fact) => {
+                const basis = fact.basis ? BASIS[fact.basis] : undefined;
+                const cited = fact.source_ids.map((id) => sourcesById.get(id)).filter((source): source is ResearchSource => Boolean(source));
+                return (
+                  <li key={fact.id} className="relative bg-background py-3 pr-4 pl-5">
+                    <span className={cn("absolute inset-y-0 left-0 w-1", marker)} aria-hidden="true" />
+                    <p className="text-sm leading-6">{fact.claim}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                      <Meter value={fact.confidence} label="Pewność" />
+                      {basis && <span title={basis.title} className={cn("rounded-full px-2 py-0.5 text-xs font-medium ring-1", basis.className)}>{basis.label}</span>}
+                      <span className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                        {cited.length === 0 ? "Brak przypisanego źródła" : <>Źródła:{cited.map((source) => (
+                          <a key={source.id} href={`#research-source-${source.id}`} title={source.title ?? source.url}
+                            className="inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 font-medium text-foreground/80 hover:bg-emerald-50 hover:text-emerald-800 dark:hover:bg-emerald-950 dark:hover:text-emerald-300">
+                            <span className="tabular-nums text-muted-foreground">[{source.id}]</span>{sourceLabel(source)}
+                          </a>
+                        ))}</>}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           </section>
         );
       })}

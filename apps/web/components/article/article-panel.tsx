@@ -3,7 +3,8 @@
 import { useDemoMode } from "@/components/demo-mode";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRightIcon, RefreshCwIcon, ShieldCheckIcon, SparklesIcon } from "lucide-react";
+import { ArrowRightIcon, ClipboardListIcon, FileTextIcon, LinkIcon, MessageSquareQuoteIcon, RefreshCwIcon, SearchIcon, ShieldCheckIcon, SparklesIcon } from "lucide-react";
+import { ResultBlock, setResultBlock } from "@/components/stage/result-block";
 import { toast } from "sonner";
 
 import { useCandidateJobs } from "@/hooks/use-candidate-jobs";
@@ -30,6 +31,7 @@ import { QAPanel } from "./qa-panel";
 import { ArticleWorkspace } from "./article-workspace";
 import { FeedbackPanel } from "./feedback-panel";
 import { GenerateArticleDialog } from "./generate-article-dialog";
+import { VersionBar } from "./version-bar";
 
 interface ArticlePanelProps {
   candidateId: number;
@@ -127,6 +129,7 @@ export function ArticlePanel({ candidateId, research, coveredBy = null, editorTa
       setArticle(updated);
       setEditing(false);
       toast.success("Zapisano nową wersję · QA wymagane");
+      setResultBlock("article-text");
       await loadVersions(updated.id);
     } catch (error) {
       toast.error("Nie udało się zapisać wersji", { description: errorText(error) });
@@ -135,24 +138,30 @@ export function ArticlePanel({ candidateId, research, coveredBy = null, editorTa
     }
   }
 
-  function editArticle() {
+  function editArticle(field?: unknown) {
     if (!article || selectingVersion || jobs.active) return;
+    const target = typeof field === "string" ? field : null;
     setEditingArticle(article); setEditing(true);
     requestAnimationFrame(() => {
       window.location.hash = "article-workspace";
       window.dispatchEvent(new Event("article-workspace-read"));
       document.getElementById("article-workspace")?.scrollIntoView({block:"start"});
       document.getElementById("article-editor-heading")?.focus({preventScroll:true});
+      if (target) setTimeout(() => {
+        const input = document.querySelector<HTMLElement>(`#article-workspace [name="${target}"]`);
+        input?.scrollIntoView({ block: "center" });
+        input?.focus({ preventScroll: true });
+      }, 60);
     });
   }
 
   return (
     <>
-    <WorkflowSection progressJob={jobs.ownActive} revealEvent={`article-${article?.id}-reveal`} number={4} title="Generowanie artykułu" description="Brief i treść opracowane na podstawie ukończonego researchu." paid
+    {article && <VersionBar article={article} versions={versions} selecting={selectingVersion} editing={editing} onSelect={selectVersion} />}
+    <WorkflowSection progressJob={jobs.ownActive} revealEvent={`article-${article?.id}-reveal`} number={4} title="Generowanie artykułu" description="AI pisze brief i tekst na podstawie bazy faktów z researchu." paid resultTitle={null}
       initiallyCollapsed={loaded ? versions.length > 0 : undefined}
       status={jobs.latest ? jobStatusLabel[jobs.latest.status] : loadError ? "Błąd odczytu" : generationError ? "Ostatnie uruchomienie: błąd" : articleState(Boolean(article), generating, Boolean(researchReady), loaded)}
       actionTitle="Generowanie" actionDescription={article ? "Tekst jest gotowy. Przeczytaj wybraną wersję i przekaż ją do QA. Nowa wersja powstanie od zera i naliczy koszt AI." : "Wybierz format, długość i perspektywę. Brief i artykuł powstaną w jednym zadaniu."}
-      actionDetails={article ? <p className="text-sm text-slate-600">Wersja {article.version} · {article.word_count} słów · {versions.length} {versions.length === 1 ? "wersja" : versions.length < 5 ? "wersje" : "wersji"} w historii</p> : undefined}
       blocker={!researchReady ? "Ukończ research ze zweryfikowanymi faktami, aby odblokować generowanie." : editing ? "Zapisz lub anuluj edycję przed generowaniem nowej wersji." : undefined}
       primary={<Button variant={generationHasRun ? "outline" : "default"} onClick={() => setDialog(article ? "regenerate" : "generate")} disabled={!researchReady || !loaded || generationBusy || editing || selectingVersion}>
         {generationHasRun ? <RefreshCwIcon /> : <SparklesIcon />}{generationHasRun ? `Nowa wersja · ${demo ? "demo · bezpłatne" : "płatne"}` : `Generuj artykuł · ${demo ? "demo · bezpłatne" : "płatne"}`}
@@ -166,21 +175,29 @@ export function ArticlePanel({ candidateId, research, coveredBy = null, editorTa
         {label: "Brief", configured: "brief", model: article?.brief_llm_model, input: article?.brief_llm_model ? article.brief_input_tokens : null, output: article?.brief_llm_model ? article.brief_output_tokens : null, cost: article?.brief_cost_usd},
         {label: "Pisanie artykułu", configured: "writer", model: article?.llm_model, input: article?.llm_model ? article.writer_input_tokens : null, output: article?.llm_model ? article.writer_output_tokens : null, cost: article?.writer_cost_usd}
       ]} total={article?.estimated_cost_usd} note={demo ? "Generacja demo jest bezpłatna. Każde uruchomienie tworzy nową wersję i zachowuje historię." : "Każda generacja tworzy nową, płatną wersję. Poprzednie wersje pozostają dostępne. Edycja i zmiana statusu nie wywołują AI."} />}>
-    {article ? <ArticleWorkspace article={article} versions={versions} selecting={selectingVersion}
-      editingArticle={editing ? editingArticle : null} saving={saving} editingBlocked={Boolean(jobs.active)} onSelect={selectVersion}
-      onEdit={editArticle} onSave={save} onCancel={() => setEditing(false)} /> :
-      <section tabIndex={-1} id="article-workspace" aria-labelledby="article-empty-title" aria-busy={!loaded && !loadError} className="scroll-mt-36 rounded-xl border bg-card p-5">
-        <h2 id="article-empty-title" className="font-semibold">Wybrany artykuł</h2>
-        <p role={loadError ? "alert" : undefined} className="mt-2 text-sm text-muted-foreground">{loadError ? loadError : !loaded ? "Wczytywanie artykułów…" : researchReady ? "Nie ma jeszcze tekstu. Wygeneruj pierwszą wersję na podstawie Research." : "Najpierw ukończ Research, a następnie wygeneruj artykuł. Tutaj zobaczysz wybraną wersję."}</p>
-      </section>}
-
-      <div className="space-y-6">
-        {editorTake}
-        {loadError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{loadError}</p>}
-        {generationError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{generationError} — możesz ponowić generowanie; kolejne wywołanie może naliczyć koszt.</p>}
-        {article && <FeedbackPanel candidateId={candidateId} versions={versions} />}
-
-      </div>
+      {loadError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{loadError}</p>}
+      {generationError && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{generationError} — możesz ponowić generowanie; kolejne wywołanie może naliczyć koszt.</p>}
+      {article ? <ArticleWorkspace article={article} versions={versions} selecting={selectingVersion}
+        editingArticle={editing ? editingArticle : null} saving={saving} editingBlocked={Boolean(jobs.active)} onSelect={selectVersion}
+        onEdit={editArticle} onSave={save} onCancel={() => setEditing(false)}
+        extra={<>
+          <ResultBlock id="article-editor-take" icon={MessageSquareQuoteIcon} title="Komentarz redakcji"
+            description="Opinia redakcji dla kolejnych generacji. Zmiana nie wpływa na istniejące wersje — użyj „Nowa wersja”, aby ją uwzględnić.">{editorTake}</ResultBlock>
+          <FeedbackPanel candidateId={candidateId} versions={versions} />
+        </>} /> :
+        <section tabIndex={-1} id="article-workspace" aria-labelledby="article-empty-title" aria-busy={!loaded && !loadError} className="scroll-mt-56 space-y-7">
+          <div className="rounded-xl border border-dashed p-5">
+            <h3 id="article-empty-title" className="font-medium">{!loaded ? "Wczytywanie artykułów…" : researchReady ? "Artykuł nie został jeszcze wygenerowany" : "Najpierw ukończ research"}</h3>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{researchReady ? "Po uruchomieniu AI w jednym zadaniu przygotuje:" : "Generowanie korzysta z bazy faktów z researchu. Gdy research się zakończy, AI przygotuje:"}</p>
+            <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+              {([[ClipboardListIcon, "Brief", "kąt, odbiorców i plan sekcji"], [FileTextIcon, "Tekst", "tytuł, lead i treść w Markdown"], [LinkIcon, "Powiązania", "który fakt stoi za którą częścią"], [SearchIcon, "SEO", "meta title, opis, slug i frazy"]] as const).map(([Icon, title, text]) => (
+                <li key={title} className="flex gap-2"><Icon className="mt-0.5 size-4 shrink-0 text-emerald-700" aria-hidden="true" /><span><span className="font-medium">{title}</span> <span className="text-muted-foreground">— {text}</span></span></li>
+              ))}
+            </ul>
+          </div>
+          <ResultBlock id="article-editor-take" icon={MessageSquareQuoteIcon} title="Komentarz redakcji"
+            description="Opcjonalnie: doświadczenie lub opinia redakcji. Uzupełnij przed generowaniem — AI doda je jako oznaczony komentarz.">{editorTake}</ResultBlock>
+        </section>}
 
       <GenerateArticleDialog
         open={dialog !== null}
@@ -201,7 +218,7 @@ export function ArticlePanel({ candidateId, research, coveredBy = null, editorTa
         primary={<Button disabled><ShieldCheckIcon />Uruchom QA</Button>}
         navigation={<Button variant="outline" onClick={() => navigateStage(6)}>Przejdź do poprawek i zatwierdzenia<ArrowRightIcon /></Button>}
         summary={<UsageSummary note="QA będzie dostępne po wygenerowaniu artykułu." />}>
-        <p className="text-sm text-muted-foreground">Brak wersji do sprawdzenia. Ukończ research i wygeneruj artykuł.</p>
+        <p className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">Brak wersji do sprawdzenia. Ukończ research i wygeneruj artykuł.</p>
       </WorkflowSection>
       <WorkflowSection number={6} title="Poprawki i zatwierdzenie" paid status="Najpierw wykonaj QA"
         description="Poprawki i decyzja redakcyjna zawsze dotyczą wybranej wersji artykułu." initiallyCollapsed
@@ -213,7 +230,7 @@ export function ArticlePanel({ candidateId, research, coveredBy = null, editorTa
         secondary={<><Button variant="outline" disabled>Zatwierdź wersję</Button><Button variant="outline" disabled>Odrzuć wersję</Button></>}
         navigation={<Button variant="outline" onClick={() => navigateStage(8)}>Przejdź do publikacji<ArrowRightIcon /></Button>}
         summary={<UsageSummary note="Poprawki wymagają ukończonego QA; zatwierdzenie wymaga aktualnego, zaliczonego QA." />}>
-        <p className="text-sm text-muted-foreground">Po QA zobaczysz tu propozycje poprawek. Zatwierdzenie będzie dostępne po spełnieniu wymagań jakości.</p>
+        <p className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">Po QA zobaczysz tu propozycje poprawek. Zatwierdzenie będzie dostępne po spełnieniu wymagań jakości.</p>
       </WorkflowSection>
       <WorkflowSection number={8} title="Publikacja w WordPressie" paid={false} status="Najpierw przygotuj artykuł"
         description="Ustawienia publikacji i wysyłka zatwierdzonej wersji do WordPressa."
@@ -225,7 +242,7 @@ export function ArticlePanel({ candidateId, research, coveredBy = null, editorTa
         navigationTitle="Koniec procesu"
         navigation={<Link href="/" className={buttonVariants({ variant: "outline" })}>Wróć do listy tematów</Link>}
         summary={<UsageSummary free note="Wysyłka zwykle nie wywołuje AI. Brakujące pola SEO system uzupełnia modelem AI; ten krok nie jest blokowany przez budżet." />}>
-        <p className="text-sm text-muted-foreground">Ustawienia publikacji pojawią się po wygenerowaniu artykułu.</p>
+        <p className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">Ustawienia publikacji pojawią się po wygenerowaniu artykułu.</p>
       </WorkflowSection>
     </>}
     {article && <QAPanel key={`qa-${article.id}`} article={article} versions={versions} onSelectVersion={selectVersion}
@@ -237,7 +254,7 @@ export function ArticlePanel({ candidateId, research, coveredBy = null, editorTa
       setArticle((current) => current?.id === refreshed.id ? refreshed : current);
       setVersions((current) => current.map((version) => version.id === refreshed.id ? {...version, ...refreshed} : version));
     }} />}
-    {article && <WordPressPanel key={`wordpress-${article.id}`} article={article} onSelectVersion={selectVersion} editing={editing} />}
+    {article && <WordPressPanel key={`wordpress-${article.id}`} article={article} onSelectVersion={selectVersion} editing={editing} onEdit={editArticle} />}
     </>
   );
 }

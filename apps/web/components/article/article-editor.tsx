@@ -43,10 +43,10 @@ export function ArticleEditor({ article, saving, onSave, onCancel }: ArticleEdit
     <form onSubmit={handleSubmit} aria-busy={saving}>
       <fieldset disabled={saving} className="space-y-4">
       <Field label="Tytuł" length={form.title.length} max={90}>
-        <Input value={form.title} onChange={(e) => set("title")(e.target.value)} required />
+        <Input name="title" value={form.title} onChange={(e) => set("title")(e.target.value)} required />
       </Field>
       <Field label="Lead">
-        <Textarea value={form.lead} onChange={(e) => set("lead")(e.target.value)} rows={3} required />
+        <Textarea name="lead" value={form.lead} onChange={(e) => set("lead")(e.target.value)} rows={3} required />
       </Field>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
@@ -75,6 +75,7 @@ export function ArticleEditor({ article, saving, onSave, onCancel }: ArticleEdit
         ) : (
           <Textarea
             id={contentId}
+            name="content"
             value={form.content}
             onChange={(e) => set("content")(e.target.value)}
             className="min-h-[28rem] font-mono text-sm leading-6"
@@ -83,11 +84,12 @@ export function ArticleEditor({ article, saving, onSave, onCancel }: ArticleEdit
         )}
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <Field label="Meta title" length={form.meta_title.length} max={60}>
-          <Input value={form.meta_title} onChange={(e) => set("meta_title")(e.target.value)} required />
+        <Field label="Meta title" length={form.meta_title.length} recommend={[50, 60]} hint="Tytuł w wynikach Google i tytuł SEO w WordPressie.">
+          <Input name="meta_title" value={form.meta_title} onChange={(e) => set("meta_title")(e.target.value)} required />
         </Field>
-        <Field label="Meta description" length={form.meta_description.length} max={160}>
+        <Field label="Meta description" length={form.meta_description.length} recommend={[140, 160]} hint="Opis pod tytułem w wynikach Google.">
           <Textarea
+            name="meta_description"
             value={form.meta_description}
             onChange={(e) => set("meta_description")(e.target.value)}
             rows={3}
@@ -109,29 +111,28 @@ export function ArticleEditor({ article, saving, onSave, onCancel }: ArticleEdit
   );
 }
 
-function Field({
-  label,
-  length,
-  max,
-  children,
-}: {
-  label: string;
-  length?: number;
-  max?: number;
-  children: React.ReactNode;
+function Field({ label, length, max, recommend, hint, children }: {
+  label: string; length?: number; max?: number; recommend?: [number, number]; hint?: string; children: React.ReactNode;
 }) {
   const id = useId();
+  const outside = recommend && length !== undefined && (length < recommend[0] || length > recommend[1]);
   return (
     <div className="space-y-1.5">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-3">
         <Label htmlFor={id}>{label}</Label>
         {length !== undefined && max !== undefined && (
           <span className={cn("text-xs tabular-nums", length > max ? "text-rose-600" : "text-muted-foreground")}>
             {length}/{max}
           </span>
         )}
+        {length !== undefined && recommend && (
+          <span className={cn("text-xs tabular-nums", outside ? "font-medium text-amber-700" : "text-emerald-700")}>
+            {length} znaków · zalecane {recommend[0]}–{recommend[1]}
+          </span>
+        )}
       </div>
       {cloneElement(children as ReactElement<{id?:string}>, {id})}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }

@@ -3,7 +3,8 @@
 import { useDemoMode } from "@/components/demo-mode";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowRightIcon, ShieldCheckIcon, RefreshCwIcon } from "lucide-react";
+import { ArrowRightIcon, CircleAlertIcon, GaugeIcon, LibraryIcon, ListChecksIcon, PenLineIcon, RefreshCwIcon, SearchIcon, ShieldAlertIcon, ShieldCheckIcon, type LucideIcon } from "lucide-react";
+import { ResultBlock, ResultOutline, setResultBlock } from "@/components/stage/result-block";
 import { toast } from "sonner";
 import { navigateStage } from "@/components/pipeline-state";
 import { WorkflowSection } from "@/components/workflow-section";
@@ -11,7 +12,6 @@ import { UsageSummary } from "@/components/usage-summary";
 import { JobStatus, jobStatusLabel } from "@/components/job-status";
 import { ScoreBar } from "@/components/score-badge";
 import { Button } from "@/components/ui/button";
-import { FilterSelect } from "@/components/filter-select";
 import { useCandidateJobs } from "@/hooks/use-candidate-jobs";
 import { api, errorText } from "@/lib/api";
 import { qaState } from "@/lib/workflow";
@@ -77,6 +77,7 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
         activeFixSeen.current = false;
         if (latest.result_article_version_id) {
           toast.success("Nowa wersja utworzona. Uruchom jej QA, gdy zechcesz ją sprawdzić.");
+          setResultBlock("auto-fix-report");
           await onVersionCreated(latest.result_article_version_id, article.id);
         }
       }
@@ -115,24 +116,20 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
     } catch (failure) { toast.error("Nie udało się uruchomić QA", {description: errorText(failure)}); }
     finally { setSubmitting(false); }
   }
-  return <><WorkflowSection progressJob={jobs.ownActive} number={5} title="Kontrola jakości (QA)" paid status={status}
+  return <><WorkflowSection progressJob={jobs.ownActive} number={5} title="Kontrola jakości (QA)" paid status={status} resultTitle="Raport QA"
     tone={(status === "Zakończony" || status === "Zakończono") && report?.status === "completed" && !report.is_stale ? report.qa_passed ? "success" : "attention" : undefined}
     description="Kontrola faktów i jakości wybranej wersji na podstawie zapisanych dowodów."
-    headerDetails={<div data-qa-target={article.id} className="space-y-2">
-      <FilterSelect label="Wersja artykułu do QA" allowAll={false} value={String(article.id)}
-        disabled={editing || selectingVersion || submitting}
-        options={versions.map((version) => ({value: String(version.id),
-          label: `Wersja ${version.version}${version.is_current ? " · aktualna" : ""}${version.qa_passed ? " · QA zaliczone" : ""}`}))}
-        onChange={(value) => value && void onSelectVersion(Number(value))} />
+    headerDetails={<div data-qa-target={article.id} className="space-y-1.5 rounded-xl bg-muted/40 p-4">
       <p className="text-xs font-medium text-muted-foreground">Artykuł wybrany do QA · Wersja {article.version}</p>
       <p className="break-words text-sm font-semibold">{article.title}</p>
-      <p data-qa-target-status className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${report?.status === "completed" && !report.is_stale ? "bg-emerald-50 text-emerald-800" : "bg-muted text-muted-foreground"}`}>{targetStatus}</p>
-      <p className="text-xs text-muted-foreground">QA sprawdzi wybraną wersję. Wybór jest wspólny z podglądem artykułu.</p>
-      <a href="#article-workspace" onClick={() => window.dispatchEvent(new Event(`article-${article.id}-reveal`))} className="inline-flex min-h-9 items-center rounded px-2 text-sm font-medium underline underline-offset-4 focus-visible:outline-2">Czytaj wybrany tekst</a>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p data-qa-target-status className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${report?.status === "completed" && !report.is_stale ? report.qa_passed ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-1 ring-amber-200" : "bg-background text-muted-foreground ring-1 ring-foreground/10"}`}>{targetStatus}</p>
+        <a href="#article-workspace" onClick={() => window.dispatchEvent(new Event(`article-${article.id}-reveal`))} className="inline-flex min-h-8 items-center rounded text-sm font-medium underline underline-offset-4 focus-visible:outline-2">Czytaj wybrany tekst</a>
+      </div>
+      <p className="text-xs text-muted-foreground">Inną wersję wybierzesz w pasku nad etapem.</p>
     </div>}
     initiallyCollapsed={loaded ? report?.status === "completed" && !report.is_stale : undefined}
     actionTitle="QA wybranej wersji" actionDescription="QA ocenia tekst i wskazuje problemy. Poprawki i decyzja redakcyjna są w etapie „Poprawki i zatwierdzenie”."
-    actionDetails={<p className="text-sm text-slate-600">Wersja {article.version}{report?.status === "completed" && !report.is_stale ? ` · ${report.overall_score}/100 · ${report.qa_passed ? "zaliczone" : "wymaga weryfikacji"}` : ""}</p>}
     blocker={editing ? "Zapisz lub anuluj edycję przed uruchomieniem QA." : undefined}
     primary={<Button variant={report?.status === "completed" && !report.is_stale ? "outline" : "default"} disabled={busy} onClick={() => void run()}>
       {report ? <RefreshCwIcon /> : <ShieldCheckIcon />}{report ? `Uruchom QA ponownie · ${demo ? "demo · bezpłatne" : "płatne"}` : `Uruchom QA · ${demo ? "demo · bezpłatne" : "płatne"}`}
@@ -148,12 +145,14 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
       input: report?.llm_input_tokens, output: report?.llm_output_tokens, cost: report?.estimated_cost_usd}]}
       note="QA korzysta wyłącznie z zapisanych materiałów tej wersji. Nie poprawia ani nie publikuje artykułu." />}>
 
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    {!report && loaded && <p className="text-sm text-muted-foreground">Uruchom QA, aby sprawdzić fakty i jakość artykułu. Ocena wykona się w tle.</p>}
-    {report?.is_stale && <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Treść zmieniła się od tej oceny. Raport dotyczy poprzedniej treści; uruchom QA ponownie.</p>}
-    {report?.status === "completed" && <p className="text-sm">Problemy: {report.issues.length} · automatycznie: {fixable} · ręcznie: {report.issues.length - fixable}</p>}
-    {article.auto_fix_iterations_remaining === 0 && <p className="text-sm text-amber-800">Limit Auto Fix został wykorzystany. Wymagana ręczna weryfikacja.</p>}
-    {report?.status === "completed" && <QualityReport report={report} article={article} />}
+    <div className="space-y-6">
+      {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+      {report?.is_stale && <p role="status" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">Treść zmieniła się od tej oceny. Raport dotyczy poprzedniej treści; uruchom QA ponownie.</p>}
+      {article.auto_fix_iterations_remaining === 0 && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-950 ring-1 ring-amber-200">Limit Auto Fix został wykorzystany. Wymagana ręczna weryfikacja.</p>}
+      {!report && loaded && <QAEmpty />}
+      {report && report.status !== "completed" && <p className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">{report.status === "failed" ? "Ostatnie QA zakończyło się błędem. Ponów zadanie w panelu „Przebieg zadania” albo uruchom QA ponownie." : "QA sprawdza tekst w tle. Raport pojawi się tutaj po zakończeniu."}</p>}
+      {report?.status === "completed" && <QualityReport key={report.id} report={report} article={article} fixable={fixable} />}
+    </div>
   </WorkflowSection>
     <FixApprovalPanel selectingVersion={selectingVersion} versions={versions} article={article} qa={report} fixes={fixes} jobs={fixJobs} error={fixError} editing={editing}
       actionsLoading={!loaded || !jobs.loaded || !fixJobs.loaded || Boolean(jobs.active)}
@@ -162,47 +161,99 @@ export function QAPanel({ article, versions, onSelectVersion, selectingVersion, 
   </>;
 }
 
-function QualityReport({report, article}: {report: ArticleQA; article: Article}) {
-  const scores = [["Fakty", report.factual_score], ["Źródła", report.source_score], ["Styl", report.style_score],
-    ["Struktura", report.structure_score], ["SEO", report.seo_score]] as const;
-  return <div className="space-y-6" data-qa-report={report.id}>
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div><h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Raport jakości</h3>
-        <p className="mt-2 text-5xl font-semibold tabular-nums">{report.overall_score}<span className="text-base text-muted-foreground"> / 100</span></p></div>
-      <span className={`rounded-full px-3 py-1 text-sm font-medium ${report.qa_passed ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"}`}>
-        {report.is_stale ? "Ocena nieaktualna" : report.qa_passed ? "QA zaliczone" : "Wymaga weryfikacji"}</span>
-    </div>
-    <div className="grid gap-4 sm:grid-cols-2">{scores.map(([label, value]) => <ScoreBar key={label} label={label} value={value} />)}</div>
-    <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {[["Poparte twierdzenia", report.supported_claims_count], ["Niepoparte twierdzenia", report.unsupported_claims_count],
-        ["Ostrzeżenia", report.warning_count], ["Krytyczne problemy", report.critical_issue_count]].map(([label, value]) =>
-        <div key={label} className={`rounded-lg border p-3 ${Number(value) > 0 && label === "Krytyczne problemy" ? "border-rose-200 bg-rose-50 text-rose-900" : Number(value) > 0 && (label === "Niepoparte twierdzenia" || label === "Ostrzeżenia") ? "border-amber-200 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-700"}`}><dt className="text-xs">{label}</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{value}</dd></div>)}
-    </dl>
-    <p className="text-sm leading-relaxed">{report.summary}</p>
-    <p className="text-xs text-muted-foreground">Próg QA zaliczone: {report.pass_score}/100, bez krytycznych problemów i niepopartych twierdzeń.</p>
-    <div className="space-y-3">{report.issues.map((issue) => <IssueCard key={issue.id} issue={issue} article={article} stale={report.is_stale} />)}</div>
-    {report.issues.length === 0 && <p className="text-sm text-emerald-800">Nie wykryto problemów.</p>}
+const QA_AREAS: [LucideIcon, string, string][] = [
+  [ListChecksIcon, "Fakty", "liczby, daty, cytaty i twierdzenia względem researchu"],
+  [LibraryIcon, "Źródła", "czy odwołania pasują do zapisanych źródeł"],
+  [PenLineIcon, "Styl i struktura", "powtórzenia, przesada, układ sekcji"],
+  [SearchIcon, "SEO", "tytuł, opis i nagłówki"],
+];
+
+function QAEmpty() {
+  return <div className="rounded-xl border border-dashed p-5">
+    <p className="font-medium">QA jeszcze nie uruchomiono dla tej wersji</p>
+    <p className="mt-1 text-sm leading-6 text-muted-foreground">QA porówna tekst z zapisanym researchem i briefem — bez internetu i bez nowego researchu. Sprawdzi:</p>
+    <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">{QA_AREAS.map(([Icon, title, text]) =>
+      <li key={title} className="flex gap-2"><Icon className="mt-0.5 size-4 shrink-0 text-emerald-700" aria-hidden="true" /><span><span className="font-medium">{title}</span> <span className="text-muted-foreground">— {text}</span></span></li>)}</ul>
   </div>;
 }
+
+const SEVERITY_ORDER = { critical: 0, high: 1, warning: 2, info: 3 } as const;
+
+function QualityReport({report, article, fixable}: {report: ArticleQA; article: Article; fixable: number}) {
+  const scores = [["Fakty", report.factual_score, "40%"], ["Źródła", report.source_score, "20%"], ["Styl", report.style_score, "15%"],
+    ["Struktura", report.structure_score, "15%"], ["SEO", report.seo_score, "10%"]] as const;
+  const claims = report.supported_claims_count + report.unsupported_claims_count;
+  const passed = report.qa_passed && !report.is_stale;
+  const isAuto = (issue: ArticleQAIssue) => !report.is_stale && issue.auto_fixable && AUTO_FIX_TYPES.includes(issue.type);
+  const sorted = [...report.issues].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
+  const groups = [
+    { title: "Do poprawy automatycznej", description: "Auto Fix w etapie 6 może je poprawić bez dodawania nowych faktów.", items: sorted.filter(isAuto) },
+    { title: "Do ręcznej weryfikacji", description: "Wymagają decyzji redakcji — popraw tekst ręcznie albo świadomie zostaw.", items: sorted.filter((issue) => !isAuto(issue)) },
+  ];
+  return <div className="space-y-6" data-qa-report={report.id}>
+    <ResultOutline label="Zawartość raportu QA" meta={`Problemy: ${report.issues.length} · automatycznie: ${fixable} · ręcznie: ${report.issues.length - fixable}`} items={[
+      { target: "qa-score", label: "Wynik", value: `${report.overall_score}/100`, hint: report.is_stale ? "nieaktualny" : passed ? "QA zaliczone" : `próg ${report.pass_score}`, icon: GaugeIcon, tone: report.is_stale ? "neutral" : passed ? "success" : "attention" },
+      { target: "qa-issues", label: "Problemy", value: report.issues.length, hint: `${fixable} do Auto Fix`, icon: CircleAlertIcon, tone: report.issues.length ? "attention" : "success" },
+      { target: "qa-score", label: "Poparte twierdzenia", value: `${report.supported_claims_count}/${claims}`, hint: report.unsupported_claims_count ? `${report.unsupported_claims_count} niepoparte` : "wszystkie poparte", icon: ListChecksIcon, tone: report.unsupported_claims_count ? "danger" : "success" },
+      { target: "qa-issues", label: "Krytyczne", value: report.critical_issue_count, hint: report.critical_issue_count ? "blokują zatwierdzenie" : "brak", icon: ShieldAlertIcon, tone: report.critical_issue_count ? "danger" : "neutral" },
+    ]} />
+
+    <ResultBlock id="qa-score" icon={GaugeIcon} title="Raport jakości"
+      description="Ogólna ocena i wyniki w pięciu obszarach. Wynik to średnia ważona; wagi podane przy każdym obszarze.">
+      <div className="grid gap-5 rounded-xl bg-muted/40 p-5 md:grid-cols-[12rem_minmax(0,1fr)]">
+        <div className="space-y-2">
+          <p className="text-5xl font-semibold tabular-nums">{report.overall_score}<span className="text-base font-normal text-muted-foreground"> / 100</span></p>
+          <span className={`inline-flex rounded-full px-3 py-1 text-sm font-medium ring-1 ${report.is_stale ? "bg-muted text-muted-foreground ring-foreground/10" : passed ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-amber-200"}`}>
+            {report.is_stale ? "Ocena nieaktualna" : passed ? "QA zaliczone" : "Wymaga weryfikacji"}</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">{scores.map(([label, value, weight]) => <ScoreBar key={label} label={`${label} · waga ${weight}`} value={value} />)}</div>
+      </div>
+      {report.summary && <p className="max-w-prose text-sm leading-6">{report.summary}</p>}
+      <dl className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {([["Poparte twierdzenia", report.supported_claims_count, "neutral"], ["Niepoparte twierdzenia", report.unsupported_claims_count, "attention"],
+          ["Ostrzeżenia", report.warning_count, "attention"], ["Krytyczne problemy", report.critical_issue_count, "danger"]] as const).map(([label, value, tone]) =>
+          <div key={label} className={`rounded-lg p-3 ring-1 ${value > 0 && tone === "danger" ? "bg-rose-50 text-rose-900 ring-rose-200" : value > 0 && tone === "attention" ? "bg-amber-50 text-amber-900 ring-amber-200" : "bg-background ring-foreground/8"}`}>
+            <dt className="text-xs">{label}</dt><dd className="mt-1 text-xl font-semibold tabular-nums">{value}</dd></div>)}
+      </dl>
+      <p className="text-xs leading-5 text-muted-foreground">QA jest zaliczone, gdy wynik wynosi co najmniej {report.pass_score}/100 i nie ma problemów krytycznych ani niepopartych twierdzeń. Problem krytyczny ogranicza wynik do 60, niepoparte twierdzenie o wysokiej wadze — do 75.</p>
+    </ResultBlock>
+
+    <ResultBlock id="qa-issues" icon={CircleAlertIcon} title="Problemy" count={report.issues.length}
+      description="Co QA znalazło w tekście, z cytatem, powodem i sugestią. Poprawki uruchamiasz w etapie 6 — QA niczego nie zmienia.">
+      {report.issues.length === 0 ? <p className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-800">Nie wykryto problemów.</p> :
+        groups.filter((group) => group.items.length).map((group) => <section key={group.title} aria-label={group.title} className="space-y-2">
+          <h5 className="flex flex-wrap items-baseline gap-x-2 text-sm"><span className="font-semibold">{group.title} <span className="font-normal tabular-nums text-muted-foreground">({group.items.length})</span></span><span className="text-xs text-muted-foreground">{group.description}</span></h5>
+          <ol className="divide-y overflow-hidden rounded-xl ring-1 ring-foreground/8">{group.items.map((issue) => <IssueCard key={issue.id} issue={issue} article={article} stale={report.is_stale} />)}</ol>
+        </section>)}
+    </ResultBlock>
+  </div>;
+}
+
+const SEVERITY_MARKER = { info: "bg-sky-400", warning: "bg-amber-500", high: "bg-orange-500", critical: "bg-rose-600" };
 
 function IssueCard({issue, article, stale}: {issue: ArticleQAIssue; article: Article; stale: boolean}) {
   const prefix = `article-${article.id}`;
   const anchor = issue.section_heading && sectionAnchor(prefix, issue.section_heading);
   const headings = [...article.content.matchAll(/^#{2,3}\s+(.+)$/gm)].map((match) => sectionAnchor(prefix, match[1]));
   const canJump = !stale && anchor && headings.filter((id) => id === anchor).length === 1;
-  return <section className="space-y-3 rounded-xl p-4 ring-1 ring-foreground/10">
-    <div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${SEVERITY_STYLES[issue.severity]}`}>{SEVERITY_LABELS[issue.severity]}</span>
-      <h4 className="text-sm font-semibold">{ISSUE_LABELS[issue.type]}</h4><span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">{!stale && issue.auto_fixable && AUTO_FIX_TYPES.includes(issue.type) ? "Możliwy Auto Fix" : "Ręczna weryfikacja"}</span></div>
-    {issue.excerpt && <blockquote className="break-words border-l-2 pl-3 text-sm italic">„{issue.excerpt}”</blockquote>}
-    <div className="space-y-2 text-sm"><p><span className="font-medium">Powód: </span>{issue.reason}</p>
-      <p><span className="font-medium">Sugestia: </span>{issue.suggestion}</p></div>
-    {issue.section_heading && <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-      <span>Sekcja: {issue.section_heading}</span>{canJump && <button className="text-emerald-700 underline" onClick={() => jumpToSection(prefix, anchor)}>Zobacz w artykule</button>}
+  return <li className="relative space-y-2 bg-background py-3 pr-4 pl-5 text-sm">
+    <span className={`absolute inset-y-0 left-0 w-1 ${SEVERITY_MARKER[issue.severity]}`} aria-hidden="true" />
+    <div className="flex flex-wrap items-center gap-2">
+      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${SEVERITY_STYLES[issue.severity]}`}>{SEVERITY_LABELS[issue.severity]}</span>
+      <h6 className="font-semibold">{ISSUE_LABELS[issue.type]}</h6>
+    </div>
+    {issue.excerpt && <blockquote className="break-words rounded-md bg-muted/50 px-3 py-2 italic">„{issue.excerpt}”</blockquote>}
+    <dl className="grid gap-1 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-x-3">
+      <dt className="font-medium text-muted-foreground">Powód</dt><dd>{issue.reason}</dd>
+      <dt className="font-medium text-muted-foreground">Sugestia</dt><dd>{issue.suggestion}</dd>
+    </dl>
+    {(issue.section_heading || issue.fact_ids.length > 0 || issue.source_ids.length > 0) && <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      {issue.section_heading && <span>Sekcja: {issue.section_heading}</span>}
+      {canJump && <button className="inline-flex min-h-8 items-center font-medium text-emerald-700 underline underline-offset-4" onClick={() => jumpToSection(prefix, anchor)}>Zobacz w artykule</button>}
+      {(issue.fact_ids.length > 0 || issue.source_ids.length > 0) && <span>Fakty: {issue.fact_ids.map((id) => `#${id}`).join(", ") || "—"} · źródła: {issue.source_ids.map((id) => `[${id}]`).join(", ") || "—"}</span>}
     </div>}
-    {(issue.fact_ids.length > 0 || issue.source_ids.length > 0) && <p className="text-xs text-muted-foreground">Powiązane fakty: {issue.fact_ids.join(", ") || "—"} · źródła: {issue.source_ids.join(", ") || "—"}</p>}
-  </section>;
+  </li>;
 }
-
 
 function jumpToSection(prefix: string, anchor: string) {
   window.location.hash = anchor;
